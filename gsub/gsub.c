@@ -54,13 +54,9 @@ struct gale_location *restart_from_location,*restart_to_location;
 
 int lookup_count = 1;
 
-struct sub { 
-	struct gale_location *loc; 
-	int positive; 
-	struct sub *next; 
-};
-
-struct sub *subs = NULL;
+struct gale_location **sub_location = NULL;
+int *sub_positive = NULL;
+int sub_count = 0,sub_alloc = 0;
 
 int do_run_default = 0;			/* Flag to run default_gsubrc */
 int do_presence = 0;			/* Should we announce presence? */
@@ -447,19 +443,18 @@ static void load_gsubrc(struct gale_text name) {
 #endif
 }
 
-static void add_sub(int positive,struct gale_location *loc) {
-	struct sub *sub;
-	if (NULL == loc) return;
-	if (!gale_location_receive_ok(loc))
-		gale_alert(GALE_WARNING,gale_text_concat(3,
-			G_("no private key for \""),
-			gale_location_name(loc),
-			G_("\"")),0);
-	gale_create(sub);
-	sub->loc = loc;
-	sub->next = subs;
-	sub->positive = positive;
-	subs = sub;
+static int add_sub(void) {
+	if (sub_count == sub_alloc) {
+		sub_alloc = sub_alloc ? 2*sub_alloc : 10;
+		sub_location = gale_realloc(sub_location,
+			sizeof(*sub_location) * sub_alloc);
+		sub_positive = gale_realloc(sub_positive,
+			sizeof(*sub_positive) * sub_alloc);
+	}
+
+	sub_location[sub_count] = NULL;
+	sub_positive[sub_count] = 1;
+	return sub_count++;
 }
 
 static void *on_reconnect(
@@ -472,44 +467,42 @@ static void *on_reconnect(
 }
 
 static void *on_complete() {
-	struct sub *s;
-	struct gale_location **list;
-	int count,*positive;
-
+	int i,count;
 	if (0 != --lookup_count) return OOP_CONTINUE;
 
-	if (do_default) add_sub(1,user_location);
-	/* if (do_keys) add_sub(1,key_query_location); */
+	if (do_default) sub_location[add_sub()] = user_location;
 #ifndef NDEBUG
-	add_sub(1,restart_to_location);
+	sub_location[add_sub()] = restart_to_location;
 #endif
 
-	if (NULL == subs) gale_alert(GALE_ERROR,G_("no subscriptions!"),0);
+	add_sub(); /* ensure NULL termination */
+	count = 0;
+	for (i = 0; i != sub_count; ++i)
+		if (NULL != sub_location[i]) {
+			if (sub_positive[i]
+			&& !gale_location_receive_ok(sub_location[i]))
+				gale_alert(GALE_WARNING,gale_text_concat(3,
+					G_("no private key for \""),
+					gale_location_name(sub_location[i]),
+					G_("\"")),0);
+			sub_location[count] = sub_location[i];
+			sub_positive[count] = sub_positive[i];
+			++count;
+		}
+
+	if (0 == count) gale_alert(GALE_ERROR,G_("no subscriptions!"),0);
 
 	/* Fork ourselves into the background, unless we shouldn't. */
-	if (do_fork) gale_daemon(source);
 	source->on_signal(source,SIGHUP,on_signal,NULL);
 	source->on_signal(source,SIGTERM,on_signal,NULL);
 	source->on_signal(source,SIGINT,on_signal,NULL);
+	if (do_fork) gale_daemon(source);
 	if (tty) {
 		gale_kill(gale_text_from(gale_global->enc_filesys,tty,-1),do_kill);
 		gale_watch_tty(source,1);
 	}
 
-	count = 0;
-	for (s = subs; NULL != s; s = s->next) ++count;
-
-	gale_create_array(list,1 + count);
-	gale_create_array(positive,count);
-
-	count = 0;
-	for (s = subs; NULL != s; s = s->next) {
-		list[count] = s->loc;
-		positive[count] = s->positive;
-		++count;
-	}
-	list[count] = NULL;
-	routing = gale_pack_subscriptions(list,positive);
+	routing = gale_pack_subscriptions(sub_location,sub_positive);
 
 	/* Send a login message, as needed. */
 	if (do_presence) {
@@ -525,18 +518,20 @@ static void *on_complete() {
 	return OOP_CONTINUE;
 }
 
+static gale_call_location on_subscr_loc,on_static_loc;
+
 static void *on_subscr_loc(struct gale_text n,struct gale_location *l,void *x) {
-	if (NULL == l) 
-		gale_alert(GALE_WARNING,gale_text_concat(3,
-			G_("could not find \""),n,G_("\"")),0);
-	else
-		add_sub((int) x,l);
-	return on_complete();
+	return on_static_loc(n,l,&sub_location[(int) x]);
 }
 
 static void *on_static_loc(struct gale_text n,struct gale_location *l,void *x) {
 	struct gale_location **target = (struct gale_location **) x;
 	*target = l;
+
+	if (NULL == l)
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("could not find \""),n,G_("\"")),0);
+
 	if (target == &user_location) {
 		lookup_count += 3;
 		gale_find_exact_location(source,gale_text_concat(2,
@@ -547,7 +542,7 @@ static void *on_static_loc(struct gale_text n,struct gale_location *l,void *x) {
 			on_static_loc,&key_location);
 		gale_find_exact_location(source,gale_text_concat(2,
 			G_("_gale.query."),gale_location_name(l)),
-			on_subscr_loc,(void *) 1);
+			on_subscr_loc,(void *) add_sub());
 	}
 
 	return on_complete();
@@ -638,15 +633,14 @@ int main(int argc,char **argv) {
 	if (0 != subs.l) {
 		struct gale_text sub = null_text;
 		while (gale_text_token(subs,',',&sub)) {
-			int positive = 1;
+			const int i = add_sub();
 			if (!gale_text_compare(G_("-"),gale_text_left(sub,1))) {
-				positive = 0;
+				sub_positive[i] = 0;
 				sub = gale_text_right(sub,-1);
 			}
 
 			++lookup_count;
-			gale_find_location(source,sub,
-				on_subscr_loc,(void *) positive);
+			gale_find_location(source,sub,on_subscr_loc,(void *) i);
 		}
 		do_default = 0;
 	}
