@@ -131,7 +131,8 @@ char *get_line(int tty)
 
 /* Output usage information, exit. */
 void usage(void) {
-	struct auth_id *id = lookup_id(G_("name@domain"));
+	struct auth_id *id;
+	init_auth_id(&id,G_("name@domain"));
 	fprintf(stderr,
 		"%s\n"
 		"usage: gsend [-hapP] [-s subj] [-S id] [-cC cat] [id [id ...]]\n"
