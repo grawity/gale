@@ -25,7 +25,7 @@ void *gale_malloc(int size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
 void exitfunc(void) {
-	if (dotfile) unlink(dotfile);
+	if (dotfile) unlink(dir_file(dot_gale,dotfile));
 }
 
 void hupfunc(int sig) {
@@ -178,7 +178,7 @@ void present_message(struct gale_message *msg) {
 			execl(rcprog,rcprog,NULL);
 			perror(rcprog);
 		} else {
-			execl("gsubrc","gsubrc",NULL);
+			execl(dir_file(dot_gale,"gsubrc"),"gsubrc",NULL);
 			if (errno != ENOENT) perror("gsubrc");
 		}
 		default_gsubrc();
@@ -214,14 +214,13 @@ void startup(int kflag) {
 		perror("uname");
 		exit(1);
 	}
-	gale_chdir();
 
 	len = strlen(un.nodename) + strlen(tty) + 7;
 	dotfile = gale_malloc(len + 15);
 	sprintf(dotfile,"gsub.%s.%s.",un.nodename,tty);
 
 	if (!kflag) {
-		pdir = opendir(".");
+		pdir = opendir(dir_file(dot_gale,"."));
 		if (pdir == NULL) {
 			perror("opendir");
 			exit(1);
@@ -229,7 +228,7 @@ void startup(int kflag) {
 		while ((de = readdir(pdir)))
 			if (!strncmp(de->d_name,dotfile,len)) {
 				kill(atoi(de->d_name + len),SIGHUP);
-				unlink(de->d_name);
+				unlink(dir_file(dot_gale,de->d_name));
 			}
 		closedir(pdir);
 	}
@@ -244,7 +243,7 @@ void startup(int kflag) {
 	signal(SIGTERM,hupfunc);
 	atexit(exitfunc);
 	sprintf(dotfile,"%s%d",dotfile,(int) getpid());
-	if ((fd = creat(dotfile,0666)) >= 0)
+	if ((fd = creat(dir_file(dot_gale,dotfile),0666)) >= 0)
 		close(fd);
 }
 
@@ -262,6 +261,7 @@ int main(int argc,char *argv[]) {
 	int opt,fflag = 0,kflag = 0,rflag = 1;
 	struct gale_message *msg;
 
+	gale_init("gsub");
 	tty = ttyname(1);
 
 	while (EOF != (opt = getopt(argc,argv,"nkf:r"))) switch (opt) {

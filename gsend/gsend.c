@@ -76,6 +76,8 @@ int main(int argc,char *argv[]) {
 	int ttyin = isatty(0),newline = 1;
 	char *cp,*tmp,*server,*eflag = NULL;
 
+	gale_init("gsend");
+
 	while ((arg = getopt(argc,argv,"se:ruU")) != EOF) 
 	switch (arg) {
 	case 's': sflag++; break;

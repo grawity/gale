@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <string.h>
 #include <unistd.h>
+#include <syslog.h>
 
 #include <zephyr/zephyr.h>
 #include <com_err.h>
@@ -238,6 +239,10 @@ int main(int argc,char *argv[]) {
 	char *spec = DEFAULT_CATEGORY;
 	int retval,opt;
 	fd_set fds;
+
+	gale_init("gzgw");
+
+	openlog(argv[0],LOG_PID,LOG_DAEMON);
 
 	subs[0].zsub_class = "MESSAGE";
 	subs[0].zsub_classinst = "*";
