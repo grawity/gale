@@ -1,10 +1,11 @@
+CC = gcc
+CFLAGS = -Wall -g
+
 -include $(TOP)/defs
 -include $(TOP)/defs.$(HOST)
 -include $(TOP)/defs.$(LAB)
 -include $(TOP)/defs.$(ARCH)
 
-CC = gcc
-CFLAGS = -Wall -g
 CPPFLAGS = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC)
 LDLIBS = -L$(TOP)/lib -lgale $(RSAREF_LIB) $(ZEPHYR_LIB)
 

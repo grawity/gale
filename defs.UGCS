@@ -1,2 +1,5 @@
 ZEPHYR_INC = -I/usr/ug/include
 ZEPHYR_LIB = -L/usr/ug/lib -lzephyr -lcom_err
+
+RSAREF_INC = -I/usr/ug/include
+RSAREF_LIB = -L/usr/ug/lib -lrsaref
