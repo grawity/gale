@@ -3,13 +3,15 @@ CFLAGS = $(WARNINGS) -Werror -g
 YACC = bison -y
 
 -include $(TOP)/defs
--include $(TOP)/defs.$(HOST)
 -include $(TOP)/defs.$(LAB)
 -include $(TOP)/defs.$(ARCH)
 -include $(TOP)/defs.$(shell uname -s)
 -include $(TOP)/defs.$(shell uname -sr | sed -e 's/ /-/g' -e 's/\..*//g')
 -include $(TOP)/defs.$(shell uname -sr | sed -e 's/ /-/g')
 -include $(TOP)/defs.$(shell uname -m  | sed -e 's/^i.86$$/ix86/g')
+-include $(TOP)/defs.$(HOST)
+
+export SYS_DIR BIN_DIR SUID_DIR GALE_USER GALE_DOMAIN
 
 ifndef GALE_VERSION
 GALE_VERSION := $(shell cat $(TOP)/version)
@@ -34,7 +36,7 @@ install::
 	@$(MAKE) --no-print-directory subdirs TARGET=install
 install:: \
 	$(addprefix $(BIN_DIR)/,$(BIN_TARGETS)) \
-	$(addsuffix .suid,$(addprefix $(SUID_DIR)/,$(SUID_TARGETS))) \
+	$(addprefix $(SUID_DIR)/,$(SUID_TARGETS)) \
 	$(addprefix $(LIB_DIR)/,$(LIB_TARGETS)) \
 	$(addprefix $(INC_DIR)/,$(HEADERS))
 
@@ -76,12 +78,12 @@ $(BIN_DIR)/%: % mkdir/$(BIN_DIR)
 	@[ ! -x $@ ] || mv $@ $@.tmp.$$$$
 	@cp $* $(BIN_DIR)/$*
 
-$(SUID_DIR)/%.suid: % mkdir/$(SUID_DIR)
+ifneq ($(SUID_DIR),$(BIN_DIR))
+$(SUID_DIR)/%: % mkdir/$(SUID_DIR)
 	@echo $* '->' $(SUID_DIR)
 	@[ ! -x $@ ] || mv $(SUID_DIR)/$* $(SUID_DIR)/$*.tmp.$$$$
 	@cp $* $(SUID_DIR)/$*
-	chmod u+s $(SUID_DIR)/$*
-ifneq ($(SUID_DIR),$(BIN_DIR))
+	@echo $(SUID_DIR)/$* '=>' $(BIN_DIR)
 	@$(RM) $(BIN_DIR)/$*
 	@ln -s $(SUID_DIR)/$* $(BIN_DIR)/$*
 endif

@@ -1,0 +1,62 @@
+Gale installation directions
+----------------------------
+
+For the most part, installing Gale is a matter of building the binaries and
+getting them in the right places.  The exception is the authentication system,
+which requires a certain amount of finicky setup -- including setuid binaries 
+-- to do its job correctly and securely.
+
+1. Read and follow the directions in the file "defs.template" in this
+   directory.
+
+2. Make sure you have GNU Make version 3.75 or better.  Older versions might
+   work, but I can't swear to it.  You can get it by anonymous FTP from
+   prep.ai.mit.edu in the /pub/gnu directory.  Gale will not build with a
+   non-GNU 'make' utility, sorry.
+
+3. Run GNU make ("gmake" or "make" or however it's installed) in the top-level
+   Gale directory.  With luck, this will build everything without incident.
+   If not, well, now you get to figure out what went wrong and why; enjoy!
+   Feel free to contact me (egnor@ofb.net) with questions.  Many architectures
+   are currently unsupported, but the changes are typically not too painful.
+
+4. Become a user (eg. "root") which has permission to write/create the
+   directories you specified.  Run "make install" from the top-level Gale
+   directory; this should install the binaries, libraries, and header files,
+   and create the directory structure for the authentication system.  Again,
+   if this encounters an error, guess who gets to fix it!
+
+5. Edit SYS_DIR/conf to your taste.  Make sure the files on BIN_DIR are
+   accessible on your PATH.
+
+6. You now need to generate and authenticate a key for your domain.  Figure
+   out who controls the domain next "up" from you -- if you have the domain
+   "foo.bat.bar", you need to have your key signed by whoever controls the
+   domain "bat.bar".  I keep the keys for most top-level domains.  If you'd
+   like to keep the key for the upper-level domain yourself, you can do that
+   too -- but you need to get _that_ key signed...
+
+   Generate the "uppermost" key you aim to control with "gkgen":
+
+   gkgen my.domain 'Name of My Domain' > my.domain
+
+   Ignore any warnings about how it couldn't sign this file.  Send the file so 
+   generated (probably uuencode'd) to whoever controls the next upper domain.
+   They will pipe it to "gksign", and send the output of "gksign" back to you.
+
+   Take the returned, signed key and put it in SYS_DIR/auth/local.  The 
+   filename must be the name of your domain.  Run "gkinfo my.domain" to make
+   sure you can see your new key.  Also find the corresponding private key
+   (look in your .gale/auth/private) and put it in the .gale/auth/private
+   directory for GALE_USER (whatever user gksign runs as).
+
+   Now, if you have any subdomains you want to manage, use "gkgen" to create
+   them, from "uppermost" to "lowermost".  Since you have the signing key for
+   the domain, gkgen may produce already-signed keys (you can verify this
+   by piping them to "gkinfo") which you can put in SYS_DIR/auth/local.  If it
+   does not (you are not the gale user), then become the gale user and pass
+   them through "gksign" to get them signed before installing them.
+
+7. Once you have signed keys for the domains you want, you should be in
+   business.  Try running the clients to see if they work (particularly with
+   authentication).  Let me know how it goes!

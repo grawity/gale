@@ -20,6 +20,14 @@ CGIC_INC = -I$(CGIC)
 CGIC_LIB = $(CGIC)/libcgic.a
 endif
 
+ifeq ($(HOST),)
+HOST = $(shell hostname)
+endif
+
+ifeq ($(GALE_USER),)
+GALE_USER = $(shell whoami)
+endif
+
 TERMCAP_LIB = -ltermcap
 
 ifdef ARCH

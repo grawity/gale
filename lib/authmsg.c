@@ -10,12 +10,12 @@
 
 static int old_auth(void) {
 	if (getenv("GALE_NEW_AUTH")) return 0;
-	if (time(NULL) > 876380400) return 0;
-	return 1;
+	if (getenv("GALE_OLD_AUTH")) return 0;
+	return time(NULL) <= 876380400;
 }
 
 void gale_keys(void) {
-	old_gale_keys();
+	if (old_auth()) old_gale_keys();
 	if (!auth_id_public(user_id)) auth_id_gen(user_id,getenv("GALE_FROM"));
 }
 
