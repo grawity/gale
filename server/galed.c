@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <syslog.h>
 #include <string.h>
@@ -217,6 +218,7 @@ int main(int argc,char *argv[]) {
 	listener = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
 	if (listener < 0) 
 		gale_alert(GALE_ERROR,"socket",errno);
+	fcntl(listener,F_SETFD,1);
 	sin.sin_addr.s_addr = INADDR_ANY;
 	sin.sin_port = htons(port);
 	if (setsockopt(listener,SOL_SOCKET,SO_REUSEADDR,

@@ -1,5 +1,5 @@
 TOP = .
-SUBDIRS = lib server gsend gsub gwatch gkeys include/gale
+SUBDIRS = lib server gsend gsub gwatch gkeys include/gale auth
 include $(TOP)/rules
 
 ifdef ZEPHYR_LIB

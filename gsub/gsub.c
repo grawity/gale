@@ -1,3 +1,6 @@
+/* gsub.c -- subscription client, outputs messages to the tty, optionally
+   sending them through a gsubrc filter. */
+
 #include <time.h>
 #include <errno.h>
 #include <stdio.h>
@@ -20,16 +23,18 @@
 
 extern char **environ;
 
-char *rcprog = "gsubrc";
-struct gale_client *client;
-char *tty,*agent;
+char *rcprog = "gsubrc";                /* Filter program name. */
+struct gale_client *client;             /* Connection to server. */
+char *tty,*agent;                       /* TTY device, user-agent string. */
 
-int do_ping = 1;
-int do_termcap = 0;
+int do_ping = 1;			/* Should we answer Receipt-To's? */
+int do_termcap = 0;                     /* Should we highlight headers? */
 
 void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
+/* Generate a trivial little message with the given category.  Used for
+   return receipts, login/logout notifications, and such. */
 struct gale_message *slip(const char *cat,struct gale_id *sign) {
 	struct gale_message *msg;
 	int len = strlen(agent);
@@ -37,9 +42,12 @@ struct gale_message *slip(const char *cat,struct gale_id *sign) {
 
 	if (user_id->comment) len += strlen(user_id->comment);
 
+	/* Create a new message. */
 	msg = new_message();
 	msg->category = gale_strdup(cat);
 	msg->data = gale_malloc(128 + len);
+
+	/* A few obvious headers. */
 	if (user_id->comment)
 		sprintf(msg->data,
 			"From: %s\r\n"
@@ -56,6 +64,7 @@ struct gale_message *slip(const char *cat,struct gale_id *sign) {
 
 	msg->data_size = strlen(msg->data);
 
+	/* Sign the message, if appropriate. */
 	if (sign) {
 		struct gale_message *new = sign_message(sign,msg);
 		release_message(msg);
@@ -65,16 +74,14 @@ struct gale_message *slip(const char *cat,struct gale_id *sign) {
 	return msg;
 }
 
+/* Output a terminal mode string. */
 void tmode(char id[2]) {
 	char *cap;
 	if (do_termcap && (cap = tgetstr(id,NULL))) 
-		tputs(cap,1,
-#if defined(hpux) || (defined(__sun) && defined(__SVR4))
-			(int(*)(char))
-#endif
-			putchar);
+		tputs(cap,1,TPUTS_CAST putchar);
 }
 
+/* Print a user ID, with a default string (like "everyone") for NULL. */
 void print_id(const char *id,const char *dfl) {
 	putchar(' ');
 	putchar(id ? '<' : '*');
@@ -84,17 +91,20 @@ void print_id(const char *id,const char *dfl) {
 	putchar(id ? '>' : '*');
 }
 
+/* The default gsubrc implementation. */
 void default_gsubrc(void) {
 	char *tmp,buf[80],*cat = getenv("GALE_CATEGORY");
 	char *nl = tty ? "\r\n" : "\n";
 	int count = 0;
 
+	/* Ignore messages to categories ending in /ping */
 	tmp = cat;
 	while ((tmp = strstr(tmp,"/ping"))) {
 		tmp += 5;
 		if (!*tmp || *tmp == ':') return;
 	}
 
+	/* Print the header: category, time, et cetera */
 	putchar('[');
 	tmode("md");
 	fputs(cat,stdout);
@@ -109,6 +119,7 @@ void default_gsubrc(void) {
 		printf(" [rcpt]");
 	fputs(nl,stdout);
 
+	/* Print who the message is from and to.
 	{
 		char *from_comment = getenv("HEADER_FROM");
 		char *from_id = getenv("GALE_SIGNED");
@@ -130,11 +141,12 @@ void default_gsubrc(void) {
 		fputs(nl,stdout);
 	}
 
+	/* Print the message body.  Make sure to escape unprintables. */
 	fputs(nl,stdout);
 	while (fgets(buf,sizeof(buf),stdin)) {
 		char *ptr,*end = buf + strlen(buf);
 		for (ptr = buf; ptr < end; ++ptr) {
-			if (isprint(*ptr) || *ptr == '\t')
+			if (isprint(*ptr & 0x7F) || *ptr == '\t')
 				putchar(*ptr);
 			else if (*ptr == '\n')
 				fputs(nl,stdout);
@@ -149,14 +161,21 @@ void default_gsubrc(void) {
 		}
 		++count;
 	}
+
+	/* Add a final newline, if for some reason the message did not
+           contain one. */
 	if (count) fputs(nl,stdout);
+
+	/* Out it goes! */
 	fflush(stdout);
 }
 
+/* Transmit a message body to a gsubrc process. */
 void send_message(char *body,char *end,int fd) {
 	char *tmp;
 
 	while (body != end) {
+		/* Write data up to a newline. */
 		tmp = memchr(body,'\r',end - body);
 		if (!tmp) tmp = end;
 		while (body != tmp) {
@@ -167,6 +186,8 @@ void send_message(char *body,char *end,int fd) {
 			}
 			body += r;
 		}
+
+		/* Translate CRLF to NL. */
 		if (tmp != end) {
 			if (write(fd,"\n",1) != 1) {
 				gale_alert(GALE_WARNING,"write",errno);
@@ -179,28 +200,39 @@ void send_message(char *body,char *end,int fd) {
 	}
 }
 
+/* Take the message passed as an argument and show it to the user, running
+   their gsubrc if present, using the default formatter otherwise. */
 void present_message(struct gale_message *msg) {
-	int pfd[2];
+	int pfd[2];             /* Pipe file descriptors. */
+
+	/* Lots of crap.  Discussed below, where they're used. */
 	char *next,**envp = NULL,*key,*data,*end,*tmp,*decrypt = NULL;
 	struct gale_id *id_encrypted = NULL,*id_sign = NULL;
 	struct gale_message *rcpt = NULL;
 	int envp_global,envp_alloc,envp_len,first = 1,status;
 	pid_t pid;
 
+	/* Count the number of global environment variables. */
 	envp_global = 0;
 	for (envp = environ; *envp; ++envp) ++envp_global;
+
+	/* Allocate space for ten more for the child.  That should do. */
 	envp_alloc = envp_global + 10;
 	envp = gale_malloc(envp_alloc * sizeof(*envp));
 	memcpy(envp,environ,envp_global * sizeof(*envp));
 	envp_len = envp_global;
 
+	/* GALE_CATEGORY: the message category */
 	next = gale_malloc(strlen(msg->category) + 15);
 	sprintf(next,"GALE_CATEGORY=%s",msg->category);
 	envp[envp_len++] = next;
 
+	/* Go through the message headers. */
 	next = msg->data;
 	end = msg->data + msg->data_size;
 	while (parse_header(&next,&key,&data,end)) {
+
+		/* Decrypt, if we can. */
 		if (first && !decrypt && !strcasecmp(key,"Encryption")) {
 			decrypt = gale_malloc(end - next + DECRYPTION_PADDING);
 			id_encrypted = decrypt_data(data,next,end,decrypt,&end);
@@ -212,6 +244,7 @@ void present_message(struct gale_message *msg) {
 			continue;
 		}
 
+		/* Verify a signature, if we can. */
 		if (first && !strcasecmp(key,"Signature")) {
 			id_sign = verify_data(data,next,end);
 			if (id_sign) {
@@ -221,10 +254,17 @@ void present_message(struct gale_message *msg) {
 			}
 		}
 
+		/* No longer the first header, so signature and encryption
+                   headers are no longer valid. */
 		first = 0;
 
-		if (!strcasecmp(key,"Receipt-To")) {
+		/* Process receipts, if we do. */
+		if (do_ping && !strcasecmp(key,"Receipt-To")) {
 			const char *colon = data;
+			struct gale_id *sign = id_encrypted;
+
+			/* Make sure the receipt only goes to categories
+			   beginning with "receipt/". */
 			while (colon && *colon && !strncmp(colon,"receipt/",8))
 				colon = strchr(colon + 1,':');
 			if (colon && *colon) {
@@ -232,19 +272,20 @@ void present_message(struct gale_message *msg) {
 				           "invalid receipt header",0);
 				continue;
 			}
-			if (do_ping) {
-				struct gale_id *sign = id_encrypted;
-				if (!sign) sign = user_id;
-				if (rcpt) release_message(rcpt);
-				rcpt = slip(data,sign);
-			}
+
+			/* Generate a receipt. */
+			if (!sign) sign = user_id;
+			if (rcpt) release_message(rcpt);
+			rcpt = slip(data,sign);
 		}
 
+		/* Create a HEADER_... environment entry for this. */
 		for (tmp = key; *tmp; ++tmp)
 			*tmp = isalnum(*tmp) ? toupper(*tmp) : '_';
 		tmp = gale_malloc(strlen(key) + strlen(data) + 9);
 		sprintf(tmp,"HEADER_%s=%s",key,data);
 
+		/* Allocate more space for the environment if necessary. */
 		if (envp_len == envp_alloc - 1) {
 			char **tmp = envp;
 			envp_alloc *= 2;
@@ -257,6 +298,7 @@ void present_message(struct gale_message *msg) {
 	}
 
 #ifndef NDEBUG
+	/* In debug mode, restart if we get a properly authorized message. */
 	if (!strcmp(msg->category,"debug/restart") &&
 	    id_sign && !strcmp(id_sign->name,"egnor@ofb.net")) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
@@ -264,37 +306,52 @@ void present_message(struct gale_message *msg) {
 	}
 #endif
 
+	/* Terminate the new environment. */
 	envp[envp_len] = NULL;
 
+	/* Create a pipe to communicate with the gsubrc with. */
 	if (pipe(pfd)) {
 		gale_alert(GALE_WARNING,"pipe",errno);
 		goto error;
 	}
 
+	/* Fork off a subprocess.  This should use gale_exec ... */
 	pid = fork();
 	if (!pid) {
 		const char *rc;
+
+		/* Set the environment.  (Why not execle?) */
 		environ = envp;
+
+		/* Close off file descriptors. */
 		close(client->socket);
 		close(pfd[1]);
+
+		/* Pipe goes to stdin. */
 		dup2(pfd[0],0);
 		if (pfd[0] != 0) close(pfd[0]);
+
+		/* Look for the file. */
 		rc = dir_search(rcprog,1,dot_gale,sys_dir,NULL);
 		if (rc) {
 			execl(rc,rcprog,NULL);
 			gale_alert(GALE_WARNING,rc,errno);
 			exit(1);
 		}
+
+		/* If we can't find or can't run gsubrc, use default. */
 		default_gsubrc();
 		exit(0);
 	}
 
 	if (pid < 0) gale_alert(GALE_WARNING,"fork",errno);
 
+	/* Send the message to the gsubrc. */
 	close(pfd[0]);
 	send_message(next,end,pfd[1]);
 	close(pfd[1]);
 
+	/* Wait for the gsubrc to terminate. */
 	status = -1;
 	if (pid > 0) {
 		waitpid(pid,&status,0);
@@ -304,12 +361,14 @@ void present_message(struct gale_message *msg) {
 			status = -1;
 	}
 
+	/* Put the receipt on the queue, if we have one. */
 	if (rcpt && !status) {
 		link_put(client->link,rcpt);
 		release_message(rcpt);
 	}
 
 error:
+	/* Clean up after ourselves. */
 	if (envp) {
 		while (envp_global != envp_len) gale_free(envp[envp_global++]);
 		gale_free(envp);
@@ -319,16 +378,19 @@ error:
 	if (id_sign) free_id(id_sign);
 }
 
+/* Send a login notification, arrange for a logout notification. */
 void notify(void) {
 	struct gale_message *msg;
 	char *tmp;
 
+	/* Login: send it right away. */
 	tmp = id_category(user_id,"notice","login");
 	msg = slip(tmp,user_id);
 	gale_free(tmp);
 	link_put(client->link,msg);
 	release_message(msg);
 
+	/* Logout: "will" it to happen when we disconnect. */
 	tmp = id_category(user_id,"notice","logout");
 	msg = slip(tmp,user_id);
 	gale_free(tmp);
@@ -336,11 +398,14 @@ void notify(void) {
 	release_message(msg);
 }
 
+/* Set the value to use for Agent: headers. */
 void set_agent(void) {
 	char *user = getenv("LOGNAME");
 	const char *host = getenv("HOST");
 	int len;
 
+	/* Construct the string from our version, the user running us,
+           the host we're on and so on. */
 	len = strlen(GALE_VERSION) + strlen(user) + strlen(host);
 	len += (tty ? strlen(tty) : 0) + 30;
 	agent = gale_malloc(len);
@@ -351,7 +416,7 @@ void set_agent(void) {
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gsub [-gkKnpr] [-P str] [-f rcprog] cat\n"
+	"usage: gsub [-nkKrpy] [-f rcprog] cat\n"
 	"flags: -n          Do not fork (default if stdout redirected)\n"
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
@@ -363,44 +428,61 @@ void usage(void) {
 	exit(1);
 }
 
-int main(int argc,char **argv) {
-	int opt,do_retry = 1,do_notify = 1,do_fork = 0,do_kill = 0;
-	char *serv;
+/* main */
 
+int main(int argc,char **argv) {
+	/* Various flags. */
+	int opt,do_retry = 1,do_notify = 1,do_fork = 0,do_kill = 0;
+	char *serv;             /* Subscription list. */
+
+	/* Initialize the gale libraries. */
 	gale_init("gsub",argc,argv);
+
+	/* If we're actually on a TTY, we do things slightly different. */
 	if ((tty = ttyname(1))) {
+		/* Find out the terminal type. */
 		char *term = getenv("TERM");
+		/* Truncate the tty name for convenience. */
 		char *tmp = strrchr(tty,'/');
 		if (tmp) tty = tmp + 1;
+		/* Go into the background; kill other gsub processes. */
 		do_fork = do_kill = 1;
+		/* Do highlighting, if available. */
 		if (term && 1 == tgetent(NULL,term)) do_termcap = 1;
 	}
 
-	while (EOF != (opt = getopt(argc,argv,"hgnkKf:rpy"))) switch (opt) {
-	case 'n': do_fork = 0; break;
-	case 'k': do_kill = 0; break;
-	case 'K': if (tty) gale_kill(tty,1); return 0;
-	case 'f': rcprog = optarg; break;
-	case 'r': do_retry = 0; break;
-	case 'p': do_ping = 0; break;
-	case 'y': do_notify = 0; break;
-	case 'h':
+	/* Parse command line arguments. */
+	while (EOF != (opt = getopt(argc,argv,"nkKrpyf:h"))) switch (opt) {
+	case 'n': do_fork = 0; break;           /* Do not go into background */
+	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
+	case 'K': if (tty) gale_kill(tty,1);    /* *only* kill other gsubs */
+	          return 0;
+	case 'f': rcprog = optarg; break;       /* Use a wacky gsubrc */
+	case 'r': do_retry = 0; break;          /* Do not retry */
+	case 'p': do_ping = 0; break;           /* Do not honor Receipt-To: */
+	case 'y': do_notify = 0; break;         /* Do not send login/logout */
+	case 'h':                               /* Usage message */
 	case '?': usage();
 	}
 
+	/* One argument, at most (subscriptions) */
 	if (optind < argc - 1) usage();
 
+	/* Use the default subscriptions, unless they specify some. */
 	if (optind == argc - 1)
 		serv = argv[optind];
 	else
 		serv = getenv("GALE_SUBS");
 
+	/* We need to subscribe to *something* */
 	if (serv == NULL) 
 		gale_alert(GALE_ERROR,"No subscriptions specified.",0);
 
+	/* Generate keys so people can send us messages. */
 	gale_keys();
 
 #ifndef NDEBUG
+	/* If in debug mode, listen to debug/ for restart messages. */
 	{
 		char *tmp = gale_malloc(strlen(serv) + 8);
 		sprintf(tmp,"%s:debug/",serv);
@@ -408,19 +490,24 @@ int main(int argc,char **argv) {
 	}
 #endif
 
+	/* Open a connection to the server. */
 	client = gale_open(serv);
 	if (!do_retry && gale_error(client))
 		gale_alert(GALE_ERROR,"Could not connect to server.",0);
 
+	/* Fork ourselves into the background, unless we shouldn't. */
 	if (do_fork) {
 		gale_daemon(1);
 		gale_kill(tty,do_kill);
 	}
 
+	/* Set our Agent: header value. */
 	set_agent();
 
+	/* Send a login message, as needed. */
 	if (do_notify) notify();
 	do {
+		/* Get messages and process them. */
 		while (!gale_send(client) && !gale_next(client)) {
 			struct gale_message *msg;
 			if (tty && !isatty(1)) return 0;
@@ -429,6 +516,7 @@ int main(int argc,char **argv) {
 				release_message(msg);
 			}
 		}
+		/* Retry the server connection, unless we shouldn't. */
 		if (do_retry) {
 			gale_retry(client);
 			if (do_notify) notify();

@@ -7,23 +7,24 @@ YACC = bison -y
 -include $(TOP)/defs.$(LAB)
 -include $(TOP)/defs.$(ARCH)
 -include $(TOP)/defs.$(shell uname -s)
--include $(TOP)/defs.$(shell uname -sr | sed -e 's/ /-/g')
 -include $(TOP)/defs.$(shell uname -sr | sed -e 's/ /-/g' -e 's/\..*//g')
+-include $(TOP)/defs.$(shell uname -sr | sed -e 's/ /-/g')
+-include $(TOP)/defs.$(shell uname -m  | sed -e 's/^i.86$$/ix86/g')
 
 ifndef GALE_VERSION
 GALE_VERSION := $(shell cat $(TOP)/version)
 endif
 
 INCLUDES = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC) $(DB_INC) $(CGIC_INC)
-DEFINES = -DSYS_DIR=\"$(SYS_DIR)\" -DGALE_VERSION=\"$(GALE_VERSION)\" -DSTDC_HEADERS
+DEFINES = -DSYS_DIR=\"$(SYS_DIR)\" -DGALE_VERSION=\"$(GALE_VERSION)\" -DSTDC_HEADERS -D$(ENDIAN)
 
 WARNINGS = -W -Wimplicit -Wreturn-type -Wunused -Wswitch -Wtrigraphs -Wformat \
 	-Wchar-subscripts -Wparentheses
 
 CPPFLAGS = $(INCLUDES) $(DEFINES)
-LDLIBS = -L$(TOP)/lib -lgale \
+LDLIBS = -L$(TOP)/lib -lgale -L$(TOP)/auth \
 	$(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB) $(CGIC_LIB) $(TERMCAP_LIB) \
-	$(SYS_LIB)
+	$(SYS_LIB) # -lgauth
 
 all::
 	@$(MAKE) --no-print-directory subdirs TARGET=all
@@ -38,7 +39,7 @@ install:: \
 
 clean::
 	@echo rm: object files, executables, and libraries.
-	@$(RM) *.o core $(BIN_TARGETS) $(LIB_TARGETS)
+	@$(RM) *.o core $(BIN_TARGETS) $(LIB_TARGETS) $(CLEAN_FILES)
 	@$(MAKE) --no-print-directory subdirs TARGET=clean
 
 relink::
@@ -57,7 +58,7 @@ subdirs:
 
 %: %.o
 	@echo $^ '->' $@
-	$(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
+	@$(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
 %: %.c
 	@echo $^ '->' $@

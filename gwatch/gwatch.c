@@ -9,10 +9,6 @@
 
 struct gale_client *client;
 
-#ifndef NDEBUG
-char **restart_argv;
-#endif
-
 const char **subs;
 struct gale_message **pings;
 int count_subs = 0,count_pings = 0;
@@ -196,8 +192,7 @@ void process_message(struct gale_message *msg) {
 	if (!strcmp(msg->category,"debug/restart") && 
 	    id_sign && !strcmp(id_sign->name,"egnor@ofb.net")) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
-		execvp(restart_argv[0],restart_argv);
-		gale_alert(GALE_WARNING,restart_argv[0],errno);
+		gale_restart();
 	}
 #endif
 
@@ -274,11 +269,6 @@ int main(int argc,char *argv[]) {
 		gale_alert(GALE_WARNING,"Nothing specified to watch.",0);
 		usage();
 	}
-
-#ifndef NDEBUG
-	restart_argv = argv;
-	watch_cat("debug/");
-#endif
 
 	open_client();
 	if (!do_retry && gale_error(client))

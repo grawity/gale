@@ -1,5 +1,7 @@
+# RSAREF_INC = -I$(TOP)/../rsaeuro/source
+# RSAREF_LIB = $(TOP)/../rsaeuro/build/rsaref.a
 RSAREF_INC = -I/ofb/include
-RSAREF_LIB = -L/ofb/lib -lrsaref
+RSAREF_LIB = -lrsaref
 DB_INC = -I/ofb/include
 CGIC_INC = -I/ofb/include
 

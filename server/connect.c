@@ -9,6 +9,8 @@
 struct connect *new_connect(int rfd,int wfd) {
 	struct connect *conn = gale_malloc(sizeof(struct connect));
 	fcntl(wfd,F_SETFL,O_NONBLOCK);
+	fcntl(rfd,F_SETFD,1);
+	fcntl(wfd,F_SETFD,1);
 	conn->rfd = rfd;
 	conn->wfd = wfd;
 	conn->link = new_link();
