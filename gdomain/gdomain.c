@@ -122,7 +122,7 @@ void incoming(struct gale_message *_msg) {
 		gale_alert(GALE_WARNING,"cannot determine the key wanted",0);
 	else {
 		struct auth_id *key = lookup_id(user);
-		if (!rcpt.p) rcpt = id_category(key,_G("auth/key"),_G(""));
+		if (!rcpt.p) rcpt = id_category(key,G_("auth/key"),G_(""));
 		gale_dprintf(3,"--- looking up key for %s\n",user);
 		if (key) {
 			request(key,rcpt);
@@ -158,11 +158,11 @@ int main(int argc,char *argv[]) {
 	if (!domain || !auth_id_private(domain))
 		gale_alert(GALE_ERROR,"no access to domain private key",0);
 
-	old_cat = dom_category(auth_id_name(domain),_G("dom"));
-	new_cat = dom_category(auth_id_name(domain),_G("auth/query"));
+	old_cat = dom_category(auth_id_name(domain),G_("dom"));
+	new_cat = dom_category(auth_id_name(domain),G_("auth/query"));
 	category = new_gale_text(old_cat.l + new_cat.l + 1);
 	gale_text_append(&category,old_cat);
-	gale_text_append(&category,_G(":"));
+	gale_text_append(&category,G_(":"));
 	gale_text_append(&category,new_cat);
 	client = gale_open(category);
 

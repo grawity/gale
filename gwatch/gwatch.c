@@ -43,7 +43,7 @@ void watch_ping(struct gale_text cat,struct gale_id *id) {
 		char *tmp = gale_malloc(strlen(host) + 20);
 		sprintf(tmp,"%s.%d",host,(int) getpid());
 		receipt = id_category(user_id,
-			_G("receipt"),
+			G_("receipt"),
 			gale_text_from_latin1(tmp,-1));
 		gale_free(tmp);
 		watch_cat(receipt);
@@ -70,12 +70,12 @@ void watch_ping(struct gale_text cat,struct gale_id *id) {
 }
 
 void watch_id(struct gale_id *id) {
-	watch_ping(id_category(id,_G("user"),_G(":/ping")),id);
-	watch_cat(id_category(id,_G("notice"),_G("")));
+	watch_ping(id_category(id,G_("user"),G_(":/ping")),id);
+	watch_cat(id_category(id,G_("notice"),G_("")));
 }
 
 void watch_domain(struct gale_text id) {
-	watch_cat(dom_category(id,_G("notice")));
+	watch_cat(dom_category(id,G_("notice")));
 }
 
 void read_file(const char *fn) {
@@ -200,7 +200,7 @@ void process_message(struct gale_message *msg) {
 
 #ifndef NDEBUG
 	if (!gale_text_compare(msg->cat,debug) && id_sign 
-	&&  !gale_text_compare(auth_id_name(id_sign),_G("egnor@ofb.net"))) {
+	&&  !gale_text_compare(auth_id_name(id_sign),G_("egnor@ofb.net"))) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
 		gale_restart();
 	}

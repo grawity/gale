@@ -113,7 +113,4 @@ struct auth_id *verify_message(struct gale_message *);
    but unable to decrypt. */
 struct auth_id *decrypt_message(struct gale_message *,struct gale_message **);
 
-/* deprecated; wrapper to auth_id_gen */
-void gale_keys(void);
-
 #endif

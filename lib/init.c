@@ -23,9 +23,10 @@ extern char **environ;
 extern auth_hook _gale_find_id;
 static auth_hook find_id,*old_find;
 
-static void find_id(struct auth_id *id) {
-	_gale_find_id(id);
-	if (old_find) old_find(id);
+static int find_id(struct auth_id *id) {
+	if (_gale_find_id(id)) return 1;
+	if (old_find && old_find(id)) return 1;
+	return 0;
 }
 
 static void init_vars(struct passwd *pwd) {
@@ -76,17 +77,26 @@ static void init_vars(struct passwd *pwd) {
 	else
 		user_id = lookup_id(gale_text_from_latin1(pwd->pw_name,-1));
 
-	if (!getenv("GALE_FROM")) {
-		char *name = gale_text_to_latin1(auth_id_comment(user_id));
-		if (!name) 
-			name = strtok(pwd->pw_gecos,",");
-		tmp = gale_malloc((name ? strlen(name) : 0) + 30);
-		sprintf(tmp,"GALE_FROM=%s",name ? name : "");
-		putenv(tmp);
+	{
+		char *name = strtok(pwd->pw_gecos,",");
+		if (!name) name = "unknown";
+		if (auth_id_public(user_id))
+			name = gale_text_to_latin1(auth_id_comment(user_id));
+		else {
+			struct gale_text text = gale_text_from_local(name,-1);
+			auth_id_gen(user_id,text);
+			free_gale_text(text);
+		}
+
+		if (!getenv("GALE_FROM")) {
+			tmp = gale_malloc(strlen(name) + 30);
+			sprintf(tmp,"GALE_FROM=%s",name);
+			putenv(tmp);
+		}
 	}
 
 	if (!getenv("GALE_SUBS")) {
-		struct gale_text cat = id_category(user_id,_G("user"),_G(""));
+		struct gale_text cat = id_category(user_id,G_("user"),G_(""));
 		char *tmp = gale_text_to_local(cat);
 		char *tmp2 = gale_malloc(strlen(tmp) + 30);
 		sprintf(tmp2,"GALE_SUBS=%s",tmp);
@@ -228,7 +238,7 @@ void gale_init(const char *s,int argc,char * const *argv) {
 
 	read_conf(dir_file(sys_dir,"conf"));
 
-	init_vars(pwd);
 	old_find = hook_find_public;
 	hook_find_public = find_id;
+	init_vars(pwd);
 }

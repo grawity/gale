@@ -10,7 +10,7 @@
 
 struct auth_id;
 
-typedef void auth_hook(struct auth_id *);
+typedef int auth_hook(struct auth_id *);
 extern auth_hook *hook_find_public,*hook_find_private;
 
 void init_auth_id(struct auth_id **,struct gale_text name);

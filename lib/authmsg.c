@@ -7,15 +7,6 @@
 
 #include "gale/all.h"
 
-void gale_keys(void) {
-	if (!auth_id_private(user_id) || !auth_id_public(user_id)) {
-		struct gale_text text;
-		text = gale_text_from_local(getenv("GALE_FROM"),-1);
-		auth_id_gen(user_id,text);
-		free_gale_text(text);
-	}
-}
-
 static struct gale_message *sign(struct gale_id *id,struct gale_message *in,
                                  int tweak) 
 {

@@ -100,7 +100,7 @@ struct gale_message *send_key(void) {
 	struct gale_data data;
 	struct gale_message *key = new_message();
 	export_auth_id(user_id,&data,0);
-	key->cat = id_category(user_id,_G("auth/key"),_G(""));
+	key->cat = id_category(user_id,G_("auth/key"),G_(""));
 	key->data.p = gale_malloc(256 
 	            + auth_id_name(user_id).l
 	            + strlen(getenv("GALE_FROM"))
@@ -350,10 +350,7 @@ void present_message(struct gale_message *_msg) {
 
 		if (do_ping && !strcasecmp(key,"Request-Key")) {
 			struct gale_text text = gale_text_from_latin1(data,-1);
-			if (gale_text_compare(text,auth_id_name(user_id)))
-				gale_alert(GALE_WARNING,
-				           "invalid key request",0);
-			else {
+			if (!gale_text_compare(text,auth_id_name(user_id))) {
 				if (akd) release_message(akd);
 				akd = send_key();
 			}
@@ -381,7 +378,7 @@ void present_message(struct gale_message *_msg) {
 #ifndef NDEBUG
 	/* In debug mode, restart if we get a properly authorized message. */
 	if (!gale_text_compare(msg->cat,restart) && id_sign 
-	&&  !gale_text_compare(auth_id_name(id_sign),_G("egnor@ofb.net"))) {
+	&&  !gale_text_compare(auth_id_name(id_sign),G_("egnor@ofb.net"))) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
 		gale_restart();
 	}
@@ -483,14 +480,14 @@ void notify(void) {
 	struct gale_text tmp;
 
 	/* Login: send it right away. */
-	tmp = id_category(user_id,_G("notice"),_G("login"));
+	tmp = id_category(user_id,G_("notice"),G_("login"));
 	msg = slip(tmp,user_id,NULL);
 	free_gale_text(tmp);
 	link_put(client->link,msg);
 	release_message(msg);
 
 	/* Logout: "will" it to happen when we disconnect. */
-	tmp = id_category(user_id,_G("notice"),_G("logout"));
+	tmp = id_category(user_id,G_("notice"),G_("logout"));
 	msg = slip(tmp,user_id,NULL);
 	free_gale_text(tmp);
 	link_will(client->link,msg);
@@ -575,7 +572,7 @@ void add_subs(struct gale_text *subs,struct gale_text add) {
 	n = new_gale_text(subs->l + add.l + 1);
 	if (subs->l) {
 		gale_text_append(&n,*subs);
-		gale_text_append(&n,_G(":"));
+		gale_text_append(&n,G_(":"));
 	}
 	gale_text_append(&n,add);
 	free_gale_text(*subs);
@@ -643,16 +640,13 @@ int main(int argc,char **argv) {
 	/* Look for a gsubrc.so */
 	load_gsubrc(rclib);
 
-	/* Generate keys so people can send us messages. */
-	gale_keys();
-
 	/* Act as AKD proxy for this particular user. */
 	if (do_ping)
-		add_subs(&serv,id_category(user_id,_G("auth/query"),_G("")));
+		add_subs(&serv,id_category(user_id,G_("auth/query"),G_("")));
 
 #ifndef NDEBUG
 	/* If in debug mode, listen to debug/ for restart messages. */
-	add_subs(&serv,_G("debug/"));
+	add_subs(&serv,G_("debug/"));
 #endif
 
 	/* Open a connection to the server. */

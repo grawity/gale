@@ -19,7 +19,7 @@ struct auth_id *lookup_id(struct gale_text spec) {
 			gale_text_from_local(getenv("GALE_DOMAIN"),-1);
 		struct gale_text text = new_gale_text(spec.l + 1 + domain.l);
 		gale_text_append(&text,spec);
-		gale_text_append(&text,_G("@"));
+		gale_text_append(&text,G_("@"));
 		gale_text_append(&text,domain);
 		init_auth_id(&id,text);
 		free_gale_text(text);
@@ -36,22 +36,22 @@ struct gale_text id_category(struct gale_id *id,
 	struct gale_text text = new_gale_text(name.l + pfx.l + sfx.l + 3);
 	struct gale_text tok = null_text;
 
-	gale_text_append(&text,_G("@"));
+	gale_text_append(&text,G_("@"));
 	gale_text_token(name,'@',&tok);
 	user = tok;
 	if (gale_text_token(name,'@',&tok)) {
 		gale_text_append(&text,tok);
-		gale_text_append(&text,_G("/"));
+		gale_text_append(&text,G_("/"));
 		gale_text_append(&text,pfx);
-		gale_text_append(&text,_G("/"));
+		gale_text_append(&text,G_("/"));
 		gale_text_append(&text,user);
-		gale_text_append(&text,_G("/"));
+		gale_text_append(&text,G_("/"));
 		gale_text_append(&text,sfx);
 	} else {
 		gale_text_append(&text,user);
-		gale_text_append(&text,_G("/"));
+		gale_text_append(&text,G_("/"));
 		gale_text_append(&text,pfx);
-		gale_text_append(&text,_G("/"));
+		gale_text_append(&text,G_("/"));
 	}
 
 	return text;
@@ -66,11 +66,11 @@ struct gale_text dom_category(struct gale_text dom,struct gale_text pfx) {
 		domain = gale_text_from_local(getenv("GALE_DOMAIN"),-1);
 
 	text = new_gale_text(dom.l + pfx.l + 3);
-	gale_text_append(&text,_G("@"));
+	gale_text_append(&text,G_("@"));
 	gale_text_append(&text,dom);
-	gale_text_append(&text,_G("/"));
+	gale_text_append(&text,G_("/"));
 	gale_text_append(&text,pfx);
-	gale_text_append(&text,_G("/"));
+	gale_text_append(&text,G_("/"));
 
 	if (!dom.p) free_gale_text(domain);
 	return text;

@@ -74,7 +74,7 @@ static int process(struct auth_id *id,struct auth_id *domain,
 	return status;
 }
 
-void _gale_find_id(struct auth_id *id) {
+int _gale_find_id(struct auth_id *id) {
 	struct gale_client *client;
 	struct gale_message *msg;
 	struct gale_text tok,name,category,cat1,cat2,cat3;
@@ -91,7 +91,7 @@ void _gale_find_id(struct auth_id *id) {
 		domain = id;
 
 	/* prevent re-entrancy */
-	if (inhibit) return;
+	if (inhibit) return 0;
 	disable_gale_akd();
 
 	tmp = gale_malloc(80 + name.l);
@@ -101,23 +101,23 @@ void _gale_find_id(struct auth_id *id) {
 	gale_free(tmp);
 
 	timeout = time(NULL);
-	category = id_category(id,_G("auth/key"),_G(""));
+	category = id_category(id,G_("auth/key"),G_(""));
 	client = gale_open(category);
 
 	msg = new_message();
 
 	if (id == domain)
-		msg->cat = id_category(id,_G("auth/query"),_G(""));
+		msg->cat = id_category(id,G_("auth/query"),G_(""));
 	else
 	{
-		cat1 = id_category(id,_G("dom"),_G("key"));
-		cat2 = id_category(id,_G("user"),_G(":/ping"));
-		cat3 = id_category(id,_G("auth/query"),_G(""));
+		cat1 = id_category(id,G_("dom"),G_("key"));
+		cat2 = id_category(id,G_("user"),G_(":/ping"));
+		cat3 = id_category(id,G_("auth/query"),G_(""));
 		msg->cat = new_gale_text(cat1.l + cat2.l + cat3.l + 2);
 		gale_text_append(&msg->cat,cat1);
-		gale_text_append(&msg->cat,_G(":"));
+		gale_text_append(&msg->cat,G_(":"));
 		gale_text_append(&msg->cat,cat2);
-		gale_text_append(&msg->cat,_G(":"));
+		gale_text_append(&msg->cat,G_(":"));
 		gale_text_append(&msg->cat,cat3);
 		free_gale_text(cat1); 
 		free_gale_text(cat2); 
@@ -178,4 +178,5 @@ void _gale_find_id(struct auth_id *id) {
 	if (domain && domain != id) free_auth_id(domain);
 	gale_close(client);
 	enable_gale_akd();
+	return status > 0;
 }

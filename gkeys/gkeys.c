@@ -17,12 +17,14 @@ void usage(void) {
 }
 
 int main(int argc,char *argv[]) {
-	gale_init("gkeys",argc,argv);
 	if (argc > 2) usage();
 	if (argc > 1) {
+		char *tmp;
 		if (argv[1][0] == '-') usage();
-		user_id = lookup_id(gale_text_from_local(argv[1],-1));
+		tmp = gale_malloc(strlen(argv[1]) + 30);
+		sprintf(tmp,"GALE_ID=%s",argv[1]);
+		putenv(tmp);
 	}
-	gale_keys();
+	gale_init("gkeys",argc,argv);
 	return 0;
 }

@@ -7,12 +7,12 @@
 #include <time.h>
 #include <pwd.h>
 
+#include "gale/all.h"
+
 #if defined(HAVE_READLINE_READLINE_H) && defined(HAVE_LIBREADLINE)
 #define HAVE_READLINE 1
 #include "readline/readline.h"
 #endif
-
-#include "gale/all.h"
 
 void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
@@ -88,7 +88,7 @@ void headers(void) {
 	}
 	if (do_rrcpt) {
 		struct gale_text cat = 
-			id_category(user_id,_G("user"),_G("receipt"));
+			id_category(user_id,G_("user"),G_("receipt"));
 		char *pch = gale_text_to_latin1(cat);
 		reserve(20 + strlen(pch));
 		sprintf(msg->data.p + msg->data.l,"Receipt-To: %s\r\n",pch);
@@ -151,7 +151,7 @@ char *get_line(int tty)
 
 /* Output usage information, exit. */
 void usage(void) {
-	struct gale_id *id = lookup_id(_G("name@domain"));
+	struct gale_id *id = lookup_id(G_("name@domain"));
 	fprintf(stderr,
 		"%s\n"
 		"usage: gsend [-auUpP] [-S id] [-cC cat] [id [id ...]]\n"
@@ -166,7 +166,7 @@ void usage(void) {
 		"With an id of \"name@domain\", category defaults to \"%s\".\n"
 		"You must specify one of -c, -C, or a recipient user.\n"
 		,GALE_BANNER
-		,gale_text_hack(id_category(id,_G("user"),_G(""))));
+		,gale_text_hack(id_category(id,G_("user"),G_(""))));
 	exit(1);
 }
 
@@ -228,9 +228,6 @@ int main(int argc,char *argv[]) {
 	if (do_encrypt && !num_rcpt) 
 		gale_alert(GALE_ERROR,"No valid recipients.",0);
 
-	/* Generate keys. */
-	if (do_encrypt || signer) gale_keys();
-
 	if (signer && !auth_id_private(signer))
 		gale_alert(GALE_ERROR,"No private key to sign with.",0);
 
@@ -244,7 +241,7 @@ int main(int argc,char *argv[]) {
 		size_t size = 0;
 		if (public.p) size += public.l + 1;
 		for (i = 0; i < num_rcpt; ++i) {
-			n[i] = id_category(rcpt[i],_G("user"),_G(""));
+			n[i] = id_category(rcpt[i],G_("user"),G_(""));
 			size += n[i].l + 1;
 		}
 		msg->cat = new_gale_text(size);

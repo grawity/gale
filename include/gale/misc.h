@@ -57,7 +57,7 @@ extern const struct gale_text null_text;
 
 struct gale_text new_gale_text(size_t alloc);
 void free_gale_text(struct gale_text);
-#define _G(x) (_gale_text_literal(L##x))
+#define G_(x) (_gale_text_literal(L##x))
 struct gale_text _gale_text_literal(const wchar_t *);
 
 void gale_text_append(struct gale_text *,struct gale_text);
