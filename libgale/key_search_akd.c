@@ -203,7 +203,7 @@ static void *on_key_location(
 	struct gale_location *loc,void *x)
 {
 	struct gale_location *list[] = { NULL, NULL };
-	const struct gale_text r;
+	struct gale_text r;
 	struct cache * const cache = (struct cache *) x;
 
 	list[0] = loc;

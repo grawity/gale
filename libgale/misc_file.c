@@ -290,7 +290,7 @@ int gale_file_changed(const struct gale_file_state *since) {
  *         gale_read_file() or gale_write_file().
  *  \return The last observed modification time of the file. */ 
 struct gale_time gale_get_file_time(const struct gale_file_state *which) {
-	const struct timeval tv = { 0, 0 };
+	struct timeval tv = { 0, 0 };
 	struct gale_time output;
 	tv.tv_sec = which->file_time;
 	gale_time_from(&output,&tv);

@@ -102,7 +102,7 @@ oop_adns_query *oop_adns_submit_reverse(
 	int err;
 	if (NULL == q) return NULL;
 
-	err = adns_submit_reverse(a->state,addr,type,flags,q,&q->query)));
+	err = adns_submit_reverse(a->state,addr,type,flags,q,&q->query);
 	if (errcode) *errcode = err;
 	if (err) {
 		oop_free(q);
