@@ -170,6 +170,7 @@ void gale_find_exact_location(oop_source *oop,
 {
 	struct find *find;
 	gale_create(find);
+	if (name.l > 0 && '.' == name.p[name.l - 1]) --name.l;
 	find->loc = client_i_get(name);
 	find->func = func;
 	find->user = user;

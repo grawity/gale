@@ -221,7 +221,8 @@ static void on_search(struct gale_time now,oop_source *oop,
 	struct timeval timeout;
 
 	if (!(flags & search_slow)
-	||  !gale_text_compare(gale_text_left(key_name,6),G_("_gale."))) {
+	|| !gale_text_compare(gale_text_left(key_name,6),G_("_gale."))
+	|| !gale_text_compare(gale_text_left(key_name,6),G_("_gale@"))) {
 	skip:
 		gale_key_hook_done(oop,key,handle);
 		return;
@@ -231,7 +232,7 @@ static void on_search(struct gale_time now,oop_source *oop,
 		int at;
 		const struct gale_text name = key_i_swizzle(key_name);
 		for (at = name.l - 1; at >= 0 && '@' != name.p[at]; --at) ;
-		if (at < 0) goto skip;
+		if (at < 0 || at == name.l - 1) goto skip;
 
 		gale_create(cache);
 		cache->oop = NULL;

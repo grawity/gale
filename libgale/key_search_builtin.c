@@ -18,7 +18,8 @@ static void builtin_hook(struct gale_time now,oop_source *oop,
 	if (NULL == *cache) gale_create(*cache);
 	**cache = NULL;
 
-	if (!gale_text_compare(gale_text_left(name,8),G_("_gale.*@"))) {
+	if (!gale_text_compare(gale_text_left(name,8),G_("_gale.*@"))
+	||  !gale_text_compare(gale_text_left(name,6),G_("_gale@"))) {
 		struct gale_fragment frag;
 		frag.type = frag_text;
 		frag.name = G_("key.member");

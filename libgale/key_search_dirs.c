@@ -96,6 +96,11 @@ static void dir_hook(struct gale_time now,oop_source *oop,
 		cache = *ptr;
 	else {
 		const struct gale_text name = gale_key_name(key);
+		if (0 == name.l) {
+			gale_key_hook_done(oop,key,handle);
+			return;
+		}
+
 		gale_create(cache);
 		memset(cache,0,sizeof(*cache));
 		*ptr = cache;

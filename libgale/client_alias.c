@@ -78,7 +78,7 @@ void gale_find_location(oop_source *oop,
 		}
 	}
 
-	for (;;) {
+	while (loc->parts[loc->part_count - 1].l > 0) {
 		struct gale_location * const alias = look(gale_text_concat(2,
 			G_("@"),loc->parts[loc->part_count - 1]),mark);
 		if (NULL == alias) break;
