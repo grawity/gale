@@ -59,34 +59,18 @@ int suffix(struct gale_text x,struct gale_text suffix) {
 void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 	struct auth_id *encrypted = NULL,*signature = NULL;
 	struct gale_text user = null_text;
-	struct gale_group group;
+	struct gale_fragment frag;
 
 	encrypted = auth_decrypt(&msg->data);
 	if (!msg) return OOP_CONTINUE;
 	signature = auth_verify(&msg->data);
 
-	/* Figure out what we can from the headers. */
-
-	group = gale_group_find(msg->data,G_("question/key"));
-	if (!gale_group_null(group)) {
-		struct gale_fragment frag = gale_group_first(group);
-		if (frag_text == frag.type) user = frag.value.text;
-	}
-
-	/* Now see what we can glean from the category */
-
-	if (0 == user.l) {
-		struct gale_text cat = null_text;
-		while (0 == user.l && gale_text_token(msg->cat,':',&cat))
-			if (prefix(cat,category))
-				user = gale_text_right(cat,-category.l);
-	}
-
-	if (0 == user.l)
+	if (!gale_group_lookup(msg->data,G_("question/key"),frag_text,&frag))
 		gale_alert(GALE_WARNING,"cannot determine the key wanted",0);
 	else {
-		struct auth_id *key = lookup_id(user);
-		if (key) request(link,key);
+		struct auth_id *key;
+		init_auth_id(&key,frag.value.text);
+		request(link,key);
 	}
 
 	return OOP_CONTINUE;
