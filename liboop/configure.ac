@@ -15,6 +15,7 @@ dnl System type checks.
 case "$host" in
   *-linux-*)
     AC_PATH_PROG(PROG_LDCONFIG, ldconfig, :, $PATH:/usr/sbin:/sbin)
+    no_wacky_libs=yes
     ;;
   *-sgi-irix6*)
     if test -n "$LPATH" ; then
@@ -37,35 +38,44 @@ AC_CHECK_HEADER(readline/readline.h,[
   AC_DEFINE(HAVE_READLINE)
 ])])
 
+save_libs="$LIBS"
+save_cppflags="$CPPFLAGS"
 AC_CHECK_PROG(PROG_GLIB_CONFIG,glib-config,glib-config)
 if test -n "$PROG_GLIB_CONFIG" ; then
   GLIB_INCLUDES="`glib-config --cflags`"
   GLIB_LIBS="`glib-config --libs`"
-  AC_DEFINE(HAVE_GLIB)
+  LIBS="$save_libs $GLIB_LIBS"
+  CPPFLAGS="$save_cppflags $GLIB_INCLUDES"
+  AC_CHECK_FUNC(g_main_set_poll_func,[
+  AC_CHECK_HEADER(glib.h,[AC_DEFINE(HAVE_GLIB)])])
 fi
+LIBS="$save_libs"
+CPPFLAGS="$save_cppflags"
 
 for version in 8.4 8.3 8.2 8.1 8.0 ; do
+  CPPFLAGS="$save_cppflags -I/usr/include/tcl$version"
   AC_CHECK_LIB(tcl$version,Tcl_Main,[
+  AC_CHECK_HEADER(tcl.h,[
     AC_DEFINE(HAVE_TCL)
     TCL_INCLUDES="-I/usr/include/tcl$version"
     TCL_LIBS="-ltcl$version"
     break
-  ])
+  ])])
 done
+CPPFLAGS="$save_cppflags"
 
-# the libwww RPM puts headers here:
 AC_CHECK_LIB(wwwcore,HTEvent_setRegisterCallback,[
   AC_DEFINE(HAVE_WWW)
   # This is just a little unpleasant.
   WWW_LIBS=" \
   -lwwwapp -lwwwcache -lwwwcore -lwwwdir -lwwwfile -lwwwftp -lwwwgopher \
   -lwwwhtml -lwwwhttp -lwwwinit -lwwwmime -lwwwmux -lwwwnews -lwwwstream \
-  -lwwwtelnet -lwwwtrans -lwwwutils -lwwwxml -lwwwzip -lxmlparse -lxmltok -lmd5"
-  WWW_INCLUDES="-I/usr/include/w3c-libwww"
+  -lwwwtelnet -lwwwtrans -lwwwutils -lwwwzip -lmd5"
+  WWW_INCLUDES="-I/usr/include/w3c-libwww" # the libwww RPM puts headers here
 ],,-lwwwutils)
 
-AC_CHECK_LIB(resolv,res_query)
 if test -z "$no_wacky_libs" ; then
+  AC_CHECK_LIB(resolv,res_query)
   AC_SEARCH_LIBS(gethostbyname,nsl)
   AC_SEARCH_LIBS(socket,socket)
 fi
