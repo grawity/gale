@@ -59,7 +59,8 @@ extern const struct gale_data null_data;
 
 /* These are currently defined in terms of the Boehm GC. */
 void *gale_malloc(size_t size);
-void *gale_malloc_atomic(size_t size); /* memory cannot contain pointers */
+void *gale_malloc_atomic(size_t size);  /* memory cannot contain pointers */
+void *gale_malloc_safe(size_t size);    /* memory will not be collected */
 void gale_free(void *);
 void gale_finalizer(void *,void (*)(void *,void *),void *);
 
@@ -181,11 +182,10 @@ size_t gale_group_size(struct gale_group);
 
 /* -- directory management stuff ------------------------------------------- */
 
-/* preinitialized pathnames, set by gale_init. 
+/* global.h has these preinitialized pathnames, set by gale_init. 
    dot_gale  -> ~/.gale
    home_dir  -> ~
    sys_dir   -> etc/gale */
-extern struct gale_text dot_gale,home_dir,sys_dir;
 
 /* (Attempt to) create a directory if it does not exist, with the specified
    name and mode. */
@@ -217,13 +217,6 @@ enum { GALE_NOTICE, GALE_WARNING, GALE_ERROR };
 /* Error handler function. */
 typedef void gale_error_f(int severity,char *msg);
 
-/* The prefix to prepend to error names -- by default the program name */
-extern const char *gale_error_prefix;
-
-/* The error handler to use -- set up to a default by gale_init, but you can
-   change this for custom error processing. */
-extern gale_error_f *gale_error_handler;
-
 /* Standard error handlers. */
 gale_error_f gale_error_syslog,gale_error_stderr;
 
@@ -232,8 +225,6 @@ gale_error_f gale_error_syslog,gale_error_stderr;
 void gale_alert(int severity,const char *,int err);
 
 /* -- debugging support ---------------------------------------------------- */
-
-extern int gale_debug;    /* debugging level (starts out zero) */
 
 /* Debugging printf.  Will only output if gale_debug > level. */
 void gale_dprintf(int level,const char *fmt,...);

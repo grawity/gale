@@ -1,5 +1,6 @@
 /* all.h -- include all the other gale headers. */
 
+#include "gale/global.h"
 #include "gale/auth.h"
 #include "gale/client.h"
 #include "gale/compat.h"

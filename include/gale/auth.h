@@ -11,7 +11,6 @@
 struct auth_id;
 
 typedef int auth_hook(struct auth_id *);
-extern auth_hook *hook_find_public,*hook_find_private;
 
 void init_auth_id(struct auth_id **,struct gale_text name);
 struct gale_text auth_id_name(struct auth_id *);
