@@ -251,7 +251,7 @@ static void *on_lookup(oop_adapter_adns *adns,adns_answer *reply,void *data) {
 
 static void get_name(int i,const char *name) {
 	q[i] = oop_adns_submit(
-	       adns,name,adns_r_a,adns_qf_owner,
+	       adns,NULL,name,adns_r_a,adns_qf_owner,
 	       on_lookup,&q[i]);
 }
 

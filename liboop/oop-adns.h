@@ -26,8 +26,13 @@ void oop_adns_delete(oop_adapter_adns *);
    The returned pointer is valid until the callback occurs or the
    query is cancelled (see below). */
 oop_adns_query *oop_adns_submit(
-	oop_adapter_adns *,
+	oop_adapter_adns *,int *errcode,
 	const char *owner,adns_rrtype type,adns_queryflags flags,
+	oop_adns_call *,void *);
+
+oop_adns_query *oop_adns_submit_reverse(
+	oop_adapter_adns *,int *errcode,
+	const struct sockaddr *addr,adns_rrtype type,adns_queryflags flags,
 	oop_adns_call *,void *);
 
 /* Cancel a running query. */

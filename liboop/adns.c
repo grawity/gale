@@ -70,13 +70,41 @@ void oop_adns_delete(oop_adapter_adns *a) {
 }
 
 oop_adns_query *oop_adns_submit(
-	oop_adapter_adns *a,
+	oop_adapter_adns *a,int *errcode,
 	const char *owner,adns_rrtype type,adns_queryflags flags,
 	oop_adns_call *call,void *data)
 {
 	oop_adns_query *q = oop_malloc(sizeof(*q));
+	int err;
 	if (NULL == q) return NULL;
-	if (adns_submit(a->state,owner,type,flags,q,&q->query)) {
+
+	err = adns_submit(a->state,owner,type,flags,q,&q->query);
+	if (errcode) *errcode = err;
+	if (err) {
+		oop_free(q);
+		return NULL;
+	}
+
+	q->a = a;
+	q->call = call;
+	q->data = data;
+	++q->a->count;
+	set_select(a);
+	return q;
+}
+
+oop_adns_query *oop_adns_submit_reverse(
+	oop_adapter_adns *a,int *errcode,
+	const struct sockaddr *addr,adns_rrtype type,adns_queryflags flags,
+	oop_adns_call *call,void *data)
+{
+	oop_adns_query *q = oop_malloc(sizeof(*q));
+	int err;
+	if (NULL == q) return NULL;
+
+	err = adns_submit_reverse(a->state,addr,type,flags,q,&q->query)));
+	if (errcode) *errcode = err;
+	if (err) {
 		oop_free(q);
 		return NULL;
 	}
