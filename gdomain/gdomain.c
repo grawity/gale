@@ -25,7 +25,7 @@ static void *on_connected(struct gale_server *server,
 
 	gale_daemon(source);
 	gale_kill(gale_var(G_("GALE_DOMAIN")),1);
-	gale_detach();
+	gale_detach(source);
 
 	if (0 != subscriptions.l) link_subscribe(line,subscriptions);
 	return OOP_CONTINUE;

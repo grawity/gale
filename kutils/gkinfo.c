@@ -75,6 +75,8 @@ void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 
 void *on_location(struct gale_text name,struct gale_location *loc,void *user) {
 	oop_source *oop = (oop_source *) user;
+	if (NULL == loc) return OOP_CONTINUE;
+
 	if (do_members) {
 		const struct gale_map * const members =
 			gale_location_members(loc);

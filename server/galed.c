@@ -9,7 +9,6 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/signal.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/utsname.h>
@@ -181,7 +180,7 @@ int main(int argc,char *argv[]) {
 	gale_daemon(source);
 	gale_kill(gale_text_from_number(server_port,10,0),1);
 	make_listener(source,server_port);
-	gale_detach();
+	gale_detach(source);
 
 	error = gale_make_queue(source);
 	gale_on_queue(error,on_error_queue,source);

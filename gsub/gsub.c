@@ -67,7 +67,6 @@ int do_fork = 0;			/* Run in the background? */
 int do_kill = 0;			/* Kill other gsub processes? */
 int do_chat = 0;			/* Report goings-on? */
 int do_verbose = 0;			/* Report everything? */
-int do_stop = 0;
 int sequence = 0;
 
 /* Send a message once it's all packed. */
@@ -130,37 +129,6 @@ static void notify(int in,struct gale_text presence) {
 			gale_alert(GALE_NOTICE,gale_text_concat(3,
 				G_("reporting presence \""),presence,G_("\"")),0);
 	}
-}
-
-/* Halt the main event loop when we finish sending our notices. */
-static void *on_empty(struct gale_link *link,void *data) {
-	if (do_chat) gale_alert(GALE_NOTICE,G_("disconnecting and terminating"),0);
-	do_stop = 1;
-	return OOP_HALT;
-}
-
-/* Give up trying to send a disconnection notice. */
-static void *on_timeout(oop_source *source,struct timeval time,void *x) {
-	gale_alert(GALE_WARNING,G_("cannot send logout notice, giving up"),0);
-	do_stop = 1;
-	return OOP_HALT;
-}
-
-/* When we receive a signal, send termination notices, and prepare to halt. */
-static void *on_signal(oop_source *source,int sig,void *data) {
-	struct timeval tv;
-
-	if (do_presence) switch (sig) {
-	case SIGHUP: notify(0,G_("out/logout")); break;
-	case SIGTERM: notify(0,G_("out/quit")); break;
-	case SIGINT: notify(0,G_("out/stopped")); break;
-	}
-
-	gettimeofday(&tv,NULL);
-	tv.tv_sec += TIMEOUT;
-	source->on_time(source,tv,on_timeout,NULL);
-	link_on_empty(conn,on_empty,NULL);
-	return OOP_CONTINUE; /* but real soon... */
 }
 
 static void *on_disconnect(struct gale_server *server,void *data) {
@@ -399,8 +367,8 @@ static void usage(void) {
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
 	"       -n          Do not fork (default if stdout redirected)\n"
-	"       -q          Quiet mode\n"
-	"       -v          Verbose mode\n"
+	"       -q          Extra quiet mode\n"
+	"       -v          Extra verbose mode\n"
 	"       -r          Run the default internal gsubrc and exit\n"
 	"       -f rcprog   Use rcprog (default gsubrc, if found)\n"
 #ifdef HAVE_DLOPEN
@@ -515,9 +483,6 @@ static void *on_complete() {
 	if (0 == count) gale_alert(GALE_ERROR,G_("no subscriptions!"),0);
 
 	/* Fork ourselves into the background, unless we shouldn't. */
-	source->on_signal(source,SIGHUP,on_signal,NULL);
-	source->on_signal(source,SIGTERM,on_signal,NULL);
-	source->on_signal(source,SIGINT,on_signal,NULL);
 	if (do_fork) gale_daemon(source);
 	if (tty) {
 		gale_kill(gale_text_from(gale_global->enc_filesys,tty,-1),do_kill);
@@ -585,6 +550,12 @@ static void argument(struct gale_text arg,int *positive,int chat) {
 		*positive = !*positive;
 	else if (arg.l > 0 && gale_text_compare(arg,G_("+"))) {
 		const int i = add_sub();
+
+		if (!gale_text_compare(gale_text_left(arg,1),G_("-")))
+			gale_alert(GALE_WARNING,gale_text_concat(3,
+				G_("leading dash on \""),
+				arg,G_("\" does NOT mean unsubscription")),0);
+
 		sub_positive[i] = *positive;
 		++lookup_count;
 		gale_find_location(source,arg,on_subscr_loc,(void *) i);
@@ -633,7 +604,7 @@ int main(int argc,char **argv) {
 	if (!presence.l) presence = G_("in/present");
 
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"dDhaAenkKqvr:f:l:p:"))) {
+	while (EOF != (opt = getopt(argc,argv,"dDhaAenkKqvrf:l:p:"))) {
 	struct gale_text str = !optarg ? null_text :
 		gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (opt) {
@@ -779,6 +750,6 @@ int main(int argc,char **argv) {
 	server = gale_make_server(source,conn,null_text,0);
 	gale_on_connect(server,on_connected,NULL);
 
-	while (!do_stop) oop_sys_run(sys);
+	oop_sys_run(sys);
 	return 0;
 }

@@ -98,7 +98,7 @@ void gale_do_cleanup();
 void gale_watch_tty(oop_source *oop,int fd);
 
 void gale_daemon(oop_source *);
-void gale_detach();
+void gale_detach(oop_source *);
 /*@}*/
 
 /** \name Memory Management */

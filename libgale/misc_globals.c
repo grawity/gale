@@ -38,12 +38,10 @@ static void read_conf(struct gale_text fn) {
 		}
 
 		i = 1;
-		while (i < line.l 
-		   && (line.p[i] != ' ' && line.p[i] != '\t')) ++i;
+		while (i < line.l && !is_space(line.p[i])) ++i;
 		var = gale_text_left(line,i);
 
-		while (i < line.l 
-		   && (line.p[i] == ' ' || line.p[i] == '\t')) ++i;
+		while (i < line.l && is_space(line.p[i])) ++i;
 		gale_text_accumulate(&val,gale_text_right(line,-i));
 
 		line = gale_read_line(fp);

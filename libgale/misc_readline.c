@@ -43,7 +43,7 @@ struct gale_text gale_read_line(FILE *fp) {
 
 		ret = gale_text_from(encoding,line,-1);
 		free(line);
-		return ret;
+		return gale_text_concat(2,ret,G_("\n"));
 	}
 #endif
 
