@@ -46,7 +46,7 @@ void gale_daemon(void) {
 	}
 }
 
-void gale_die(char *s,int err) {
+void gale_die(const char *s,int err) {
 	if (err) {
 		syslog(LOG_ERR,"fatal error (%s): %s\n",s,strerror(err));
 		fprintf(stderr,"fatal error (%s): %s\n",s,strerror(err));
@@ -57,7 +57,7 @@ void gale_die(char *s,int err) {
 	exit(1);
 }
 
-void gale_warn(char *s,int err) {
+void gale_warn(const char *s,int err) {
 	if (err) {
 		syslog(LOG_WARNING,"warning (%s): %s\n",s,strerror(err));
 		gale_dprintf(0,"warning (%s): %s\n",s,strerror(err));

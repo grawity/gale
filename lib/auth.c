@@ -13,9 +13,7 @@
 #include "global.h"
 #include "rsaref.h"
 
-#include "gale/client.h"
-#include "gale/util.h"
-#include "gale/auth.h"
+#include "gale/all.h"
 
 static R_RSA_PUBLIC_KEY pub_key;
 static R_RSA_PRIVATE_KEY priv_key;
@@ -149,10 +147,9 @@ void gale_id(const char **ptr) {
 
 static int read_file(const char *dir,int mode,const char *file) {
 	int fd;
-	gale_chdir();
-	gale_subdir(dir,mode);
-	fd = open(file,O_RDONLY);
-	gale_unsubdir();
+	sub_dir(dot_gale,dir,mode);
+	fd = open(dir_file(dot_gale,file),O_RDONLY);
+	up_dir(dot_gale);
 	if (fd < 0) {
 		if (errno == ENOENT) return -1;
 		perror(file);
@@ -183,10 +180,9 @@ static int read_priv_key(const char *id,R_RSA_PRIVATE_KEY *key) {
 
 static int write_file(const char *dir,int dmode,const char *file,int fmode) {
 	int fd;
-	gale_chdir();
-	gale_subdir(dir,dmode);
-	fd = creat(file,fmode);
-	gale_unsubdir();
+	sub_dir(dot_gale,dir,dmode);
+	fd = creat(dir_file(dot_gale,file),fmode);
+	up_dir(dot_gale);
 	if (fd < 0) {
 		perror(file);
 		exit(1);
@@ -198,8 +194,7 @@ void gale_keys(void) {
 	static int got_keys = 0;
 	R_RANDOM_STRUCT rand;
 	R_RSA_PROTO_KEY proto;
-	const char *id,*home,*user,*domain;
-	char *tmp;
+	const char *id,*user,*domain,*tmp;
 	int fd,i;
 
 	gale_id(&id);
@@ -209,7 +204,6 @@ void gale_keys(void) {
 	if (got_keys) return;
 	got_keys = 1;
 
-	gale_chdir();
 	if (!read_pub_key(id,&pub_key) && !read_priv_key(id,&priv_key))
 		return;
 
@@ -238,24 +232,19 @@ void gale_keys(void) {
 	if (strncmp(user,id,i) || id[i] != '@' || strcmp(id+i+1,domain))
 		return;
 
-	home = getenv("HOME");
-	if (home) {
-		tmp = gale_malloc(strlen(home) + 20);
-		sprintf(tmp,"%s/.gale-public-key",home);
-		gale_subdir("public-keys",0777);
-		unlink(tmp);
-		if (link(id,tmp)) {
-			perror(tmp);
-			exit(1);
-		}
+	tmp = dir_file(home_dir,".gale-public-key");
+	sub_dir(dot_gale,"public-keys",0777);
+	unlink(tmp);
+	if (link(dir_file(dot_gale,id),tmp)) 
+		gale_warn(tmp,errno);
+	else {
 		umask(i = umask(0));
 		if (chmod(tmp,(0666 & ~i) | 0444)) {
 			perror(tmp);
 			exit(1);
 		}
-		gale_unsubdir();
-		gale_free(tmp);
 	}
+	up_dir(dot_gale);
 }
 
 static int find_key(const char *id,R_RSA_PUBLIC_KEY *key) {
