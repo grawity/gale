@@ -1,5 +1,6 @@
 CC = gcc
 CFLAGS = -Werror -Wall -g
+YACC = bison -y
 
 -include $(TOP)/defs
 -include $(TOP)/defs.$(HOST)
@@ -7,7 +8,7 @@ CFLAGS = -Werror -Wall -g
 -include $(TOP)/defs.$(ARCH)
 
 INCLUDES = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC) $(DB_INC) $(CGIC_INC)
-DEFINES = -DGALE_CONF=\"$(GALE_CONF)\"
+DEFINES = -DGALE_CONF=\"$(GALE_CONF)\" -DSTDC_HEADERS
 
 CPPFLAGS = $(INCLUDES) $(DEFINES)
 LDLIBS = -L$(TOP)/lib -lgale $(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB) $(CGIC_LIB)
@@ -27,9 +28,9 @@ ifdef LIB_TARGETS
 	@mkdir -p $(LIB_DIR)
 	[ -z "$(LIB_TARGETS)" ] || cp $(LIB_TARGETS) $(LIB_DIR)
 endif
-ifdef INCLUDES
+ifdef HEADERS
 	@mkdir -p $(INC_DIR)
-	[ -z "$(INCLUDES)" ] || cp $(INCLUDES) $(INC_DIR)
+	[ -z "$(HEADERS)" ] || cp $(HEADERS) $(INC_DIR)
 endif
 
 clean::
