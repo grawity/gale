@@ -1,4 +1,4 @@
-RSAREF_INC = -I$(TOP)/../source
+RSAREF_INC = -I$(TOP)/../rsaref/source
 INC_DIR = $(HOME)/include/gale
 
 ifdef ARCH
