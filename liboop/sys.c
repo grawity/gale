@@ -263,8 +263,8 @@ oop_source_sys *oop_sys_new(void) {
 }
 
 static void *sys_time_run(oop_source_sys *sys) {
-	void *ret = NULL;
-	while (NULL == ret && NULL != sys->time_run) {
+	void *ret = OOP_CONTINUE;
+	while (OOP_CONTINUE == ret && NULL != sys->time_run) {
 		struct sys_time *p = sys->time_run;
 		sys->time_run = sys->time_run->next;
 		--sys->num_events;
@@ -275,14 +275,14 @@ static void *sys_time_run(oop_source_sys *sys) {
 }
 
 void *oop_sys_run(oop_source_sys *sys) {
-	void * volatile ret = NULL;
+	void * volatile ret = OOP_CONTINUE;
 	assert(!sys->in_run && "oop_sys_run is not reentrant");
 	sys->in_run = 1;
 
-	while (0 != sys->num_events && NULL == ret) {
+	while (0 != sys->num_events && OOP_CONTINUE == ret) {
 		struct timeval * volatile ptv = NULL;
 		struct timeval tv;
-		fd_set rfd,wfd;
+		fd_set rfd,wfd,xfd;
 		int i,rv;
 
 		if (NULL != sys->time_run) {
@@ -315,13 +315,15 @@ void *oop_sys_run(oop_source_sys *sys) {
 
 		FD_ZERO(&rfd);
 		FD_ZERO(&wfd);
+		FD_ZERO(&xfd);
 		for (i = 0; i < sys->num_files; ++i) {
 			if (NULL != sys->files[i][OOP_READ].f) FD_SET(i,&rfd);
 			if (NULL != sys->files[i][OOP_WRITE].f) FD_SET(i,&wfd);
+			if (NULL != sys->files[i][OOP_EXCEPTION].f) FD_SET(i,&xfd);
 		}
 
 		do
-			rv = select(sys->num_files,&rfd,&wfd,NULL,ptv);
+			rv = select(sys->num_files,&rfd,&wfd,&xfd,ptv);
 		while (0 > rv && EINTR == errno);
 
 		sys->do_jmp = 0;
@@ -330,39 +332,43 @@ void *oop_sys_run(oop_source_sys *sys) {
 
 		if (sys->sig_active) {
 			sys->sig_active = 0;
-			for (i = 0; NULL == ret && i < OOP_NUM_SIGNALS; ++i) {
+			for (i = 0; OOP_CONTINUE == ret && i < OOP_NUM_SIGNALS; ++i) {
 				if (sys->sig[i].active) {
 					sys->sig[i].active = 0;
 					sys->sig[i].ptr = sys->sig[i].list;
 				}
-				while (NULL == ret && NULL != sys->sig[i].ptr) {
+				while (OOP_CONTINUE == ret && NULL != sys->sig[i].ptr) {
 					struct sys_signal_handler *h;
 					h = sys->sig[i].ptr;
 					sys->sig[i].ptr = h->next;
 					ret = h->f(&sys->oop,i,h->v);
 				}
 			}
-			if (NULL != ret) {
+			if (OOP_CONTINUE != ret) {
 				sys->sig_active = 1; /* come back */
 				break;
 			}
 		}
 
 		if (0 < rv) {
-			for (i = 0; i < sys->num_files && NULL == ret; ++i)
+			for (i = 0; i < sys->num_files && OOP_CONTINUE == ret; ++i)
+				if (FD_ISSET(i,&xfd) && NULL != sys->files[i][OOP_EXCEPTION].f)
+					ret = sys->files[i][OOP_EXCEPTION].f(&sys->oop,i,OOP_EXCEPTION,
+					                          sys->files[i][OOP_EXCEPTION].v);
+			for (i = 0; i < sys->num_files && OOP_CONTINUE == ret; ++i)
 				if (FD_ISSET(i,&wfd) && NULL != sys->files[i][OOP_WRITE].f)
 					ret = sys->files[i][OOP_WRITE].f(&sys->oop,i,OOP_WRITE,
 					                           sys->files[i][OOP_WRITE].v);
-			for (i = 0; i < sys->num_files && NULL == ret; ++i)
+			for (i = 0; i < sys->num_files && OOP_CONTINUE == ret; ++i)
 				if (FD_ISSET(i,&rfd) && NULL != sys->files[i][OOP_READ].f)
 					ret = sys->files[i][OOP_READ].f(&sys->oop,i,OOP_READ,
 					                          sys->files[i][OOP_READ].v);
-			if (NULL != ret) break;
+			if (OOP_CONTINUE != ret) break;
 		}
 
 		/* Catch any leftover timeout events. */
 		ret = sys_time_run(sys);
-		if (NULL != ret) break;
+		if (OOP_CONTINUE != ret) break;
 
 		if (NULL != sys->time_queue) {
 			struct sys_time *p,**pp = &sys->time_queue;
