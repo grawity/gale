@@ -71,6 +71,7 @@ static void *on_abort(oop_source *s,struct timeval tv,void *x) {
 	struct gale_connect *conn = (struct gale_connect *) x;
 	struct sockaddr_in addr;
 	gale_abort_connect(conn);
+	memset(&addr,0,sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = 0;
 	addr.sin_port = 0;
@@ -96,6 +97,7 @@ static void del_address(struct gale_connect *conn,int i) {
 static int is_local(int sock,struct in_addr *addr) {
 	struct sockaddr_in sin;
 	int i;
+	memset(&sin,0,sizeof(sin));
 	sin.sin_family = AF_INET;
 	sin.sin_addr = *addr;
 	sin.sin_port = 0;
@@ -213,6 +215,7 @@ static void add_name(struct gale_connect *conn,struct gale_text name,int port) {
 	if (NULL != res->query) conn->resolving[conn->num_resolve++] = res;
 #else
 	if (NULL == he) return;
+	memset(&sin,0,sizeof(sin));
 	sin.sin_family = AF_INET;
 	sin.sin_port = htons(port);
 	for (i = 0; NULL != he->h_addr_list[i]; ++i) {
@@ -350,6 +353,7 @@ static void *on_lookup(oop_adapter_adns *adns,adns_answer *answer,void *data) {
 		     : res->name;
 		struct sockaddr_in sin;
 		assert(adns_r_a == answer->type);
+		memset(&sin,0,sizeof(sin));
 		sin.sin_family = AF_INET;
 		sin.sin_port = htons(res->port);
 		for (i = 0; i < answer->nrrs; ++i) {
