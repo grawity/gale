@@ -1,4 +1,5 @@
 #include <syslog.h>
+#include <fcntl.h>
 
 #include "gale/all.h"
 #include "connect.h"
@@ -7,6 +8,7 @@
 
 struct connect *new_connect(int rfd,int wfd) {
 	struct connect *conn = gale_malloc(sizeof(struct connect));
+	fcntl(wfd,F_SETFL,O_NONBLOCK);
 	conn->rfd = rfd;
 	conn->wfd = wfd;
 	conn->link = new_link();
