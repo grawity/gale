@@ -2,7 +2,7 @@
 
 AUTOMAKE_OPTIONS = foreign 1.2
 noinst_SCRIPTS = common.sh config.sh domain.sh
-bin_SCRIPTS = gale-config
+bin_SCRIPTS = gale-config gale-install
 EXTRA_DIST = common.sh config.sh domain.sh
 
 if BUILD_GZGW
@@ -23,7 +23,7 @@ else
 gc_dir =
 endif
 
-SUBDIRS = ${gc_dir} ${rsaref_dir} \
+SUBDIRS = @subdirs@ ${gc_dir} ${rsaref_dir} \
 	lib server gsend gsub gwatch kutils gdomain \
 	${gzgw_dir} include
 
@@ -35,26 +35,12 @@ release: dist
 	ln -sf $(PACKAGE)-$(VERSION).tar.gz ../gdist/$(PACKAGE).tar.gz ; \
 	ln -sf $(PACKAGE)-$(VERSION).tar.bz2 ../gdist/$(PACKAGE).tar.bz2 ; fi
 
-install-data-local: install-copying config
-
-install-copying:
-	$(INSTALL_DATA) COPYING $(sysconfdir)/gale/COPYING
+install-data-local:
+	mkdir -p "$(sysconfdir)/gale/auth/trusted"
+	cp "$(srcdir)/kutils/ROOT" "$(sysconfdir)/gale/auth/trusted"
+	$(INSTALL_DATA) "$(srcdir)/COPYING" "$(sysconfdir)/gale/COPYING"
+	@echo ""
+	@echo "*** run $(bindir)/gale-install to complete installation ***"
 
 install-exec-local:
 	$(PROG_LDCONFIG) || true
-
-config: common.sh config.sh
-	sysconfdir=$(sysconfdir) ; \
-	sbindir=$(sbindir) ; \
-	bindir=$(bindir) ; \
-	srcdir=$(srcdir) ; \
-	export srcdir sysconfdir sbindir bindir ; \
-	sh $(srcdir)/config.sh
-
-domain: common.sh domain.sh
-	sysconfdir=$(sysconfdir) ; \
-	sbindir=$(sbindir) ; \
-	bindir=$(bindir) ; \
-	srcdir=$(srcdir) ; \
-	export srcdir sysconfdir sbindir bindir ; \
-	sh $(srcdir)/domain.sh

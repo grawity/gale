@@ -101,10 +101,17 @@ fi
 AC_MSG_CHECKING([for local copy of Boehm GC])
 if test -f "${srcdir}/gc/alloc.c"; then
   AC_MSG_RESULT(yes)
-  if test -f "${srcdir}/gc/Makefile" -a ! -f "gc/Makefile.gc" ; then
+  if test ! -f "gc/Makefile.gc" ; then
     mkdir -p gc
-    cp "${srcdir}/gc/Makefile" gc/Makefile.gc
-    rm -f gc/Makefile
+    if test -f "${srcdir}/gc/Makefile" ; then
+      cp "${srcdir}/gc/Makefile" "gc/Makefile.gc"
+    elif test -f "${srcdir}/gc/Makefile.gc" ; then
+      cp "${srcdir}/gc/Makefile.gc" "gc/Makefile.tmp"
+      mv "gc/Makefile.tmp" "gc/Makefile.gc"
+    else
+      AC_MSG_ERROR(cannot find Makefile for gc)
+    fi
+    rm -f "gc/Makefile"
   fi
   CPPFLAGS="-I\${top_srcdir}/gc/include $CPPFLAGS"
   GALE_LIBS="$GALE_LIBS \${top_builddir}/gc/libgc.a"
@@ -143,7 +150,6 @@ if test -f "${srcdir}/liboop/oop.h"; then
   AC_MSG_RESULT(yes)
   CPPFLAGS="-I\${top_srcdir}/liboop $CPPFLAGS"
   GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop.la"
-  build_oop=true
 else
   AC_MSG_RESULT(no)
   AC_CHECK_LIB(oop,oop_sys_new,[:],[
@@ -174,12 +180,12 @@ AC_CHECK_SIZEOF(long)
 
 dnl Checks for library functions.
 
-dnl Configurations that would break tests.
+dnl Output.
 
-CPPFLAGS="-I\${top_srcdir}/include -I\${top_builddir}/include $CPPFLAGS"
-CPPFLAGS="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $CPPFLAGS"
+INCLUDES="-I\${top_srcdir}/include -I\${top_builddir}/include"
+INCLUDES="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $INCLUDES"
 
-AC_SUBST(DB_LIBS)
+AC_SUBST(INCLUDES)
 AC_SUBST(ZEPHYR_LIBS)
 AC_SUBST(READLINE_LIBS)
 AC_SUBST(DL_LIBS)
@@ -192,6 +198,7 @@ AM_CONDITIONAL(BUILD_GC,test x$build_gc = xtrue)
 
 AC_OUTPUT(
 	gale-config
+	gale-install
 	Makefile 
 	gc/Makefile
 	gc/include/Makefile

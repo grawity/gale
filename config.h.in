@@ -21,12 +21,6 @@
 /* Sun Solaris */
 #undef OS_SOLARIS
 
-/* Package name */
-#undef PACKAGE
-
-/* Version */
-#undef VERSION
-
 /* The number of bytes in a int.  */
 #undef SIZEOF_INT
 
@@ -83,3 +77,10 @@
 
 /* Define if you have the socket library (-lsocket).  */
 #undef HAVE_LIBSOCKET
+
+/* Name of package */
+#undef PACKAGE
+
+/* Version number of package */
+#undef VERSION
+
