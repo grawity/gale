@@ -205,23 +205,7 @@ static void clean(struct gale_text dir) {
 	gale_alert(GALE_NOTICE,gale_text_concat(3,
 		G_("our turn to clean \""),dir,G_("\"")),0);
 
-	pid = fork();
-
-	if (pid < 0) {
-		gale_alert(GALE_WARNING,G_("fork"),errno);
-		return;
-	} else if (pid > 0) {
-		gale_wait(pid);
-		return;
-	}
-
-	/* We fork _again_ so that we can go about our job independently of
-	   the parent, without any bothersome zombies. */
-	if (fork()) _exit(0);
-
 	/* XXX -- perform cache cleaning here! */
-
-	_exit(0);
 }
 
 static int store(struct gale_text dir,struct gale_text name,struct gale_data data) {
