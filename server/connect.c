@@ -107,7 +107,7 @@ static void *on_expire(oop_source *source,struct timeval when,void *v) {
 	while (QUEUE_AGE > 0 && link_queue_num(conn->link) > 0
 	   &&  gale_time_compare(link_queue_time(conn->link),cut) < 0)
 		link_queue_drop(conn->link);
-	source->cancel_time(source,conn->expire,on_expire,NULL);
+	source->cancel_time(source,conn->expire,on_expire,conn);
 	if (QUEUE_AGE > 0 && link_queue_num(conn->link) > 0) {
 		struct gale_time expire = link_queue_time(conn->link);
 		expire = gale_time_add(expire,gale_time_seconds(QUEUE_AGE));
