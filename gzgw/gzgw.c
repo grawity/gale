@@ -1,7 +1,6 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
 #include <string.h>
 #include <unistd.h>
 #include <syslog.h>
@@ -209,8 +208,8 @@ void g_to_z(void) {
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gzgw [-n] [-c class[:class...]] [[cat]@[server]]\n"
-	"flags: -c       Specify Zephyr class(es) to watch\n"
+	"usage: gzgw [-n] [-c class[:class...]] cat\n"
+	"flags: -c          Specify Zephyr class(es) to watch\n"
 	"defaults: class MESSAGE and category 'zephyr'.\n"
 	,GALE_BANNER);
 	exit(1);
@@ -238,7 +237,7 @@ void copt(char *s) {
 }
 
 int main(int argc,char *argv[]) {
-	char *spec = DEFAULT_CATEGORY;
+	char *category = DEFAULT_CATEGORY;
 	int retval,opt;
 	fd_set fds;
 
@@ -261,15 +260,10 @@ int main(int argc,char *argv[]) {
 	}
 
 	if (optind < argc - 1) usage();
-	if (optind == argc - 1) spec = argv[optind];
-
-	if ((category = strrchr(spec,'@')))
-		category = gale_strndup(spec,category - spec);
-	else
-		category = spec;
+	if (optind == argc - 1) category = argv[optind];
 
 	gale_dprintf(2,"subscribing to gale: \"%s\"\n",category);
-	if (!(client = gale_open(spec,32,262144))) exit(1);
+	client = gale_open(category,32,262144);
 
 	link_subscribe(client->link,category);
 
