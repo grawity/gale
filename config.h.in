@@ -9,6 +9,9 @@
 /* The SOCKS firewall proxy */
 #undef HAVE_SOCKS
 
+/* The ADNS resolver library */
+#undef HAVE_ADNS
+
 /* BSD-based operating systems */
 #undef OS_BSD
 
@@ -66,14 +69,8 @@
 /* Define if you have the <term.h> header file.  */
 #undef HAVE_TERM_H
 
-/* Define if you have the ncurses library (-lncurses).  */
-#undef HAVE_LIBNCURSES
-
 /* Define if you have the nsl library (-lnsl).  */
 #undef HAVE_LIBNSL
-
-/* Define if you have the resolv library (-lresolv).  */
-#undef HAVE_LIBRESOLV
 
 /* Define if you have the socket library (-lsocket).  */
 #undef HAVE_LIBSOCKET

@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(gale,0.21)
+AM_INIT_AUTOMAKE(gale,0.90a)
 AM_CONFIG_HEADER(include/gale/config.h:config.h.in)
 AC_CANONICAL_HOST
 
@@ -14,7 +14,6 @@ AC_ARG_ENABLE(gzgw,
   no)  build_gzgw=false ;;
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-gzgw) ;;
 esac],[build_gzgw=false])
-AM_CONDITIONAL(BUILD_GZGW,test x$build_gzgw = xtrue)
 
 AC_ARG_WITH(socks,
 [  --with-socks            Use SOCKS firewall proxy (requires libsocks)],
@@ -66,9 +65,9 @@ if test -z "$no_wacky_libs" ; then
 fi
 
 AC_CHECK_LIB(termcap,tgetent,[
-  LIBS="-ltermcap $LIBS"
+  GALE_LIBS="$GALE_LIBS -ltermcap"
 ],[
-  AC_CHECK_LIB(ncurses,tgetent)
+  AC_CHECK_LIB(ncurses,tgetent,[GALE_LIBS="$GALE_LIBS -lncurses"])
 ])
 
 AC_CHECK_LIB(dl,dlopen,[
@@ -80,8 +79,8 @@ AC_CHECK_LIB(readline,readline,[
 
 if test x$use_socks = xtrue ; then
 AC_CHECK_LIB(socks,SOCKSinit,[
-  LIBS="$LIBS -lsocks"
-  AC_CHECK_LIB(resolv,res_query)
+  GALE_LIBS="$GALE_LIBS -lsocks"
+  AC_CHECK_LIB(resolv,res_query,[GALE_LIBS="$GALE_LIBS -lresolv"])
   AC_DEFINE(HAVE_SOCKS) 
 ],[
   AC_MSG_ERROR(cannot find SOCKS library)
@@ -124,7 +123,6 @@ else
   GALE_LIBS="$GALE_LIBS -lgc"
 fi
 
-
 AC_MSG_CHECKING([for local copy of RSAREF source])
 if test -f "${srcdir}/rsaref/source/rsa.c"; then
   AC_MSG_RESULT(yes)
@@ -149,11 +147,19 @@ AC_MSG_CHECKING([for local copy of liboop])
 if test -f "${srcdir}/liboop/oop.h"; then
   AC_MSG_RESULT(yes)
   CPPFLAGS="-I\${top_srcdir}/liboop $CPPFLAGS"
+  AC_CHECK_LIB(adns,adns_init,[
+    GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop-adns.la -ladns"
+    AC_DEFINE(HAVE_ADNS)
+  ])
   GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop.la"
 else
   AC_MSG_RESULT(no)
   AC_CHECK_LIB(oop,oop_sys_new,[:],[
     AC_MSG_ERROR(cannot find liboop library, see INSTALL directions)
+  ])
+  AC_CHECK_LIB(adns,adns_init,[
+    GALE_LIBS="$GALE_LIBS -loop-adns -ladns"
+    AC_DEFINE(HAVE_ADNS)
   ])
   GALE_LIBS="$GALE_LIBS -loop"
 fi

@@ -13,19 +13,19 @@
    Uses the on_error event handler. */
 struct gale_server *gale_open(
 	oop_source *,struct gale_link *,
-	struct gale_text subscr,struct gale_text server);
+	struct gale_text subscr,struct gale_text server,int avoid_local);
 
 /* Stop connecting to the server. */
 void gale_close(struct gale_server *);
 
 /* Notifications. */
-void gale_on_connect(struct gale_server *,
-     void *(*)(struct gale_server *,struct gale_text host,void *),
-     void *);
+typedef void *gale_call_disconnect(struct gale_server *,void *);
+typedef void *gale_call_connect(struct gale_server *,
+	struct gale_text host,
+	struct sockaddr_in addr,void *);
 
-void gale_on_disconnect(struct gale_server *,
-     void *(*)(struct gale_server *,void *),
-     void *);
+void gale_on_connect(struct gale_server *,gale_call_connect *,void *);
+void gale_on_disconnect(struct gale_server *,gale_call_disconnect *,void *);
 
 /* -- standard fragment utilities -------------------------------------------*/
 

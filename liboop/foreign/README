@@ -5,7 +5,7 @@ adapters without requiring the presence of the foreign components in question.
 An adapter will still not function without the code it adapts, of course, but
 at least this way we eliminate pesky build ordering issues.
 
-Many of these are licensed under specific agreements:
+Many of these have specific licensing terms and agreements:
 
 adns.h
 
@@ -21,3 +21,36 @@ adns.h
         and to any files adns.h with similar contents and function I might
         release during the remainder of this calendar year (1999).
 
+HTEvent.h
+HTMemory.h
+HTUtils.h
+
+    These header files are extracted from libwww.
+    Libwww is a general-purpose Web API written in C.
+    <URL:http://www.w3.org/Library/>
+
+    Libwww code is subject to this copyright:
+
+    Copyright © 1995-1998 World Wide Web Consortium, (Massachusetts Institute
+    of Technology, Institut National de Recherche en Informatique et en
+    Automatique, Keio University). All Rights Reserved. This program is
+    distributed under the W3C's Software Intellectual Property License. This
+    program is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE.
+
+    See W3C License http://www.w3.org/Consortium/Legal/ for more details.
+
+    Copyright © 1995 CERN. "This product includes computer software created and
+    made available by CERN. This acknowledgment shall be mentioned in full in
+    any product which includes the CERN computer software included herein or
+    parts thereof." 
+
+glib.h
+
+    This is the public header file for GLIB, a "library of useful routines
+    for C programming" used heavily by the popular GTK+ widget set.
+    <URL:http://www.gtk.org/>
+
+    GLIB is licensed under the GNU Library GPL, version 2.  The copyright
+    is held by Peter Mattis, Spencer Kimball and Josh MacDonald.

@@ -7,22 +7,33 @@
 # See the file COPYING for details.
 
 AUTOMAKE_OPTIONS = foreign 1.2
-lib_LTLIBRARIES = liboop.la liboop-adns.la
-noinst_PROGRAMS = test-oop test-adns
+lib_LTLIBRARIES = liboop.la liboop-adns.la liboop-glib.la liboop-www.la
+INCLUDES = $(GLIB_INCLUDES) $(WWW_INCLUDES) -I$(top_srcdir)/foreign
 
-INCLUDES = -I$(srcdir)/foreign
+# versions updated as of 0.4
 
-liboop_la_LDFLAGS = -version-info 1:0:1 # version:revision:age
-liboop_la_SOURCES = sys.c select.c alloc.c
+liboop_la_LDFLAGS = -version-info 2:0:0 # version:revision:age
+liboop_la_SOURCES = sys.c select.c signal.c alloc.c
 
-liboop_adns_la_LDFLAGS = -version-info 0:0:0 # version:revision:age
+liboop_adns_la_LDFLAGS = -version-info 1:0:1
 liboop_adns_la_SOURCES = adns.c
 
-include_HEADERS = oop.h oop-adns.h
+liboop_glib_la_LDFLAGS = -version-info 0:0:0
+liboop_glib_la_SOURCES = glib.c
 
-LDADD = liboop-adns.la liboop.la -ladns
+liboop_www_la_LDFLAGS = -version-info 0:0:0
+liboop_www_la_SOURCES = www.c
+
+include_HEADERS = oop.h oop-adns.h oop-glib.h oop-www.h
+
+noinst_PROGRAMS = test-oop
+
 test_oop_SOURCES = test-oop.c
-test_adns_SOURCES = test-adns.c
+test_oop_LDADD = $(ADNS_LIBS) $(GLIB_LIBS) $(WWW_LIBS) liboop.la
+
+dist-hook:
+	mkdir $(distdir)/foreign
+	cp -p $(srcdir)/foreign/README $(srcdir)/foreign/*.h $(distdir)/foreign
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

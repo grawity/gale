@@ -270,14 +270,14 @@ int main(int argc,char *argv[]) {
 		if (found) {
 			gale_beep(stderr);
 			gale_alert(GALE_WARNING,"*** HEATH ALERT! *** "
-			           "Category looks like an ID!",0);
+			           "Category may be an ID!",0);
 		}
 	}
 
 	/* Open a connection to the server; don't subscribe to anything. */
 	sys = oop_sys_new();
 	link = new_link(oop_sys_source(sys));
-	server = gale_open(oop_sys_source(sys),link,G_("-"),null_text);
+	server = gale_open(oop_sys_source(sys),link,G_("-"),null_text,0);
 
 	/* If stdin is a TTY, prompt the user. */
 	if (ttyin) {
@@ -339,6 +339,7 @@ int main(int argc,char *argv[]) {
 	/* Add the message to the outgoing queue. */
 	link_put(link,msg);
 	link_on_empty(link,on_empty,NULL);
+	link_shutdown(link);
 
 	/* Wait for it to go! */
 	oop_sys_run(sys);

@@ -54,6 +54,7 @@ void oop_adns_delete(oop_adapter_adns *a) {
 	assert(0 == a->count && 
 	       "deleting oop_adapter_adns with outstanding queries");
 	a->source->cancel_time(a->source,OOP_TIME_NOW,on_process,a);
+	oop_select_delete(a->select);
 	adns_finish(a->state);
 	oop_free(a);
 }
@@ -81,8 +82,8 @@ oop_adns_query *oop_adns_submit(
 void oop_adns_cancel(oop_adns_query *q) {
 	adns_cancel(q->query);
 	--q->a->count;
-	oop_free(q);
 	set_select(q->a);
+	oop_free(q);
 }
 
 static void set_select(oop_adapter_adns *a) {

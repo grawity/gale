@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/socket.h>
 
 #define opcode_puff 0
 #define opcode_will 1
@@ -27,6 +28,7 @@
 struct link {
 	struct gale_message *msg;
 	struct link *next;
+	struct gale_time when;
 };
 
 struct pair {
@@ -75,6 +77,7 @@ struct gale_link {
 	struct gale_message *out_msg,*out_will;
 	struct gale_text out_text,out_gimme;
 	struct link *out_queue;
+	enum { no_shutdown, do_shutdown, done_shutdown } out_shutdown;
 	int queue_num;
 	size_t queue_mem;
 
@@ -587,6 +590,26 @@ static int get_data(struct gale_link *l,
 	return 1;
 }
 
+static oop_call_fd on_read,on_write;
+static oop_call_time on_process;
+
+static void deactivate(struct gale_link *l) {
+	l->source->cancel_time(l->source,OOP_TIME_NOW,on_process,l);
+	if (-1 != l->fd) {
+		l->source->cancel_fd(l->source,l->fd,OOP_READ);
+		l->source->cancel_fd(l->source,l->fd,OOP_WRITE);
+	}
+}
+
+static void activate(struct gale_link *l) {
+	deactivate(l);
+	l->source->on_time(l->source,OOP_TIME_NOW,on_process,l);
+	if (-1 != l->fd) {
+		l->source->on_fd(l->source,l->fd,OOP_READ,on_read,l);
+		l->source->on_fd(l->source,l->fd,OOP_WRITE,on_write,l);
+	}
+}
+
 struct gale_link *new_link(struct oop_source *source) {
 	struct gale_link *l;
 	gale_create(l);
@@ -616,6 +639,7 @@ struct gale_link *new_link(struct oop_source *source) {
 	l->out_gimme = null_text;
 	l->out_msg = l->out_will = NULL;
 	l->out_queue = NULL;
+	l->out_shutdown = no_shutdown;
 	l->queue_num = 0;
 	l->queue_mem = 0;
 
@@ -629,48 +653,43 @@ struct gale_link *new_link(struct oop_source *source) {
 	return l;
 }
 
-static oop_call_fd on_read,on_write;
-static oop_call_time on_process;
+void delete_link(struct gale_link *l) {
+	link_set_fd(l,-1);
+	deactivate(l);
+}
 
 static void *on_process(oop_source *source,struct timeval tv,void *user) {
 	struct gale_link *l = (struct gale_link *) user;
-	void *ret = OOP_CONTINUE;
 	assert(source == l->source);
 
-	while (OOP_CONTINUE == ret 
-	    && NULL != l->in_puff 
-            && NULL != l->on_message) {
+	if (NULL != l->in_puff && NULL != l->on_message) {
 		struct gale_message *puff = l->in_puff;
 		l->in_puff = NULL;
-		ret = l->on_message(l,puff,l->on_message_data);
 		if (NULL != l->input) input_buffer_more(l->input);
+		activate(l);
+		return l->on_message(l,puff,l->on_message_data);
 	}
 
-	if (OOP_CONTINUE == ret && NULL != l->in_will && NULL != l->on_will) {
+	if (NULL != l->in_will && NULL != l->on_will) {
 		struct gale_message *will = l->in_will;
 		l->in_will = NULL;
-		ret = l->on_will(l,will,l->on_will_data);
+		activate(l);
+		return l->on_will(l,will,l->on_will_data);
 	}
 
-	if (OOP_CONTINUE == ret 
-	&&  0 != l->in_gimme.l && NULL != l->on_subscribe) {
+	if (0 != l->in_gimme.l && NULL != l->on_subscribe) {
 		struct gale_text sub = l->in_gimme;
 		l->in_gimme = null_text;
-		ret = l->on_subscribe(l,sub,l->on_subscribe_data);
+		activate(l);
+		return l->on_subscribe(l,sub,l->on_subscribe_data);
 	}
 
-	if (OOP_CONTINUE == ret 
-	&&  l->in_version > -1
-	&&  0 == link_queue_num(l) && NULL != l->on_empty) {
-		ret = l->on_empty(l,l->on_empty_data);
-		l->source->on_time(l->source,OOP_TIME_NOW,on_process,l);
-	} else if (OOP_CONTINUE != ret)
-		l->source->on_time(l->source,OOP_TIME_NOW,on_process,l);
+	if (-1 == l->fd && 0 == link_queue_num(l) && NULL != l->on_empty) {
+		activate(l);
+		return l->on_empty(l,l->on_empty_data);
+	}
 
-	/* We may have freed up room for more reading. */
-	l->source->cancel_fd(l->source,l->fd,OOP_READ,on_read,l);
-	l->source->on_fd(l->source,l->fd,OOP_READ,on_read,l);
-	return ret;
+	return OOP_CONTINUE;
 }
 
 static void *on_read(oop_source *source,int fd,oop_event event,void *user) {
@@ -687,22 +706,24 @@ static void *on_read(oop_source *source,int fd,oop_event event,void *user) {
 	}
 
 	if (!input_buffer_ready(l->input))
-		l->source->cancel_fd(l->source,l->fd,OOP_READ,on_read,l);
+		l->source->cancel_fd(l->source,l->fd,OOP_READ);
 	else if (input_buffer_read(l->input,l->fd)) {
-		int err = errno;
-/* gale_dprintf(1,"[%d] closing\n",l->fd); */
-		link_set_fd(l,-1);
-		if (NULL != l->on_error) 
-			ret = l->on_error(l,err,l->on_error_data);
+		if (done_shutdown == l->out_shutdown && 0 == errno) {
+			l->out_shutdown = no_shutdown;
+			if (NULL != l->on_empty)
+				ret = l->on_empty(l,l->on_empty_data);
+		} else {
+			if (NULL != l->on_error) 
+				ret = l->on_error(l,errno,l->on_error_data);
+		}
 	} else
-		l->source->on_time(l->source,OOP_TIME_NOW,on_process,l);
+		activate(l);
 
 	return ret;
 }
 
 static void *on_write(oop_source *source,int fd,oop_event event,void *user) {
 	struct gale_link *l = (struct gale_link *) user;
-	void *ret = OOP_CONTINUE;
 	assert(source == l->source);
 	assert(fd == l->fd);
 
@@ -713,39 +734,28 @@ static void *on_write(oop_source *source,int fd,oop_event event,void *user) {
 		l->output = create_output_buffer(initial);
 	}
 
-	if (!output_buffer_ready(l->output))
-		l->source->cancel_fd(l->source,l->fd,OOP_WRITE,on_write,l);
-	else if (output_buffer_write(l->output,l->fd)) {
-		int err = errno;
-/* gale_dprintf(1,"[%d] closing\n",l->fd); */
-		link_set_fd(l,-1);
-		if (NULL != l->on_error)
-			ret = l->on_error(l,err,l->on_error_data);
-	}
+	if (!output_buffer_ready(l->output)) {
+		l->source->cancel_fd(l->source,l->fd,OOP_WRITE);
+		switch (l->out_shutdown) {
+		case no_shutdown:
+			if (0 == link_queue_num(l) && NULL != l->on_empty)
+				return l->on_empty(l,l->on_empty_data);
+			break;
+		case do_shutdown:
+			if (!shutdown(l->fd,1)) 
+				l->out_shutdown = done_shutdown;
+			else if (NULL != l->on_error)
+				return l->on_error(l,errno,l->on_error_data);
+			break;
+		case done_shutdown:
+			break;
+		default:
+			assert(0);
+		}
+	} else if (output_buffer_write(l->output,l->fd) && NULL != l->on_error)
+		return l->on_error(l,errno,l->on_error_data);
 
-	if (OOP_CONTINUE == ret
-	&&  l->in_version > -1
-	&&  0 == link_queue_num(l) && NULL != l->on_empty)
-		ret = l->on_empty(l,l->on_empty_data);
-
-	return ret;
-}
-
-static void deactivate(struct gale_link *l) {
-	if (-1 != l->fd) {
-		l->source->cancel_fd(l->source,l->fd,OOP_READ,on_read,l);
-		l->source->cancel_fd(l->source,l->fd,OOP_WRITE,on_write,l);
-		l->source->cancel_time(l->source,OOP_TIME_NOW,on_process,l);
-	}
-}
-
-static void activate(struct gale_link *l) {
-	deactivate(l);
-	if (-1 != l->fd) {
-		l->source->on_fd(l->source,l->fd,OOP_READ,on_read,l);
-		l->source->on_fd(l->source,l->fd,OOP_WRITE,on_write,l);
-		l->source->on_time(l->source,OOP_TIME_NOW,on_process,l);
-	}
+	return OOP_CONTINUE;
 }
 
 void link_set_fd(struct gale_link *l,int fd) {
@@ -759,10 +769,19 @@ void link_set_fd(struct gale_link *l,int fd) {
 		if (l->output) l->output = NULL;
 
 		close(l->fd);
-		deactivate(l);
 	}
 
+	deactivate(l);
 	l->fd = fd;
+	activate(l);
+}
+
+int link_get_fd(struct gale_link *l) {
+	return l->fd;
+}
+
+void link_shutdown(struct gale_link *l) {
+	l->out_shutdown = 1;
 	activate(l);
 }
 
@@ -775,6 +794,7 @@ void link_put(struct gale_link *l,struct gale_message *m) {
 	struct link *link;
 
 	gale_create(link);
+	link->when = gale_time_now();
 	link->msg = m;
 	if (NULL == l->out_queue)
 		link->next = link;
@@ -803,8 +823,14 @@ size_t link_queue_mem(struct gale_link *l) {
 	return l->queue_mem;
 }
 
+struct gale_time link_queue_time(struct gale_link *l) {
+	if (NULL == l->out_queue) return gale_time_forever();
+	return l->out_queue->next->when;
+}
+
 void link_queue_drop(struct gale_link *l) {
 	if (NULL != l->out_queue) dequeue(l);
+	activate(l);
 }
 
 void link_on_error(struct gale_link *l,

@@ -34,6 +34,16 @@ which requires a certain amount of finicky setup -- including setuid binaries
    You may alternatively build and install it yourself elsewhere.  If so,
    make sure you know where to find libgc.a and gc.h.
 
+ * Ian Jackson's asynchronous DNS library (ADNS)
+
+   Gale doesn't need adns to work, but server performance will suffer without
+   it.  (If you're only planning to run the clients, it's not so important.)
+   Get it from http://www.chiark.greenend.org.uk/~ian/adns/.  Make sure you
+   know where it installed adns.h and libadns.*.
+
+   ** Make sure to use a version newer than 0.4! **
+   Versions 0.4 and older have fatal bugs.
+
 2. Prepare to run the provided "configure" script.  The typical "configure" 
    options (--prefix etc.) apply; run "sh configure --help" for usage 
    information.  
@@ -51,6 +61,7 @@ which requires a certain amount of finicky setup -- including setuid binaries
 
    Similarly, if you want to use a preinstalled Boehm GC library, make sure
    LDFLAGS and CPPFLAGS include the location of libgc.a and gc.h, respectively.
+   If Gale is to use ADNS, it, too, must be available via these paths.
 
    By default and where supported, Gale will install its code as static and 
    shared libraries, and link against shared libraries.  You may use

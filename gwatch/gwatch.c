@@ -234,7 +234,6 @@ void usage(void) {
 
 int main(int argc,char *argv[]) {
 	int i,arg,do_fork = 0,do_kill = 0;
-	struct sigaction act;
 	oop_source_sys *sys;
 	oop_source *source;
 	struct gale_link *link;
@@ -284,7 +283,7 @@ int main(int argc,char *argv[]) {
 	for (i = 1; i < count_subs; ++i)
 		spec = gale_text_concat(3,spec,G_(":"),subs[i]);
 	link = new_link(source);
-	server = gale_open(source,link,spec,null_text);
+	server = gale_open(source,link,spec,null_text,0);
 
 	if (do_fork) gale_daemon(source,1);
 	if (tty.l) {

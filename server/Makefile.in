@@ -80,9 +80,9 @@ YACC = @YACC@
 ZEPHYR_LIBS = @ZEPHYR_LIBS@
 
 bin_PROGRAMS = galed
-galed_SOURCES = galed.c connect.c subscr.c attach.c
+galed_SOURCES = galed.c connect.c subscr.c attach.c directed.c
 galed_LDADD = $(GALE_LIBS)
-noinst_HEADERS = attach.h connect.h subscr.h
+noinst_HEADERS = attach.h connect.h subscr.h server.h directed.h
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../include/gale/config.h
 CONFIG_CLEAN_FILES = 
@@ -93,7 +93,7 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I../include/gale
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-galed_OBJECTS =  galed.o connect.o subscr.o attach.o
+galed_OBJECTS =  galed.o connect.o subscr.o attach.o directed.o
 galed_DEPENDENCIES = 
 galed_LDFLAGS = 
 CFLAGS = @CFLAGS@
@@ -110,7 +110,8 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = tar
 GZIP_ENV = --best
-DEP_FILES =  .deps/attach.P .deps/connect.P .deps/galed.P .deps/subscr.P
+DEP_FILES =  .deps/attach.P .deps/connect.P .deps/directed.P \
+.deps/galed.P .deps/subscr.P
 SOURCES = $(galed_SOURCES)
 OBJECTS = $(galed_OBJECTS)
 

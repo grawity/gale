@@ -29,11 +29,11 @@ struct gale_text gale_text_concat(int count,...) {
 	return text;
 }
 
-struct gale_text _gale_text_literal(const wchar_t *sz) {
+struct gale_text _gale_text_literal(const wchar_t *sz,size_t len) {
 	struct gale_text text;
 	assert(sizeof(wchar_t) == sizeof(wch));
 	text.p = (wch *) sz;
-	for (text.l = 0; text.p[text.l] != '\0'; ++text.l) ;
+	text.l = len;
 	return text;
 }
 

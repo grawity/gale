@@ -67,10 +67,16 @@ void default_gsubrc(int do_beep) {
 	gale_print(stdout,0,G_("\n"));
 
 	/* Print the header: category, et cetera */
-	gale_print(stdout,gale_print_clobber_left,G_("["));
-	gale_print(stdout,gale_print_bold,cat);
-	gale_print(stdout,0,G_("]"));
-	len += 2 + cat.l;
+	{
+		struct gale_text subcat = null_text;
+		gale_print(stdout,gale_print_clobber_left,G_("["));
+		while (gale_text_token(cat,':',&subcat)) {
+			if (subcat.p != cat.p) gale_print(stdout,0,G_(":"));
+			gale_print(stdout,gale_print_bold,subcat);
+		}
+		gale_print(stdout,0,G_("]"));
+		len += 2 + cat.l;
+	}
 
 	text = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
 	if (text.l) {

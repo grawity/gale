@@ -16,7 +16,6 @@
 #include <setjmp.h>
 
 #define MAGIC 0x9643
-#define NUM_SIGNALS 256
 
 struct sys_time {
 	struct sys_time *next;
@@ -54,7 +53,7 @@ struct oop_source_sys {
 	struct sys_time *time_queue,*time_run;
 
 	/* Signal handling */
-	struct sys_signal sig[NUM_SIGNALS];
+	struct sys_signal sig[OOP_NUM_SIGNALS];
 	sigjmp_buf env;
 	int do_jmp,sig_active;
 
@@ -63,7 +62,7 @@ struct oop_source_sys {
 	sys_file *files;
 };
 
-struct oop_source_sys *sys_sig_owner[NUM_SIGNALS];
+struct oop_source_sys *sys_sig_owner[OOP_NUM_SIGNALS];
 
 static oop_source_sys *verify_source(oop_source *source) {
 	oop_source_sys *sys = (oop_source_sys *) source;
@@ -94,11 +93,9 @@ static void sys_on_fd(oop_source *source,int fd,oop_event ev,
 	++sys->num_events;
 }
 
-static void sys_cancel_fd(oop_source *source,int fd,oop_event ev,
-                          oop_call_fd *f,void *v) {
+static void sys_cancel_fd(oop_source *source,int fd,oop_event ev) {
 	oop_source_sys *sys = verify_source(source);
-	if (fd < sys->num_files && NULL != f
-	&&  f == sys->files[fd][ev].f && v == sys->files[fd][ev].v) {
+	if (fd < sys->num_files && NULL != sys->files[fd][ev].f) {
 		sys->files[fd][ev].f = NULL;
 		--sys->num_events;
 	}
@@ -179,7 +176,7 @@ static void sys_on_signal(oop_source *source,int sig,
 	struct sys_signal_handler *handler = oop_malloc(sizeof(*handler));
 	if (NULL == handler) return; /* ugh */
 
-	assert(sig > 0 && sig < NUM_SIGNALS && "invalid signal number");
+	assert(sig > 0 && sig < OOP_NUM_SIGNALS && "invalid signal number");
 
 	handler->f = f;
 	handler->v = v;
@@ -205,25 +202,26 @@ static void sys_on_signal(oop_source *source,int sig,
 static void sys_cancel_signal(oop_source *source,int sig,
                               oop_call_signal *f,void *v) {
 	oop_source_sys *sys = verify_source(source);
-	struct sys_signal_handler *p,**pp = &sys->sig[sig].list;
+	struct sys_signal_handler **pp = &sys->sig[sig].list;
 
-	assert(sig > 0 && sig < NUM_SIGNALS && "invalid signal number");
+	assert(sig > 0 && sig < OOP_NUM_SIGNALS && "invalid signal number");
 
 	while (NULL != *pp && ((*pp)->f != f || (*pp)->v != v))
 		pp = &(*pp)->next;
 
 	if (NULL != *pp) {
-		p = *pp;
-		*pp = p->next;
-		if (sys->sig[sig].ptr == p) sys->sig[sig].ptr = *pp;
-		--sys->num_events;
-		oop_free(p);
+		struct sys_signal_handler *p = *pp;
 
-		if (NULL == sys->sig[sig].list) {
+		if (NULL == p->next && &sys->sig[sig].list == pp) {
 			sigaction(sig,&sys->sig[sig].old,NULL);
 			sys->sig[sig].active = 0;
 			sys_sig_owner[sig] = NULL;
 		}
+
+		*pp = p->next;
+		if (sys->sig[sig].ptr == p) sys->sig[sig].ptr = *pp;
+		--sys->num_events;
+		oop_free(p);
 	}
 }
 
@@ -244,7 +242,7 @@ oop_source_sys *oop_sys_new(void) {
 
 	source->do_jmp = 0;
 	source->sig_active = 0;
-	for (i = 0; i < NUM_SIGNALS; ++i) {
+	for (i = 0; i < OOP_NUM_SIGNALS; ++i) {
 		source->sig[i].list = NULL;
 		source->sig[i].ptr = NULL;
 		source->sig[i].active = 0;
@@ -324,7 +322,7 @@ void *oop_sys_run(oop_source_sys *sys) {
 
 		if (sys->sig_active) {
 			sys->sig_active = 0;
-			for (i = 0; NULL == ret && i < NUM_SIGNALS; ++i) {
+			for (i = 0; NULL == ret && i < OOP_NUM_SIGNALS; ++i) {
 				if (sys->sig[i].active) {
 					sys->sig[i].active = 0;
 					sys->sig[i].ptr = sys->sig[i].list;
@@ -332,8 +330,8 @@ void *oop_sys_run(oop_source_sys *sys) {
 				while (NULL == ret && NULL != sys->sig[i].ptr) {
 					struct sys_signal_handler *h;
 					h = sys->sig[i].ptr;
-					ret = h->f(&sys->oop,i,h->v);
 					sys->sig[i].ptr = h->next;
+					ret = h->f(&sys->oop,i,h->v);
 				}
 			}
 			if (NULL != ret) {
@@ -387,7 +385,7 @@ void oop_sys_delete(oop_source_sys *sys) {
 	&&     NULL == sys->time_run
 	&&     "cannot delete with timeout");
 
-	for (i = 0; i < NUM_SIGNALS; ++i)
+	for (i = 0; i < OOP_NUM_SIGNALS; ++i)
 		assert(NULL == sys->sig[i].list && "cannot delete with signal handler");
 
 	for (i = 0; i < sys->num_files; ++i)

@@ -2,6 +2,7 @@
 
 SUBDIRS = include
 lib_LIBRARIES = libgc.a
+include_HEADERS = gc.h
 libgc_a_SOURCES =
 
 DIST_COMMON = Makefile.am Makefile.in

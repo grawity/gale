@@ -113,7 +113,7 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	main_argc = argc;
 	main_argv = argv;
 
-	oop_malloc = gale_malloc;
+	oop_malloc = gale_malloc_safe;
 	oop_free = gale_free;
 
 #ifdef HAVE_SOCKS

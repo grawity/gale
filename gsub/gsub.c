@@ -29,6 +29,8 @@
 #include <dlfcn.h>
 #endif
 
+#define TIMEOUT 2 /* seconds: time to wait for logout notice */
+
 extern char **environ;
 
 struct gale_text rcprog = { NULL, 0 };	/* Filter program name. */
@@ -107,17 +109,30 @@ void notify(int in,struct gale_text presence) {
 /* Halt the main event loop when we finish sending our notices. */
 void *on_empty(struct gale_link *link,void *data) {
 	is_done = 1;
+	gale_alert(GALE_NOTICE,"disconnecting and terminating",0);
+	return OOP_HALT;
+}
+
+/* Give up trying to send a disconnection notice. */
+void *on_timeout(oop_source *source,struct timeval time,void *x) {
+	gale_alert(GALE_WARNING,"cannot send logout notice, giving up",0);
+	is_done = 1;
 	return OOP_HALT;
 }
 
 /* When we receive a signal, send termination notices, and prepare to halt. */
 void *on_signal(oop_source *source,int sig,void *data) {
+	struct timeval tv;
+
 	if (do_presence) switch (sig) {
 	case SIGHUP: notify(0,G_("out/logout")); break;
 	case SIGTERM: notify(0,G_("out/quit")); break;
 	case SIGINT: notify(0,G_("out/stopped")); break;
 	}
 
+	gettimeofday(&tv,NULL);
+	tv.tv_sec += TIMEOUT;
+	source->on_time(source,tv,on_timeout,NULL);
 	link_on_empty(conn,on_empty,NULL);
 	return OOP_CONTINUE; /* but real soon... */
 }
@@ -254,7 +269,7 @@ void *on_message(struct gale_link *link,struct gale_message *_msg,void *data) {
 		}
 
 		/* Handle AKD requests for us. */
-		if (!do_keys && frag.type == frag_text
+		if (do_keys && frag.type == frag_text
 		&&  !gale_text_compare(frag.name,G_("question/key"))
 		&&  !gale_text_compare(frag.value.text,auth_id_name(user_id)))
 			akd = send_key();
@@ -488,6 +503,19 @@ void set_presence(char *arg) {
 			gale_text_from_latin1(arg,-1));
 }
 
+/* notify the user when a connection is established */
+
+void *on_connected(struct gale_server *server,
+	struct gale_text host,struct sockaddr_in addr,
+	void *d) 
+{
+	gale_alert(GALE_NOTICE,
+		gale_text_to_local(gale_text_concat(2,
+			G_("connected to "),
+			gale_connect_text(host,addr))),0);
+	return OOP_CONTINUE;
+}
+
 /* main */
 
 int main(int argc,char **argv) {
@@ -571,7 +599,7 @@ int main(int argc,char **argv) {
 	load_gsubrc(rclib);
 
 	/* Act as AKD proxy for this particular user. */
-	if (!do_keys)
+	if (do_keys)
 		add_subs(&serv,id_category(user_id,G_("auth/query"),G_("")));
 
 #ifndef NDEBUG
@@ -581,7 +609,8 @@ int main(int argc,char **argv) {
 
 	/* Open a connection to the server. */
 	conn = new_link(source);
-	server = gale_open(source,conn,serv,null_text);
+	server = gale_open(source,conn,serv,null_text,0);
+	gale_on_connect(server,on_connected,NULL);
 
 	/* Fork ourselves into the background, unless we shouldn't. */
 	if (do_fork) gale_daemon(source,1);

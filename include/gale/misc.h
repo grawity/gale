@@ -77,6 +77,7 @@ void *gale_get_ptr(struct gale_ptr *);
 /* Handy macros. */
 #define gale_create(x) ((x) = gale_malloc(sizeof(*(x))))
 #define gale_create_array(x,size) ((x) = gale_malloc(sizeof(*(x)) * (size)))
+#define gale_resize_array(x,size) ((x) = gale_realloc(x,sizeof(*(x)) * (size)))
 
 /* Duplicate memory. */
 struct gale_data gale_data_copy(struct gale_data);
@@ -91,8 +92,8 @@ void *gale_realloc(void *,size_t);
 
 extern const struct gale_text null_text;
 
-#define G_(x) (_gale_text_literal(L##x))
-struct gale_text _gale_text_literal(const wchar_t *);
+#define G_(x) (_gale_text_literal(L##x,sizeof(L##x) / sizeof(wch) - 1))
+struct gale_text _gale_text_literal(const wchar_t *,size_t len);
 struct gale_text gale_text_concat(int count,...);
 
 struct gale_text gale_text_left(struct gale_text,int);
@@ -120,7 +121,7 @@ struct gale_wt;
 /* Nonzero weak => use weak references for values. */
 struct gale_wt *gale_make_wt(int weak);
 
-/* Duplicates values replace each other.  NULL data deletes an entry. */
+/* Duplicate values replace each other.  NULL data deletes an entry. */
 void gale_wt_add(struct gale_wt *,struct gale_data key,void *data);
 
 /* NULL == not found. */
@@ -144,9 +145,10 @@ struct gale_time gale_time_seconds(int);
 
 int gale_time_compare(struct gale_time,struct gale_time);
 struct gale_time gale_time_diff(struct gale_time,struct gale_time);
+struct gale_time gale_time_add(struct gale_time,struct gale_time);
 
 void gale_time_to(struct timeval *,struct gale_time);
-void gale_time_from(struct gale_time *,struct timeval *);
+void gale_time_from(struct gale_time *,const struct timeval *);
 
 /* -- fragment/group management -------------------------------------------- */
 
@@ -252,7 +254,7 @@ void gale_alert(int severity,const char *,int err);
 
 /* Error handler function prototypes. */
 typedef void *gale_call_error(gale_error severity,struct gale_text msg,void *);
-typedef void *gale_call_error_message(struct gale_message *puff,void *);
+typedef void *gale_call_error_message(oop_source *,struct gale_message *puff,void *);
 
 /* Set a different error handler. */
 void gale_on_error(oop_source *,gale_call_error *,void *);
@@ -270,11 +272,15 @@ void gale_diprintf(int level,int indent,const char *fmt,...);
 
 /* -- useful things for servers -------------------------------------------- */
 
-struct gale_connect;
-typedef void *gale_connect_call(int fd,struct gale_text hostname,void *);
+typedef void *gale_connect_call(int fd,
+	struct gale_text hostname,struct sockaddr_in addr,
+	int found_local,void *);
 
+struct gale_text gale_connect_text(struct gale_text host,struct sockaddr_in);
+
+struct gale_connect;
 struct gale_connect *gale_make_connect(
-	oop_source *source,struct gale_text host,
+	oop_source *source,struct gale_text host,int avoid_local_port,
 	gale_connect_call *,void *);
 
 void gale_abort_connect(struct gale_connect *);

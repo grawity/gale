@@ -23,6 +23,9 @@
 /* The SOCKS firewall proxy */
 #undef HAVE_SOCKS
 
+/* The ADNS resolver library */
+#undef HAVE_ADNS
+
 /* BSD-based operating systems */
 #undef OS_BSD
 

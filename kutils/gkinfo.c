@@ -34,7 +34,7 @@ void pub_date(struct gale_time time) {
 	char buf[30];
 	gale_time_to(&tv,time);
 	sec = tv.tv_sec;
-	strftime(buf,sizeof(buf),"%m/%d/%y %H:%M",localtime(&sec));
+	strftime(buf,sizeof(buf),"%Y-%m-%d %H:%M",localtime(&sec));
 	printf("%s",buf);
 }
 

@@ -1,4 +1,5 @@
 #include "attach.h"
+#include "server.h"
 
 #include "gale/client.h"
 #include "gale/misc.h"
@@ -14,17 +15,24 @@ struct attach {
 	struct connect *connect;
 	struct gale_link *link;
 	struct gale_text name;
+
+	attach_empty_call *func;
+	void *data;
 };
 
-void *on_connect(struct gale_server *server,struct gale_text name,void *data) {
+void *on_connect(struct gale_server *server,
+                 struct gale_text name,struct sockaddr_in addr,
+                 void *data) 
+{
 	struct attach *att = (struct attach *) data;
-	gale_alert(GALE_NOTICE,gale_text_to_local(gale_text_concat(3,
-		G_("connected to \""),name,G_("\""))),0);
+	gale_alert(GALE_NOTICE,gale_text_to_local(gale_text_concat(2,
+		G_("connected to "),
+		gale_connect_text(name,addr))),0);
 	att->name = name;
 	link_will(att->link,gale_error_message(
 		gale_text_concat(3,
-			G_("galed will: disconnected from \""),
-			name,G_("\"\n"))));
+			G_("galed will: disconnected from "),
+			gale_connect_text(name,addr),G_("\n"))));
 	return OOP_CONTINUE;
 }
 
@@ -35,9 +43,15 @@ void *on_disconnect(struct gale_server *server,void *data) {
 	return OOP_CONTINUE;
 }
 
+static void *on_empty(struct gale_link *link,void *data) {
+	struct attach *att = (struct attach *) data;
+	return att->func(att,att->data);
+}
+
 struct attach *new_attach(
 	oop_source *source,
 	struct gale_text server,
+	filter *func,void *data,
 	struct gale_text in,struct gale_text out) 
 {
 	struct gale_link *link = new_link(source);
@@ -47,13 +61,20 @@ struct attach *new_attach(
 	att->link = link;
 	att->connect = new_connect(source,link,out);
 	/* This overrides the default on_error ... */
-	att->server = gale_open(source,link,in,server);
+	att->server = gale_open(source,link,in,server,server_port);
 	gale_on_connect(att->server,on_connect,att);
 	gale_on_disconnect(att->server,on_disconnect,att);
+	if (NULL != func) connect_filter(att->connect,func,data);
 	return att;
 }
 
 void close_attach(struct attach *att) {
 	gale_close(att->server);
 	close_connect(att->connect);
+}
+
+void on_empty_attach(struct attach *att,attach_empty_call *f,void *d) {
+	link_on_empty(att->link,f ? on_empty : NULL,att);
+	att->func = f;
+	att->data = d;
 }

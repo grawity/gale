@@ -118,7 +118,7 @@ int main(int argc,char *argv[]) {
 
 	category = dom_category(auth_id_name(domain),G_("auth/query"));
 	link = new_link(source);
-	server = gale_open(source,link,category,null_text);
+	server = gale_open(source,link,category,null_text,0);
 	gale_set_error_link(source,link);
 
 	gale_daemon(source,0);

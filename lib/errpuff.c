@@ -35,7 +35,7 @@ static void *on_collect(oop_source *source,struct timeval now,void *data) {
 	struct collector *c = (struct collector *) data;
 	struct gale_message *msg = gale_error_message(c->buffer);
 	c->active = 0;
-	return c->call(msg,c->data);
+	return c->call(c->source,msg,c->data);
 }
 
 static void *on_error(gale_error severity,struct gale_text msg,void *data) {

@@ -3,6 +3,7 @@
 
 #include "subscr.h"
 #include "connect.h"
+#include "directed.h"
 
 #include <assert.h>
 #include <string.h>
@@ -10,7 +11,7 @@
 struct sub_connect {
 	int flag,priority,stamp;
 	struct sub_connect *next;
-	struct gale_link *link;
+	struct connect *link;
 };
 
 struct sub {
@@ -180,8 +181,9 @@ static void do_remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 	ptr->child = prev->child;
 }
 
-static void subscr(struct gale_text spec,struct gale_link *link,
-                   void (*func)(struct node *,struct gale_text,struct sub *))
+static void subscr(oop_source *src,struct gale_text spec,struct connect *link,
+                   void (*func)(struct node *,struct gale_text,struct sub *),
+                   void (*dir)(oop_source *,struct gale_text))
 {
 	struct gale_text cat = null_text;
 	struct sub sub;
@@ -197,30 +199,45 @@ static void subscr(struct gale_text spec,struct gale_link *link,
 		gale_text_to_local(spec));
 
 	while (gale_text_token(spec,':',&cat)) {
-		sub.flag = 1;
-		if (cat.l > 0 && cat.p[0] == '+')
-			cat = gale_text_right(cat,-1);
-		else if (cat.l > 0 && cat.p[0] == '-') {
-			sub.flag = 0;
-			cat = gale_text_right(cat,-1);
-		}
-		func(&root,cat,&sub);
+		struct gale_text host,base;
+		if (is_directed(cat,&sub.flag,&base,&host)) dir(src,host);
+		func(&root,base,&sub);
 		++sub.priority;
 	}
 }
 
-void add_subscr(struct gale_text sub,struct gale_link *link) {
-	subscr(sub,link,add);
+int category_flag(struct gale_text cat,struct gale_text *base) {
+	if (cat.l > 0 && cat.p[0] == '+') {
+		*base = gale_text_right(cat,-1);
+		return 1;
+	} else if (cat.l > 0 && cat.p[0] == '-') {
+		*base = gale_text_right(cat,-1);
+		return 0;
+	}
+
+	*base = cat;
+	return 1;
 }
 
-void remove_subscr(struct gale_text sub,struct gale_link *link) {
-	subscr(sub,link,do_remove);
+struct gale_text category_escape(struct gale_text cat,int flag) {
+	if (!flag) return gale_text_concat(2,G_("-"),cat);
+	if (cat.l < 1 || (cat.p[0] != '+' && cat.p[0] != '-')) return cat;
+	return gale_text_concat(2,G_("+"),cat);
+}
+
+void add_subscr(oop_source *src,struct gale_text sub,struct connect *link) {
+	subscr(src,sub,link,add,sub_directed);
+}
+
+void remove_subscr(oop_source *src,struct gale_text sub,struct connect *link) {
+	subscr(src,sub,link,do_remove,unsub_directed);
 }
 
 static void transmit(struct node *ptr,struct gale_text spec,
-                     struct gale_message *msg,struct gale_link *avoid)
+                     struct connect *avoid,int flag)
 {
 	int i;
+	if (ptr != &root || spec.l < 1 || spec.p[0] != '@')
 	for (i = 0; i < ptr->num; ++i) {
 		if (ptr->array[i].connect->link == avoid) continue;
 		if (ptr->array[i].connect->stamp != stamp) {
@@ -232,7 +249,7 @@ static void transmit(struct node *ptr,struct gale_text spec,
 		if (ptr->array[i].connect->priority > ptr->array[i].priority)
 			continue;
 		ptr->array[i].connect->priority = ptr->array[i].priority;
-		ptr->array[i].connect->flag = ptr->array[i].flag;
+		ptr->array[i].connect->flag = ptr->array[i].flag && flag;
 	}
 
 	for (ptr = ptr->child; ptr; ptr = ptr->next)
@@ -242,26 +259,44 @@ static void transmit(struct node *ptr,struct gale_text spec,
 			gale_dprintf(4,"*** matched \"%s\"\n",
 				gale_text_to_local(ptr->spec));
 			transmit(ptr,gale_text_right(spec,-ptr->spec.l),
-				msg,avoid);
+				 avoid,flag);
 		}
 }
 
-void subscr_transmit(struct gale_message *msg,struct gale_link *avoid) {
+void subscr_transmit(
+	oop_source *src,
+	struct gale_message *msg,struct connect *avoid) 
+{
 	struct gale_text cat = null_text;
-	++stamp;
-
-	assert(list == NULL);
-
+	struct gale_message *rewrite = new_message();
 	while (gale_text_token(msg->cat,':',&cat)) {
+		struct gale_text host;
+		if (is_directed(cat,NULL,NULL,&host)) 
+			send_directed(src,host);
+	}
+
+	++stamp;
+	assert(list == NULL);
+	cat = null_text;
+	rewrite->data = msg->data;
+	while (gale_text_token(msg->cat,':',&cat)) {
+		struct gale_text base,host;
+		int flag;
 		gale_dprintf(3,"*** transmitting \"%s\"\n",
 		             gale_text_to_local(cat));
-		transmit(&root,cat,msg,avoid);
+		is_directed(cat,&flag,&base,&host);
+		transmit(&root,base,avoid,flag);
+		base = category_escape(base,1);
+		rewrite->cat = gale_text_concat(3,rewrite->cat,G_(":"),base);
 	}
+
+	/* strip leading colon */
+	if (rewrite->cat.l > 0) rewrite->cat = gale_text_right(rewrite->cat,-1);
 
 	while (list != NULL) {
 		if (list->flag) {
-			gale_dprintf(4,"[%p] transmitting message\n",list->link);
-			link_put(list->link,msg);
+			gale_dprintf(4,"[%p] sending message\n",list->link);
+			send_connect(list->link,rewrite);
 		}
 		list = list->next;
 	}

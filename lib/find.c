@@ -102,7 +102,7 @@ int _gale_find_id(struct auth_id *id) {
 	sys = oop_sys_new();
 	source = oop_sys_source(sys);
 	link = new_link(source);
-	server = gale_open(source,link,category,null_text);
+	server = gale_open(source,link,category,null_text,0);
 
 	/* enqueue the request */
 	msg = new_message();

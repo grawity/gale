@@ -32,6 +32,9 @@ extern "C" { /* I really dislike this - iwj. */
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 /* All struct in_addr anywhere in adns are in NETWORK byte order. */
 
@@ -300,6 +303,9 @@ void adns_cancel(adns_query query);
  * first adns_submit or _transact call using the same adns_state after
  * it became invalid, so you may compare it for equality with other
  * query handles until you next call _query or _transact.
+ *
+ * _submit and _synchronous return ENOSYS if they don't understand the
+ * query type.
  */
 
 void adns_finish(adns_state ads);

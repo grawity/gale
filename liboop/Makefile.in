@@ -65,9 +65,12 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 host_alias = @host_alias@
 host_triplet = @host@
+ADNS_LIBS = @ADNS_LIBS@
 AS = @AS@
 CC = @CC@
 DLLTOOL = @DLLTOOL@
+GLIB_INCLUDES = @GLIB_INCLUDES@
+GLIB_LIBS = @GLIB_LIBS@
 LD = @LD@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
@@ -75,27 +78,37 @@ MAKEINFO = @MAKEINFO@
 NM = @NM@
 OBJDUMP = @OBJDUMP@
 PACKAGE = @PACKAGE@
+PROG_GLIB_CONFIG = @PROG_GLIB_CONFIG@
 PROG_LDCONFIG = @PROG_LDCONFIG@
 RANLIB = @RANLIB@
 VERSION = @VERSION@
+WWW_INCLUDES = @WWW_INCLUDES@
+WWW_LIBS = @WWW_LIBS@
 
 AUTOMAKE_OPTIONS = foreign 1.2
-lib_LTLIBRARIES = liboop.la liboop-adns.la
-noinst_PROGRAMS = test-oop test-adns
+lib_LTLIBRARIES = liboop.la liboop-adns.la liboop-glib.la liboop-www.la
+INCLUDES = $(GLIB_INCLUDES) $(WWW_INCLUDES) -I$(top_srcdir)/foreign
 
-INCLUDES = -I$(srcdir)/foreign
+# versions updated as of 0.4
 
-liboop_la_LDFLAGS = -version-info 1:0:1 # version:revision:age
-liboop_la_SOURCES = sys.c select.c alloc.c
+liboop_la_LDFLAGS = -version-info 2:0:0 # version:revision:age
+liboop_la_SOURCES = sys.c select.c signal.c alloc.c
 
-liboop_adns_la_LDFLAGS = -version-info 0:0:0 # version:revision:age
+liboop_adns_la_LDFLAGS = -version-info 1:0:1
 liboop_adns_la_SOURCES = adns.c
 
-include_HEADERS = oop.h oop-adns.h
+liboop_glib_la_LDFLAGS = -version-info 0:0:0
+liboop_glib_la_SOURCES = glib.c
 
-LDADD = liboop-adns.la liboop.la -ladns
+liboop_www_la_LDFLAGS = -version-info 0:0:0
+liboop_www_la_SOURCES = www.c
+
+include_HEADERS = oop.h oop-adns.h oop-glib.h oop-www.h
+
+noinst_PROGRAMS = test-oop
+
 test_oop_SOURCES = test-oop.c
-test_adns_SOURCES = test-adns.c
+test_oop_LDADD = $(ADNS_LIBS) $(GLIB_LIBS) $(WWW_LIBS) liboop.la
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_CLEAN_FILES = 
@@ -107,19 +120,18 @@ CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 liboop_la_LIBADD = 
-liboop_la_OBJECTS =  sys.lo select.lo alloc.lo
+liboop_la_OBJECTS =  sys.lo select.lo signal.lo alloc.lo
 liboop_adns_la_LIBADD = 
 liboop_adns_la_OBJECTS =  adns.lo
+liboop_glib_la_LIBADD = 
+liboop_glib_la_OBJECTS =  glib.lo
+liboop_www_la_LIBADD = 
+liboop_www_la_OBJECTS =  www.lo
 PROGRAMS =  $(noinst_PROGRAMS)
 
 test_oop_OBJECTS =  test-oop.o
-test_oop_LDADD = $(LDADD)
-test_oop_DEPENDENCIES =  liboop-adns.la liboop.la
+test_oop_DEPENDENCIES =  liboop.la
 test_oop_LDFLAGS = 
-test_adns_OBJECTS =  test-adns.o
-test_adns_LDADD = $(LDADD)
-test_adns_DEPENDENCIES =  liboop-adns.la liboop.la
-test_adns_LDFLAGS = 
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -136,10 +148,10 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = tar
 GZIP_ENV = --best
-DEP_FILES =  .deps/adns.P .deps/alloc.P .deps/select.P .deps/sys.P \
-.deps/test-adns.P .deps/test-oop.P
-SOURCES = $(liboop_la_SOURCES) $(liboop_adns_la_SOURCES) $(test_oop_SOURCES) $(test_adns_SOURCES)
-OBJECTS = $(liboop_la_OBJECTS) $(liboop_adns_la_OBJECTS) $(test_oop_OBJECTS) $(test_adns_OBJECTS)
+DEP_FILES =  .deps/adns.P .deps/alloc.P .deps/glib.P .deps/select.P \
+.deps/signal.P .deps/sys.P .deps/test-oop.P .deps/www.P
+SOURCES = $(liboop_la_SOURCES) $(liboop_adns_la_SOURCES) $(liboop_glib_la_SOURCES) $(liboop_www_la_SOURCES) $(test_oop_SOURCES)
+OBJECTS = $(liboop_la_OBJECTS) $(liboop_adns_la_OBJECTS) $(liboop_glib_la_OBJECTS) $(liboop_www_la_OBJECTS) $(test_oop_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
@@ -222,6 +234,12 @@ liboop.la: $(liboop_la_OBJECTS) $(liboop_la_DEPENDENCIES)
 liboop-adns.la: $(liboop_adns_la_OBJECTS) $(liboop_adns_la_DEPENDENCIES)
 	$(LINK) -rpath $(libdir) $(liboop_adns_la_LDFLAGS) $(liboop_adns_la_OBJECTS) $(liboop_adns_la_LIBADD) $(LIBS)
 
+liboop-glib.la: $(liboop_glib_la_OBJECTS) $(liboop_glib_la_DEPENDENCIES)
+	$(LINK) -rpath $(libdir) $(liboop_glib_la_LDFLAGS) $(liboop_glib_la_OBJECTS) $(liboop_glib_la_LIBADD) $(LIBS)
+
+liboop-www.la: $(liboop_www_la_OBJECTS) $(liboop_www_la_DEPENDENCIES)
+	$(LINK) -rpath $(libdir) $(liboop_www_la_LDFLAGS) $(liboop_www_la_OBJECTS) $(liboop_www_la_LIBADD) $(LIBS)
+
 mostlyclean-noinstPROGRAMS:
 
 clean-noinstPROGRAMS:
@@ -234,10 +252,6 @@ maintainer-clean-noinstPROGRAMS:
 test-oop: $(test_oop_OBJECTS) $(test_oop_DEPENDENCIES)
 	@rm -f test-oop
 	$(LINK) $(test_oop_LDFLAGS) $(test_oop_OBJECTS) $(test_oop_LDADD) $(LIBS)
-
-test-adns: $(test_adns_OBJECTS) $(test_adns_DEPENDENCIES)
-	@rm -f test-adns
-	$(LINK) $(test_adns_LDFLAGS) $(test_adns_OBJECTS) $(test_adns_LDADD) $(LIBS)
 
 install-includeHEADERS: $(include_HEADERS)
 	@$(NORMAL_INSTALL)
@@ -336,6 +350,7 @@ distdir: $(DISTFILES)
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
+	$(MAKE) $(AM_MAKEFLAGS) top_distdir="$(top_distdir)" distdir="$(distdir)" dist-hook
 
 DEPS_MAGIC := $(shell mkdir .deps > /dev/null 2>&1 || :)
 
@@ -453,6 +468,10 @@ install uninstall-am uninstall all-redirect all-am all installdirs \
 mostlyclean-generic distclean-generic clean-generic \
 maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
+
+dist-hook:
+	mkdir $(distdir)/foreign
+	cp -p $(srcdir)/foreign/README $(srcdir)/foreign/*.h $(distdir)/foreign
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

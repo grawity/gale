@@ -8,7 +8,7 @@
 #define OOP_ADNS_H
 
 #ifndef ADNS_H_INCLUDED
-#error You must include "adns.h" before "oop_adns.h"!
+#error You must include "adns.h" before "oop-adns.h"!
 #endif
 
 #include "oop.h"

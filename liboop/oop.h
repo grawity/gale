@@ -26,6 +26,9 @@ typedef enum {
 /* Pass this to on_time to schedule an event immediately */
 static const struct timeval OOP_TIME_NOW = { 0, 0 };
 
+/* Maximum signal number.  (The OS may have a stricter limit!) */
+#define OOP_NUM_SIGNALS 256
+
 /* Callbacks may return one of these */
 #define OOP_CONTINUE NULL
 #define OOP_HALT ((void *) 1) /* (or any non-NULL pointer of your choice) */
@@ -37,7 +40,7 @@ typedef void *oop_call_signal(oop_source *,int sig,void *);
 
 struct oop_source {
 	void (*on_fd)(oop_source *,int fd,oop_event,oop_call_fd *,void *);
-	void (*cancel_fd)(oop_source *,int fd,oop_event,oop_call_fd *,void *);
+	void (*cancel_fd)(oop_source *,int fd,oop_event);
 
 	void (*on_time)(oop_source *,struct timeval,oop_call_time *,void *);
 	void (*cancel_time)(oop_source *,struct timeval,oop_call_time *,void *);
@@ -91,5 +94,14 @@ void oop_select_set(
 	fd_set *rfd,fd_set *wfd,struct timeval *timeout);
 
 void oop_select_delete(oop_adapter_select *);
+
+/* ------------------------------------------------------------------------- */
+
+/* Helper for event sources without signal handling. */
+typedef struct oop_adapter_signal oop_adapter_signal;
+
+oop_adapter_signal *oop_signal_new(oop_source *);
+void oop_signal_delete(oop_adapter_signal *);
+oop_source *oop_signal_source(oop_adapter_signal *);
 
 #endif

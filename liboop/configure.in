@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(liboop,0.2)
+AM_INIT_AUTOMAKE(liboop,0.4)
 AC_CANONICAL_HOST
 
 dnl Use libtool for shared libraries
@@ -18,5 +18,35 @@ case "$host" in
     ;;
 esac
 
+AC_CHECK_HEADERS(poll.h)
+
+AC_CHECK_LIB(adns,adns_init,[
+  AC_DEFINE(HAVE_ADNS)
+  ADNS_LIBS="liboop-adns.la -ladns"
+])
+
+AC_CHECK_PROG(PROG_GLIB_CONFIG,glib-config,glib-config)
+if test -n "$PROG_GLIB_CONFIG" ; then
+  GLIB_INCLUDES="`glib-config --cflags`"
+  GLIB_LIBS="liboop-glib.la `glib-config --libs`"
+  AC_DEFINE(HAVE_GLIB)
+fi
+
+# the libwww RPM puts headers here:
+AC_CHECK_LIB(wwwcore,HTEvent_setRegisterCallback,[
+  AC_DEFINE(HAVE_WWW)
+  # This is just a little unpleasant.
+  WWW_LIBS="liboop-www.la \
+  -lwwwapp -lwwwcache -lwwwcore -lwwwdir -lwwwfile -lwwwftp -lwwwgopher \
+  -lwwwhtml -lwwwhttp -lwwwinit -lwwwmime -lwwwmux -lwwwnews -lwwwstream \
+  -lwwwtelnet -lwwwtrans -lwwwutils -lwwwxml -lwwwzip -lxmlparse -lxmltok -lmd5"
+  WWW_INCLUDES="-I/usr/include/w3c-libwww"
+],,-lwwwutils)
+
 AC_SUBST(PROG_LDCONFIG)
+AC_SUBST(GLIB_INCLUDES)
+AC_SUBST(GLIB_LIBS)
+AC_SUBST(ADNS_LIBS)
+AC_SUBST(WWW_INCLUDES)
+AC_SUBST(WWW_LIBS)
 AC_OUTPUT(Makefile)

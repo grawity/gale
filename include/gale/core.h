@@ -51,13 +51,21 @@ struct gale_message *new_message(void);
 /* -- gale server connection management ------------------------------------ */
 
 /* A link object represents an active connection to a Gale server. */
-
 struct gale_link;
+
+/* Protocol constants. */
+static const int gale_port = 11511;
 
 /* Create a new link using an event source. */
 struct gale_link *new_link(struct oop_source *);
+/* Close an old link. */
+void delete_link(struct gale_link *);
+/* Flush and close outgoing link; will call _on_empty upon incoming EOF. */
+void link_shutdown(struct gale_link *);
 /* Attach the link to a new file descriptor.  Use -1 to detach the link. */
 void link_set_fd(struct gale_link *,int fd);
+/* Get the file descriptor associated with a link (-1 if none). */
+int link_get_fd(struct gale_link *);
 
 /* Event handler for I/O errors. */
 void link_on_error(struct gale_link *,
@@ -78,6 +86,7 @@ void link_subscribe(struct gale_link *,struct gale_text spec);
 /* Manage the outgoing message queue. */
 int link_queue_num(struct gale_link *);    /* Number of messages in queue. */
 size_t link_queue_mem(struct gale_link *); /* Memory consumed by queue. */
+struct gale_time link_queue_time(struct gale_link *); /* Oldest message. */
 void link_queue_drop(struct gale_link *);  /* Drop the earliest message. */
 
 /* Event handler for when the outgoing queue is empty. */

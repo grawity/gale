@@ -1,12 +1,12 @@
 #!/bin/sh
 # @configure_input@
 
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-sysconfdir=@sysconfdir@
-sbindir=@sbindir@
-bindir=@bindir@
-srcdir=@srcdir@
+prefix="@prefix@"
+exec_prefix="@exec_prefix@"
+sysconfdir="@sysconfdir@"
+sbindir="@sbindir@"
+bindir="@bindir@"
+srcdir="@srcdir@"
 
 copy() {
 	echo "$*"
@@ -47,7 +47,10 @@ if [ -f "$CONF" ]; then
 	exec 3<"$CONF"
 
 	while read var value <&3 ; do
-		[ -z "$var" -o "x$var" = "x#" ] && continue
+		case "$var" in
+		"") continue ;;
+		"#*") continue ;;
+		esac
 		eval "CONF_$var=\"$value\""
 	done
 
@@ -101,24 +104,32 @@ fi
 if [ -z "$GALE_DOMAIN" ] ; then
 cat << EOM
 
-You need to choose a name for your authentication domain.  The extent of the 
-domain need not correspond to any given physical or logical setup.  The domain 
-name is often a DNS domain (by convention).  If you run Gale in the context of
-a larger organization, they may have a domain set up; ask your administrators.
+You need to identify the name of your Gale domain for two purposes:
 
-Note that you will need permission from your parent domain; if you choose
-"foo.bar.com", you will need to contact the owners of "bar.com".
+1. Your domain name identifies the hostname of your Gale server.  If your 
+domain name is "mydomain.example.com", then a server ("galed") must run on one 
+or more of the following hosts:
+
+   mydomain.example.com
+   gale.mydomain.example.com
+   mydomain.example.com.gale.org
+
+2. Your domain name is used as the basis for authority in the Gale public key
+infrastructure.  Note that you will need permission from your parent domain;
+if you choose "mydomain.example.com", you will need to contact the owners of
+"example.com".
+
+If you run Gale in the context of a larger organization, they may have a domain 
+set up; ask your administrators.
 
 We recommend that new users choose an unoccupied name in the free, first-come,
 first-served dork.gale.org domain by visiting <URL:http://gale.org/dork>.  
 This will streamline the registration process to get you up and running as 
 quickly as possible with a minimum of human intervention.  
 
-You can always change this later (with a bit of hassle).
-
 EOM
 
-	/bin/echo "Enter the Gale domain: \c"
+	/bin/echo "Enter your Gale domain: \c"
 	read GALE_DOMAIN
 	case "$GALE_DOMAIN" in
 		*" "*) echo "Error: Invalid domain specification." ; exit 1 ;;
@@ -130,39 +141,12 @@ else
 	echo "Using \"$GALE_DOMAIN\" as the Gale domain."
 fi
 
-if [ -z "$GALE_SERVER" ] ; then
-cat << EOM
-
-You need to designate a machine as a Gale server.  This machine (not 
-necessarily under your control, or part of this installation) will need to
-run the Gale server "galed"; it will relay messages between Gale clients.
-It may well be this machine.  Please supply a comma-separated list of one
-or more fully-qualified host names, with no spaces.
-
-EOM
-
-	/bin/echo "Enter the Gale server hostname: \c"
-	read GALE_SERVER
-	case "$GALE_SERVER" in
-		*" "*) echo "Error: Invalid server specification." ; exit 1 ;;
-		*""*) echo "Error: Invalid server specification." ; exit 1 ;;
-		*""*) echo "Error: Invalid server specification." ; exit 1 ;;
-		"") echo "Error: No server specified." ; exit 1 ;;
-	esac
-else
-	echo "Using \"$GALE_SERVER\" as the Gale server(s)."
-fi
-
 # -----------------------------------------------------------------------------
 # create configuration file
 
 if [ ! -f "$CONF" ]; then
 cat > "$CONF" <<EOM
 # $CONF -- created by Gale installer; edit to suit.
-
-# Other server(s) the server should make connections with.
-# (Optional, but you'll be an island without these.)
-# GALE_LINKS ofb.net
 EOM
 
 cat <<EOM
@@ -183,14 +167,6 @@ EOM
 
 # The authentication domain to use.  (Mandatory)
 GALE_DOMAIN $GALE_DOMAIN
-EOM
-
-[ -n "$CONF_GALE_SERVER" ] || cat >> "$CONF" << EOM
-
-# The hostname(s) of server(s) clients should talk to.  (Mandatory)
-# Feel free to list several, separated by commas; clients will choose 
-# the server quickest to respond.
-GALE_SERVER $GALE_SERVER
 EOM
 
 # -----------------------------------------------------------------------------

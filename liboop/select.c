@@ -77,18 +77,18 @@ void oop_select_set(
 			FD_SET(fd,&s->watch.rfd);
 		}
 
-		if (wfd_set && !w_wfd_set) {
-			s->source->cancel_fd(s->source,fd,OOP_READ,on_fd,s);
+		if (!rfd_set && w_rfd_set) {
+			s->source->cancel_fd(s->source,fd,OOP_READ);
 			FD_CLR(fd,&s->watch.rfd);
 		}
 
-		if (!rfd_set && w_rfd_set) {
+		if (wfd_set && !w_wfd_set) {
 			s->source->on_fd(s->source,fd,OOP_WRITE,on_fd,s);
 			FD_SET(fd,&s->watch.wfd);
 		}
 
 		if (!wfd_set && w_wfd_set) {
-			s->source->cancel_fd(s->source,fd,OOP_WRITE,on_fd,s);
+			s->source->cancel_fd(s->source,fd,OOP_WRITE);
 			FD_CLR(fd,&s->watch.wfd);
 		}
 	}
@@ -155,12 +155,10 @@ static void *on_timeout(oop_source *source,struct timeval when,void *data) {
 
 static void *on_collect(oop_source *source,struct timeval when,void *data) {
 	oop_adapter_select *s = (oop_adapter_select *) data;
+	struct select_set set = s->active;
+	int num = s->num_fd_active;
 	struct timeval now;
-	void *r;
-
 	gettimeofday(&now,NULL);
-	r = s->call(s,s->num_fd_active,&s->active.rfd,&s->active.wfd,now,s->data);
 	deactivate(s);
-
-	return r;
+	return s->call(s,num,&set.rfd,&set.wfd,now,s->data);
 }

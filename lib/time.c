@@ -79,6 +79,22 @@ struct gale_time gale_time_diff(struct gale_time one,struct gale_time two) {
 	return time;
 }
 
+static u32 add(u32 one,u32 two,int *carry) {
+	u32 result = one + two + *carry;
+	*carry = (result < one || (two && result == one));
+	return result;
+}
+
+struct gale_time gale_time_add(struct gale_time one,struct gale_time two) {
+	struct gale_time time;
+	int carry = 0;
+	time.frac_low = add(one.frac_low,two.frac_low,&carry);
+	time.frac_high = add(one.frac_high,two.frac_high,&carry);
+	time.sec_low = add(one.sec_low,two.sec_low,&carry);
+	time.sec_high = add(one.sec_high,two.sec_high,&carry);
+	return time;
+}
+
 void gale_time_to(struct timeval *tv,struct gale_time time) {
 	if (time.sec_high != 0) {
 		gale_alert(GALE_WARNING,"time overflow converting to Unix",0);
@@ -89,7 +105,7 @@ void gale_time_to(struct timeval *tv,struct gale_time time) {
 	tv->tv_usec = time.frac_high / 16384 * 15625 / 4096;
 }
 
-void gale_time_from(struct gale_time *time,struct timeval *tv) {
+void gale_time_from(struct gale_time *time,const struct timeval *tv) {
 	time->sec_high = 0;
 	time->sec_low = tv->tv_sec;
 	time->frac_high = tv->tv_usec * 4096 / 15625 * 16384;
