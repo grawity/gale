@@ -142,7 +142,7 @@ int main(int argc,char *argv[]) {
 		} else 
 		if (!memcmp(key.p + sizeof(m_gale),m_priv,sizeof(m_pub))
 		||  !memcmp(key.p + sizeof(m_gale),m_priv2,sizeof(m_priv2))) {
-			_ga_import_priv(&id,key);
+			_ga_import_priv(&id,key,NULL);
 			if (!id) gale_alert(GALE_ERROR,"private key invalid",0);
 			priv_key(id);
 		} else

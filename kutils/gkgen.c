@@ -15,6 +15,7 @@ void usage(void) {
                 "%s\n"
                 "usage: gkgen [-h] [-r file] [-u file] id 'comment'\n"
 		"flags: -h          Display this message\n"
+		"       -w          Do not erase existing keys\n"
 		"       -r file     Write pRivate key to this file\n"
 		"       -u file     Write pUblic key to this file\n"
                 ,GALE_BANNER);
@@ -25,10 +26,14 @@ int main(int argc,char *argv[]) {
 	struct auth_id *id;
 	struct gale_text out_pub = null_text, out_priv = null_text;
 	int arg,trust;
+	int do_wipe = 1;
 
 	gale_init("gkgen",argc,argv);
-	while ((arg = getopt(argc,argv,"hr:u:")) != EOF)
+	disable_gale_akd();
+
+	while ((arg = getopt(argc,argv,"hnr:u:")) != EOF)
 	switch (arg) {
+	case 'n': do_wipe = 0; break;
 	case 'r': out_priv = gale_text_from_local(optarg,-1); break;
 	case 'u': out_pub = gale_text_from_local(optarg,-1); break;
 	case 'h':
@@ -38,8 +43,24 @@ int main(int argc,char *argv[]) {
 	if (argc - optind != 2) usage();
 
 	init_auth_id(&id,gale_text_from_local(argv[optind],-1));
-	auth_id_gen(id,gale_text_from_local(argv[optind + 1],-1));
+	if (do_wipe) {
+		while (auth_id_public(id) && _ga_erase_inode(id->source)) {
+			gale_alert(GALE_NOTICE,
+			gale_text_to_local(gale_text_concat(3,
+				G_("erased old public key file \""),
+				id->source.name,
+				G_("\""))),0);
+		}
+		while (auth_id_private(id) &&_ga_erase_inode(id->priv_source)) {
+			gale_alert(GALE_NOTICE,
+			gale_text_to_local(gale_text_concat(3,
+				G_("erased old private key file \""),
+				id->priv_source.name,
+				G_("\""))),0);
+		}
+	}
 
+	auth_id_gen(id,gale_text_from_local(argv[optind + 1],-1));
 	trust = _ga_trust_pub(id); /* mildly expensive to call */
 	if (0 != out_pub.l || !trust) {
 		struct inode inode;

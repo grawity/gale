@@ -20,7 +20,7 @@ void gale_close(struct gale_server *);
 
 /* Notifications. */
 void gale_on_connect(struct gale_server *,
-     void *(*)(struct gale_server *,void *),
+     void *(*)(struct gale_server *,struct gale_text host,void *),
      void *);
 
 void gale_on_disconnect(struct gale_server *,
@@ -45,12 +45,12 @@ struct auth_id *lookup_id(struct gale_text);
 /* Find our own ID, generate keys if necessary. */
 struct auth_id *gale_user();
 
-/* Return @ domain / pfx / user / sfx in a newly allocated string. */
-/*owned*/ struct gale_text 
+/* Return @ domain / pfx / user / sfx. */
+struct gale_text 
 id_category(struct auth_id *,struct gale_text pfx,struct gale_text sfx);
 
-/* Return @ dom / pfx / in a newly allocated string.  NULL dom = default */
-/*owned*/ struct gale_text 
+/* Return @ dom / pfx /.  NULL dom = default */
+struct gale_text 
 dom_category(struct gale_text dom,struct gale_text pfx);
 
 /* -- message-level authentication and encryption -------------------------- */

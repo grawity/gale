@@ -3,8 +3,8 @@
 lib_LTLIBRARIES = libgale.la
 
 # version:revision:age
-# as of post-0.21: needs a new revision
-libgale_la_LDFLAGS = -version-info 5:0:0
+# as of post-0.21: has a new version
+libgale_la_LDFLAGS = -version-info 6:0:0
 
 libgale_la_SOURCES = \
 	authmsg.c client.c connect.c find.c id.c init.c global.c \
@@ -12,7 +12,8 @@ libgale_la_SOURCES = \
 	standard.c cache.c \
 	crypt.c customs.c file.c gen.c \
 	keyid.c findkey.c privkey.c pubkey.c random.c sign.c \
-	dir.c error.c exec.c alloc.c server.c text.c time.c pack.c term.c \
+	dir.c error.c errpuff.c exec.c alloc.c server.c text.c time.c \
+	pack.c term.c \
 	fragment.c var.c weaktree.c
 
 noinst_HEADERS = buffer.h \

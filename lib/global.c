@@ -75,6 +75,7 @@ void _gale_globals(struct passwd *pwd) {
 	/* These are in this particular order to allow each 'conf' file to
 	   redirect the location of the next one. */
 
+	G->error = NULL;
 	G->cleanup_list = NULL;
 	G->home_dir = gale_var(G_("HOME"));
 	if (0 == G->home_dir.l) 

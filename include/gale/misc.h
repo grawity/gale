@@ -8,6 +8,7 @@
 #include <stddef.h>
 
 #include "gale/types.h"
+#include "gale/core.h"
 #include "oop.h"
 
 /* -- terminal functions --------------------------------------------------- */
@@ -243,17 +244,23 @@ struct gale_text dir_search(struct gale_text name,int cwd,struct gale_text,...);
 /* XXX - these should use gale_text, not char* */
 
 /* Types of error severity. */
-enum { GALE_NOTICE, GALE_WARNING, GALE_ERROR };
-
-/* Error handler function. */
-typedef void gale_error_f(int severity,char *msg);
-
-/* Standard error handlers. */
-gale_error_f gale_error_syslog,gale_error_stderr;
+typedef enum { GALE_NOTICE, GALE_WARNING, GALE_ERROR } gale_error;
 
 /* Report an error.  If GALE_ERROR, the program will terminate, otherwise it
    will continue. */
 void gale_alert(int severity,const char *,int err);
+
+/* Error handler function prototypes. */
+typedef void *gale_call_error(gale_error severity,struct gale_text msg,void *);
+typedef void *gale_call_error_message(struct gale_message *puff,void *);
+
+/* Set a different error handler. */
+void gale_on_error(oop_source *,gale_call_error *,void *);
+void gale_on_error_message(oop_source *,gale_call_error_message *,void *);
+void gale_set_error_link(oop_source *,struct gale_link *);
+
+/* Format a message from error text. */
+struct gale_message *gale_error_message(struct gale_text body);
 
 /* -- debugging support ---------------------------------------------------- */
 
@@ -264,10 +271,11 @@ void gale_diprintf(int level,int indent,const char *fmt,...);
 /* -- useful things for servers -------------------------------------------- */
 
 struct gale_connect;
+typedef void *gale_connect_call(int fd,struct gale_text hostname,void *);
 
 struct gale_connect *gale_make_connect(
 	oop_source *source,struct gale_text host,
-	void *(*)(int fd,void *),void *);
+	gale_connect_call *,void *);
 
 void gale_abort_connect(struct gale_connect *);
 

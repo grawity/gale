@@ -37,9 +37,6 @@ extern struct gale_global_data {
 	/* What to prefix error messages with.  Defaults to the program name. */
 	const char *error_prefix;
 
-        /* The error handler to use. */
-	gale_error_f *error_handler;
-
 	/* Debugging level for dprintf().  Starts at zero. */
 	int debug_level;
 
@@ -56,6 +53,7 @@ extern struct gale_global_data {
 	struct gale_wt *auth_tree;
 	struct gale_wt *cache_tree;
 	struct gale_cleanup *cleanup_list;
+	struct gale_errors *error;
 } *gale_global;
 
 #endif

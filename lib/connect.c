@@ -18,11 +18,12 @@
 struct attempt {
 	int sock;
 	struct sockaddr_in sin;
+	struct gale_text name;
 };
 
 struct gale_connect {
 	oop_source *source;
-	void *(*call)(int fd,void *);
+	gale_connect_call *call;
 	void *call_data;
 	struct attempt *array;
 	int len;
@@ -39,7 +40,7 @@ static oop_call_fd on_write;
 
 struct gale_connect *gale_make_connect(
 	oop_source *src,struct gale_text serv,
-	void *(*call)(int fd,void *),void *call_data)
+	gale_connect_call *call,void *call_data)
 {
 	int i,alloc = 0;
 	struct gale_text spec = null_text;
@@ -97,6 +98,7 @@ struct gale_connect *gale_make_connect(
 
 			conn->array[conn->len].sock = fd;
 			conn->array[conn->len].sin = sin;
+			conn->array[conn->len].name = spec;
 			++(conn->len);
 			fd = -1;
 		skip_addr:
@@ -138,11 +140,12 @@ static void *on_write(oop_source *src,int fd,oop_event event,void *user)
 		delete(conn,i);
 		if (0 == conn->len) {
 			gale_abort_connect(conn);
-			return conn->call(-1,conn->call_data);
+			return conn->call(-1,null_text,conn->call_data);
 		}
 	} else {
 		int one = 1;
 		struct linger linger = { 1, 5000 }; /* 5 seconds */
+		struct gale_text name = conn->array[i].name;
 		delete(conn,i);
 		gale_abort_connect(conn);
 		fcntl(fd,F_SETFL,0);
@@ -150,7 +153,7 @@ static void *on_write(oop_source *src,int fd,oop_event event,void *user)
 		           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
 		setsockopt(fd,SOL_SOCKET,SO_LINGER,
 		           (SETSOCKOPT_ARG_4_T) &linger,sizeof(linger));
-		return conn->call(fd,conn->call_data);
+		return conn->call(fd,name,conn->call_data);
 	}
 
 	return OOP_CONTINUE;

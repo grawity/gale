@@ -19,7 +19,7 @@ int _ga_find_pub(struct auth_id *);
 void _ga_sign_pub(struct auth_id *,struct gale_time expire);
 int _ga_trust_pub(struct auth_id *);
 
-void _ga_import_priv(struct auth_id **,struct gale_data key);
+void _ga_import_priv(struct auth_id **,struct gale_data key,struct inode *src);
 void _ga_export_priv(struct auth_id *,struct gale_data *key);
 
 #endif

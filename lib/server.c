@@ -55,7 +55,6 @@ void gale_daemon(oop_source *source,int keep_tty) {
 			source->on_signal(source,SIGTTOU,on_ignore,NULL);
 		else {
 			int fd;
-			gale_global->error_handler = gale_error_syslog;
 			fd = open("/dev/null",O_RDWR);
 			if (fd >= 0) {
 				dup2(fd,0);

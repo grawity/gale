@@ -12,6 +12,7 @@ struct auth_id {
 
 	/* private key stuff */
 	R_RSA_PRIVATE_KEY *private;
+	struct inode priv_source;
 
 	/* public key stuff */
 	R_RSA_PUBLIC_KEY *public;

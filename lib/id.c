@@ -58,5 +58,5 @@ struct gale_text dom_category(struct gale_text dom,struct gale_text pfx) {
 	else
 		domain = gale_var(G_("GALE_DOMAIN"));
 
-	return gale_text_concat(5,G_("@"),dom,G_("/"),pfx,G_("/"));
+	return gale_text_concat(5,G_("@"),domain,G_("/"),pfx,G_("/"));
 }

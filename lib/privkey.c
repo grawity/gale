@@ -15,7 +15,8 @@
 static const byte magic[] = { 0x68, 0x13, 0x00, 0x01 };
 static const byte magic2[] = { 0x68, 0x13, 0x00, 0x03 };
 
-void _ga_import_priv(struct auth_id **id,struct gale_data key) {
+void _ga_import_priv(struct auth_id **id,struct gale_data key,struct inode *in)
+{
 	u32 u32;
 	int version;
 	struct gale_text text;
@@ -55,7 +56,8 @@ void _ga_import_priv(struct auth_id **id,struct gale_data key) {
 	||  !gale_unpack_rle(&key,priv->exponent,MAX_RSA_MODULUS_LEN)
 	||  !gale_unpack_rle(&key,priv->prime,MAX_RSA_PRIME_LEN * 2)
 	||  !gale_unpack_rle(&key,priv->primeExponent,MAX_RSA_PRIME_LEN * 2)
-	||  !gale_unpack_rle(&key,priv->coefficient,MAX_RSA_PRIME_LEN)) {
+	||  !gale_unpack_rle(&key,priv->coefficient,MAX_RSA_PRIME_LEN)
+	||  0 != key.l) {
 		_ga_warn_id(G_("\"%\": bad private key length"),imp);
 		return;
 	}
@@ -67,7 +69,7 @@ void _ga_import_priv(struct auth_id **id,struct gale_data key) {
 		return;
 	}
 
-	assert(key.l == 0);
+	imp->priv_source = in ? *in : _ga_init_inode();
 	*id = imp;
 }
 

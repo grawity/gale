@@ -19,14 +19,14 @@ struct gale_server {
 	struct gale_text host,sub;
 	struct gale_connect *connect;
 
-	void *(*on_connect)(struct gale_server *,void *);
+	void *(*on_connect)(struct gale_server *,struct gale_text,void *);
 	void *on_connect_data;
 
 	void *(*on_disconnect)(struct gale_server *,void *);
 	void *on_disconnect_data;
 };
 
-static void *on_connect(int fd,void *user);
+static void *on_connect(int fd,struct gale_text host,void *user);
 
 static void *on_retry(oop_source *source,struct timeval tv,void *user) {
 	struct gale_server *s = (struct gale_server *) user;
@@ -53,7 +53,7 @@ static void do_retry(struct gale_server *s) {
 	s->source->on_time(s->source,s->retry_when,on_retry,s);
 }
 
-static void *on_connect(int fd,void *user) {
+static void *on_connect(int fd,struct gale_text host,void *user) {
 	struct gale_server *s = (struct gale_server *) user;
 	if (fd < 0)
 		do_retry(s);
@@ -65,9 +65,10 @@ static void *on_connect(int fd,void *user) {
 		s->connect = NULL;
 		link_set_fd(s->link,fd);
 		link_subscribe(s->link,s->sub);
+		if (NULL != s->on_connect) 
+			return s->on_connect(s,host,s->on_connect_data);
 	}
 
-	if (NULL != s->on_connect) return s->on_connect(s,s->on_connect_data);
 	return OOP_CONTINUE;
 }
 
@@ -111,7 +112,7 @@ void gale_close(struct gale_server *s) {
 }
 
 void gale_on_connect(struct gale_server *s,
-     void *(*call)(struct gale_server *,void *),
+     void *(*call)(struct gale_server *,struct gale_text hostname,void *),
      void *call_data) {
 	s->on_connect = call;
 	s->on_connect_data = call_data;

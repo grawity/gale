@@ -75,14 +75,14 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 
 	/* Now see what we can glean from the category */
 
-	if (!user.p) {
+	if (0 == user.l) {
 		struct gale_text cat = null_text;
-		while (!user.p && gale_text_token(msg->cat,':',&cat))
+		while (0 == user.l && gale_text_token(msg->cat,':',&cat))
 			if (prefix(cat,category))
 				user = gale_text_right(cat,-category.l);
 	}
 
-	if (!user.p)
+	if (0 == user.l)
 		gale_alert(GALE_WARNING,"cannot determine the key wanted",0);
 	else {
 		struct auth_id *key = lookup_id(user);
@@ -119,6 +119,7 @@ int main(int argc,char *argv[]) {
 	category = dom_category(auth_id_name(domain),G_("auth/query"));
 	link = new_link(source);
 	server = gale_open(source,link,category,null_text);
+	gale_set_error_link(source,link);
 
 	gale_daemon(source,0);
 	link_on_message(link,on_message,NULL);

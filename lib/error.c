@@ -9,39 +9,58 @@
 #include <errno.h>
 #include <time.h>
 
-void gale_error_stderr(int sev,char *msg) {
-	char buf[40];
-	time_t when;
-	time(&when);
-	strftime(buf,40," %Y-%m-%d %H:%M:%S ",localtime(&when));
-	gale_print(stderr,1,G_("!"));
-	gale_print(stderr,0,gale_text_from_local(buf,-1));
-	gale_print(stderr,0,gale_text_from_local(msg,-1));
+struct gale_errors {
+	oop_source *source;
+	gale_call_error *call;
+	void *data;
+};
+
+struct error_message {
+	gale_error severity;
+	struct gale_text text;
+};
+
+static void output(struct error_message *message) {
+	gale_print(stderr,1,G_("! "));
+	gale_print(stderr,0,message->text);
 	gale_print(stderr,0,G_("\n"));
 	fflush(stderr);
 }
 
-void gale_error_syslog(int sev,char *msg) {
-	switch (sev) {
-	case GALE_NOTICE: sev = LOG_NOTICE; break;
-	case GALE_WARNING: sev = LOG_WARNING; break;
-	case GALE_ERROR: sev = LOG_ERR; break;
-	default: sev = LOG_ERR;
-	}
-	syslog(sev,"%s",msg);
+static void *on_error(oop_source *source,struct timeval when,void *data) {
+	struct error_message *message = (struct error_message *) data;
+	if (NULL != gale_global->error->call)
+		return gale_global->error->call(
+			message->severity,message->text,
+			gale_global->error->data);
+	output(message);
+	return OOP_CONTINUE;
+}
+
+void gale_on_error(oop_source *source,gale_call_error *call,void *data) {
+	struct gale_errors *error = gale_malloc(sizeof(*error));
+	error->source = source;
+	error->call = call;
+	error->data = data;
+	gale_global->error = error;
 }
 
 void gale_alert(int sev,const char *msg,int err) {
+	struct error_message *message;
 	char *tmp;
+	time_t when;
 	int len = strlen(msg) + 256;
-	if (gale_global->error_prefix) len += strlen(gale_global->error_prefix);
+	if (NULL != gale_global->error_prefix) 
+		len += strlen(gale_global->error_prefix);
 	tmp = gale_malloc(len);
 
+	time(&when);
+	strftime(tmp,40,"%Y-%m-%d %H:%M:%S ",localtime(&when));
+
 	if (gale_global->error_prefix) {
-		strcpy(tmp,gale_global->error_prefix);
+		strcat(tmp,gale_global->error_prefix);
 		strcat(tmp," ");
-	} else
-		strcpy(tmp,"");
+	}
 
 	switch (sev) {
 	case GALE_NOTICE: strcat(tmp,"notice"); break;
@@ -59,11 +78,16 @@ void gale_alert(int sev,const char *msg,int err) {
 		strcat(tmp,msg);
 	}
 
-	if (gale_global->error_handler)
-		gale_global->error_handler(sev,tmp);
+	message = gale_malloc(sizeof(*message));
+	message->severity = sev;
+	message->text = gale_text_from_local(tmp,-1);
+	if (NULL == gale_global->error)
+		output(message);
 	else
-		gale_error_stderr(sev,tmp);
-	gale_free(tmp);
+		gale_global->error->source->on_time(
+			gale_global->error->source,
+			OOP_TIME_NOW,
+			on_error,message);
 
 	if (sev == GALE_ERROR) exit(1);
 }

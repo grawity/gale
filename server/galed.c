@@ -15,9 +15,15 @@
 
 #include "gale/all.h"
 #include "connect.h"
+#include "subscr.h"
 #include "oop.h"
 
 static int port = 11511;
+
+static void *on_error_message(struct gale_message *msg,void *user) {
+	subscr_transmit(msg,NULL);
+	return OOP_CONTINUE;
+}
 
 static void *on_incoming(oop_source *source,int fd,oop_event ev,void *user) {
 	struct sockaddr_in sin;
@@ -106,6 +112,7 @@ int main(int argc,char *argv[]) {
 	gale_init("galed",argc,argv);
 	sys = oop_sys_new();
 	gale_init_signals(oop_sys_source(sys));
+	gale_on_error_message(oop_sys_source(sys),on_error_message,NULL);
 
 	srand48(time(NULL) ^ getpid());
 

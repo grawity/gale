@@ -47,6 +47,7 @@ void init_auth_id(struct auth_id **pid,struct gale_text name) {
 		ptr->comment = G_("(uninitialized)");
 		ptr->source = _ga_init_inode();
 		ptr->public = NULL;
+		ptr->priv_source = _ga_init_inode();
 		ptr->private = NULL;
 		_ga_init_sig(&ptr->sig);
 		gale_wt_add(gale_global->auth_tree,gale_text_as_data(name),ptr);
