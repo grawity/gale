@@ -134,7 +134,7 @@ static void *on_packet(struct gale_link *l,struct gale_packet *packet,void *x) {
 	if (NULL != gale_key_public(cache->key,now))
 		end_search(cache);
 
-	if (NULL != signer
+	if (NULL != signer && NULL != cache->handle
 	&& (gale_group_lookup(original,G_("answer/key/error"),frag_text,&frag)
 	||  gale_group_lookup(original,G_("answer.key.error"),frag_text,&frag)))
 	{
