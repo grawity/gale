@@ -7,7 +7,6 @@
 
 struct cache {
 	oop_source *oop;
-	struct timeval timeout;
 	struct gale_key *key;
 	struct gale_key_request *handle;
 	struct gale_link *link;
@@ -15,11 +14,14 @@ struct cache {
 	struct gale_text local,domain;
 	struct gale_message *query_message;
 	struct gale_text key_routing;
-	int is_waiting;
+	struct gale_time last_attempt;
+	struct gale_time last_refresh;
+	int waiting_for_query;
 };
 
 static const int timeout_interval = 20;
 static const int retry_interval = 300;
+static const int refresh_interval = 86400;
 
 static oop_call_time on_timeout;
 
@@ -39,9 +41,11 @@ static void *on_connect(struct gale_server *s,
 {
 	struct cache *cache = (struct cache *) x;
 	assert(s == cache->server);
+
 	if (0 != cache->key_routing.l) 
 		link_subscribe(cache->link,cache->key_routing);
-	if (!(cache->is_waiting = (NULL == cache->query_message)))
+
+	if (!(cache->waiting_for_query = (NULL == cache->query_message)))
 		gale_pack_message(
 			cache->oop,cache->query_message,
 			on_packed_query,cache);
@@ -50,13 +54,29 @@ static void *on_connect(struct gale_server *s,
 }
 
 static void end_search(struct cache *cache) {
-	oop_source *oop = cache->oop;
-	struct gale_key_request *handle = cache->handle;
-	cache->is_waiting = 0;
+	struct gale_key_request * const handle = cache->handle;
+	if (NULL != handle) {
+		cache->handle = NULL;
+		gale_key_hook_done(cache->oop,cache->key,handle);
+	}
+}
 
-	if (NULL != oop) {
-		oop->cancel_time(oop,cache->timeout,on_timeout,cache);
-		cache->oop = NULL;
+static void *on_ignore(oop_source *oop,struct gale_key *key,void *x) {
+	return OOP_CONTINUE;
+}
+
+static void *on_timeout(oop_source *oop,struct timeval when,void *x) {
+	struct cache * const cache = (struct cache *) x;
+	const struct gale_time now = gale_time_now();
+	const struct gale_key_assertion * const ass = 
+		gale_key_public(cache->key,now);
+	cache->waiting_for_query = 0;
+
+	if (NULL != cache->handle) {
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("cannot find \""),
+			gale_key_name(cache->key),G_("\", giving up")),0);
+		end_search(cache);
 	}
 
 	if (NULL != cache->server) {
@@ -64,25 +84,26 @@ static void end_search(struct cache *cache) {
 		cache->server = NULL;
 	}
 
-	if (NULL != handle) {
-		cache->handle = NULL;
-		if (NULL != oop) gale_key_hook_done(oop,cache->key,handle);
-	}
-}
+	if (NULL != ass) {
+		/* Update the timestamp if we didn't find anything. */
+		if (!gale_time_compare(cache->last_refresh,gale_key_time(ass)))
+			gale_key_retract(gale_key_assert(
+				gale_key_raw(ass),now,0),0);
 
-static void *on_timeout(oop_source *oop,struct timeval now,void *x) {
-	struct cache *cache = (struct cache *) x;
-	gale_alert(GALE_WARNING,gale_text_concat(3,
-		G_("cannot find \""),
-		gale_key_name(cache->key),G_("\", giving up")),0);
-	end_search(cache);
+		/* Push the new timestamp into the rest of our world. */
+		gale_key_search(oop,cache->key,
+			(search_all & ~search_private & ~search_slow),
+			on_ignore,NULL);
+	}
+
+	cache->oop = NULL;
 	return OOP_CONTINUE;
 }
 
 static void *on_packet(struct gale_link *l,struct gale_packet *packet,void *x) {
 	struct gale_group group,original;
 	struct gale_fragment frag;
-	struct gale_time now = gale_time_now();
+	struct gale_time now = gale_time_now(),then;
 	const struct gale_data *bundled;
 	struct cache *cache = (struct cache *) x;
 	struct gale_key *signer = gale_key_parent(cache->key);
@@ -94,17 +115,22 @@ static void *on_packet(struct gale_link *l,struct gale_packet *packet,void *x) {
 		return OOP_CONTINUE;
 	}
 
+	original = gale_crypto_original(group);
+	if (gale_group_lookup(original,G_("id/time"),frag_time,&frag))
+		then = frag.value.time;
+	else
+		then = now;
+
 	bundled = gale_crypto_bundled(group);
 	while (NULL != bundled && 0 != bundled->l)
-		gale_key_assert(*bundled++,0);
+		gale_key_assert(*bundled++,then,0);
 
-	original = gale_crypto_original(group);
 	if (gale_group_lookup(original,G_("answer/key"),frag_data,&frag))
-		gale_key_assert(frag.value.data,0);
+		gale_key_assert(frag.value.data,then,0);
 	if (gale_group_lookup(original,G_("answer.key"),frag_data,&frag))
-		gale_key_assert(frag.value.data,0);
+		gale_key_assert(frag.value.data,then,0);
 
-	if (NULL != gale_key_public(cache->key,now)) 
+	if (NULL != gale_key_public(cache->key,now))
 		end_search(cache);
 
 	if (gale_group_lookup(original,G_("answer/key/error"),frag_text,&frag)
@@ -149,8 +175,8 @@ static void *on_query_location(
 	cache->query_message->to[1] = NULL;
 	cache->query_message->from = NULL;
 
-	if (cache->is_waiting) {
-		cache->is_waiting = 0;
+	if (cache->waiting_for_query) {
+		cache->waiting_for_query = 0;
 		gale_pack_message(
 			cache->oop,cache->query_message,
 			on_packed_query,cache);
@@ -180,25 +206,23 @@ static void on_search(struct gale_time now,oop_source *oop,
 	struct gale_key_request *handle,
 	void *x,void **ptr)
 {
+	const struct gale_key_assertion *old;
 	struct cache *cache = (struct cache *) *ptr;
-	struct gale_time last;
-	struct gale_text name;
-	int at = 0;
+	struct timeval timeout;
 
-	if (NULL == cache) {
-		name = key_i_swizzle(gale_key_name(key));
-		for (at = 0; at < name.l && '@' != name.p[at]; ++at) ;
-	}
-
-	/* TODO: perform AKD occasionally even if we already have a key. */
-	if (!(flags & search_slow)
-	|| (NULL == cache && name.l == at) 
-	||  NULL != gale_key_public(key,now)) {
+	/* AKD is slow, and domain keys cannot be found with AKD. */
+	if (!(flags & search_slow)) {
+	skip:
 		gale_key_hook_done(oop,key,handle);
 		return;
 	}
 
 	if (NULL == cache) {
+		int at;
+		const struct gale_text name = key_i_swizzle(gale_key_name(key));
+		for (at = 0; at < name.l && '@' != name.p[at]; ++at) ;
+		if (name.l == at) goto skip;
+
 		gale_create(cache);
 		cache->oop = NULL;
 		cache->key = key;
@@ -208,9 +232,9 @@ static void on_search(struct gale_time now,oop_source *oop,
 		cache->domain = gale_text_right(name,-at - 1);
 		cache->query_message = NULL;
 		cache->key_routing = null_text;
-		cache->is_waiting = 0;
-		cache->timeout.tv_sec = 0;
-		cache->timeout.tv_usec = 0;
+		cache->last_attempt = gale_time_zero();
+		cache->last_refresh = gale_time_zero();
+		cache->waiting_for_query = 0;
 		cache->link = new_link(oop);
 		*ptr = cache;
 
@@ -223,14 +247,28 @@ static void on_search(struct gale_time now,oop_source *oop,
 			on_key_location,cache);
 	}
 
-	gale_time_from(&last,&cache->timeout);
-	if (gale_time_compare(now,
-		gale_time_add(last,gale_time_seconds(retry_interval))) < 0) 
-	{
+	/* Don't perform AKD too often. */
+	if (0 > gale_time_compare(now,gale_time_add(
+		cache->last_attempt,
+		gale_time_seconds(retry_interval)))) goto skip;
+
+	old = gale_key_public(key,now);
+	if (NULL != old) {
+		struct gale_data random = gale_crypto_random(sizeof(unsigned));
+		unsigned variant = (* (unsigned *) random.p) % refresh_interval;
+
+		cache->last_refresh = gale_key_time(old);
 		gale_key_hook_done(oop,key,handle);
-		return;
+		handle = NULL;
+		if (0 < gale_time_compare(cache->last_refresh,
+			gale_time_diff(now,gale_time_seconds(variant))))
+			return;
+		gale_alert(GALE_NOTICE,gale_text_concat(3,
+			G_("refreshing \""),
+			gale_key_name(key),G_("\"")),0);
 	}
 
+	/* BUG?  We're assuming the timeout is actually scheduled... */
 	assert(NULL == cache->oop 
 	    && NULL == cache->handle 
 	    && NULL == cache->server);
@@ -239,9 +277,10 @@ static void on_search(struct gale_time now,oop_source *oop,
 	cache->server = gale_make_server(oop,cache->link,null_text,0);
 	gale_on_connect(cache->server,on_connect,cache);
 
-	gale_time_to(&cache->timeout,now);
-	cache->timeout.tv_sec += timeout_interval;
-	oop->on_time(oop,cache->timeout,on_timeout,cache);
+	cache->last_attempt = now;
+	gale_time_to(&timeout,now);
+	timeout.tv_sec += timeout_interval;
+	oop->on_time(oop,timeout,on_timeout,cache);
 
 	gale_alert(GALE_NOTICE,gale_text_concat(3,
 		G_("requesting key \""),gale_key_name(key),G_("\"")),0);
