@@ -202,89 +202,37 @@ struct gale_encoding;
 /** \internal */
 struct gale_text _gale_text_literal(const wchar_t *,size_t len); /* internal */
 
-/** Concatenate text strings.  
- *  The first argument \a count is the number of strings passed.
- *  \param count The number of strings to concatenate.
- *  \return The concatenated string.
- *  \sa gale_text_concat_array()
- *  \code 
- *  struct gale_text stuff = G_("hi hi");
- *  struct gale_text foobar = gale_text_concat(3,G_("foo ["),stuff,G_("] bar"));
- *  assert(0 == gale_text_compare(foobar,G_("foo [hi hi] bar")));
- *  \endcode */
 struct gale_text gale_text_concat(int count,...);
-
-/** Concatenate an array of text strings.
- *  \param count The number of members in \a array.
- *  \param array The strings to concatenate, in order.
- *  \return The concatenated string.
- *  \sa gale_text_concat() */
 struct gale_text gale_text_concat_array(int count,struct gale_text *array);
 
-/** Extract the leftmost substring of \a len characters.  
- *  If \a len is larger than the length of the string, the entire string 
- *  is returned.  If \a len is negative, all but the rightmost \a -len 
- *  characters are returned.  If \a -len is larger than the length of the 
- *  string, the empty string is returned. 
- *  \param str The string to extract from.
- *  \param len The number of characters to extract. 
- *  \return The leftmost \a len characters from \a str. */
-struct gale_text gale_text_left(struct gale_text,int len);
+/** An efficient accumulator for strings to be concatenated.
+ *  \sa gale_accumulator_add(), gale_accumulator_collect() */
+struct gale_text_accumulator {
+	int count;
+	struct gale_text array[100];
+};
 
-/** Extract the rightmost substring of \a len characters.  
- *  If \a len is larger than the length of the string, the entire string 
- *  is returned.  If \a len is negative, all but the leftmost \a -len 
- *  characters are returned.  If \a -len is larger than the length of the 
- *  string, the empty string is returned. 
- *  \param str The string to extract from.
- *  \param len The number of characters to extract. 
- *  \return The rightmost \a len characters from \a str. */
+/** An empty accumulator which you can use to initialize new accumulators. */
+extern const struct gale_text_accumulator null_accumulator;
+void gale_text_accumulate(struct gale_text_accumulator *,struct gale_text);
+int gale_text_accumulator_empty(const struct gale_text_accumulator *);
+struct gale_text gale_text_collect(const struct gale_text_accumulator *);
+
+struct gale_text gale_text_left(struct gale_text,int len);
 struct gale_text gale_text_right(struct gale_text,int len);
 
-/** Divide a string into tokens using the separator character 'sep'.
- *  Set \a token to null_text initially, then call
- *  gale_text_token(str,sep,&token) repeatedly.  The function will return a
- *  nonzero value as long as there is an additional token, and set \a token 
- *  to the contents of that token.  A string with N occurrences of the
- *  separator character contains 1+N tokens.
- *
- *  This example will output 'foo', 'bar', and 'bat':
- *  \code
- *  struct gale_text str = G_("foo bar bat"),token = null_text;
- *  while (gale_text_token(str,' ',&token)) gale_print_line(stdout,0,token);
- *  \endcode
- *  \param string The string to tokenize.
- *  \param sep The separator character to use.
- *  \param token Pointer to the variable to receive the next token.
- *  \return Nonzero if a token was returned, or zero if there are no more. */
 int gale_text_token(struct gale_text string,wch sep,struct gale_text *token);
+struct gale_text gale_text_replace(
+	struct gale_text original,
+	struct gale_text find,
+	struct gale_text replace);
 
-/** Compare two strings, a la strcmp().
- *  \return Less than zero if \a a \< \a b, zero if \a a == \a b, or
- *  greater than zero if \a a \> \a b. */
 int gale_text_compare(struct gale_text a,struct gale_text b);
 
-/** Parse a number.  
- *  \param str The string to parse.
- *  \return The number in \a str, or zero if unsuccessful. 
- *  \sa gale_text_from_number() */
 int gale_text_to_number(struct gale_text str);
-
-/** Create a text representation of a number.  
- *  \param n The number to format.
- *  \param base The numeric base to use (0 < \a base <= 36).
- *  \param pad The minimum field width.  Zeroes will be added if necessary.
- *  \return The formatted representation of this number. 
- *  \sa gale_text_to_number() */
 struct gale_text gale_text_from_number(int n,int base,int pad);
 
-/** View the contexts of a text string as opaque binary data.
- *  This is typically used with gale_map structures. 
- *  \sa gale_text_from_data() */
 struct gale_data gale_text_as_data(struct gale_text);
-
-/** Convert opaque binary data back into a text string. 
- *  \sa gale_text_as_data() */
 struct gale_text gale_text_from_data(struct gale_data);
 
 /** Initialize a character encoding translator.
@@ -336,7 +284,7 @@ void gale_map_add(struct gale_map *map,struct gale_data key,void *data);
  *  \param map The map to search.
  *  \param key The key to look for.
  *  \return The data associated with that key, or NULL if none was found. */
-void *gale_map_find(struct gale_map *map,struct gale_data key);
+void *gale_map_find(const struct gale_map *map,struct gale_data key);
 
 /** Traverse a map in order.
  *  This function finds the first key/data entry where key > \a *after.
@@ -353,7 +301,7 @@ void *gale_map_find(struct gale_map *map,struct gale_data key);
  *  \param key Pointer to a variable to return the entry's key in.
  *  \param data Pointer to a variable to return the entry's data in.
  *  \return Nonzero if an entry was found, zero otherwise. */
-int gale_map_walk(struct gale_map *map,const struct gale_data *after,
+int gale_map_walk(const struct gale_map *map,const struct gale_data *after,
                   struct gale_data *key,void **data);
 /*@}*/
 

@@ -33,6 +33,7 @@ void gale_find_default_location(
 
 struct gale_text gale_location_name(struct gale_location *loc);
 struct gale_key *gale_location_key(struct gale_location *loc);
+const struct gale_map *gale_location_members(struct gale_location *loc);
 
 int gale_location_receive_ok(struct gale_location *loc);
 int gale_location_send_ok(struct gale_location *loc);
