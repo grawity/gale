@@ -34,7 +34,7 @@ install::
 	@$(MAKE) --no-print-directory subdirs TARGET=install
 install:: \
 	$(addprefix $(BIN_DIR)/,$(BIN_TARGETS)) \
-	$(addprefix $(SUID_DIR)/,$(SUID_TARGETS)) \
+	$(addsuffix .suid,$(addprefix $(SUID_DIR)/,$(SUID_TARGETS))) \
 	$(addprefix $(LIB_DIR)/,$(LIB_TARGETS)) \
 	$(addprefix $(INC_DIR)/,$(HEADERS))
 
@@ -76,13 +76,15 @@ $(BIN_DIR)/%: % mkdir/$(BIN_DIR)
 	@[ ! -x $@ ] || mv $@ $@.tmp.$$$$
 	@cp $* $(BIN_DIR)/$*
 
-$(SUID_DIR)/%: % mkdir/$(SUID_DIR)
+$(SUID_DIR)/%.suid: % mkdir/$(SUID_DIR)
 	@echo $* '->' $(SUID_DIR)
-	@[ ! -x $@ ] || mv $@ $@.tmp.$$$$
+	@[ ! -x $@ ] || mv $(SUID_DIR)/$* $(SUID_DIR)/$*.tmp.$$$$
 	@cp $* $(SUID_DIR)/$*
 	chmod u+s $(SUID_DIR)/$*
+ifneq ($(SUID_DIR),$(BIN_DIR))
 	@$(RM) $(BIN_DIR)/$*
 	@ln -s $(SUID_DIR)/$* $(BIN_DIR)/$*
+endif
 
 $(LIB_DIR)/%.a: %.a mkdir/$(LIB_DIR)
 	@echo $*.a '->' $(LIB_DIR)
