@@ -4,10 +4,6 @@ ifeq ($(HOST),)
 HOST = $(shell hostname)
 endif
 
-ifeq ($(GALE_USER),)
-GALE_USER = $(shell whoami)
-endif
-
 # autoconf-derived values -----------------------------------------------------
 
 prefix = @prefix@
