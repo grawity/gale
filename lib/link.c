@@ -164,7 +164,7 @@ static void incoming(struct gale_link *l,int min) {
 		*cr = '\0';
 		if (cr > l->in_buf && cr[-1] == '\r') cr[-1] = '\0';
 		process(l,l->in_buf + l->in_ptr);
-		min = l->in_ptr = cr - l->in_buf + 1;
+		min = l->in_ptr = (int)(cr - l->in_buf) + 1;
 	} while (l->in_msg == NULL);
 
 	len = l->in_len - l->in_ptr;
@@ -180,7 +180,7 @@ static void incoming(struct gale_link *l,int min) {
 }
 
 int link_receive(struct gale_link *l,int fd) {
-	int r;
+	ssize_t r;
 	if (!link_receive_q(l)) return 0;
 	if (l->in_buffer_mode) {
 		if (l->in_msg->data)
@@ -193,7 +193,7 @@ int link_receive(struct gale_link *l,int fd) {
 			r = read(fd,throwaway,len);
 		}
 		if (r <= 0) return -1;
-		l->in_len += r;
+		l->in_len += (int) r;
 		if (l->in_len == l->in_msg->data_size) {
 			l->in_buffer_mode = 0;
 			l->in_len = 0;
@@ -217,8 +217,8 @@ int link_receive(struct gale_link *l,int fd) {
 	}
 	r = read(fd,l->in_buf + l->in_len,l->in_size - l->in_len);
 	if (r <= 0) return -1;
-	l->in_len += r;
-	incoming(l,l->in_len - r);
+	l->in_len += (int) r;
+	incoming(l,l->in_len - (int) r);
 	return 0;
 }
 

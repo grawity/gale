@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -24,7 +25,7 @@ static void init_vars(struct passwd *pwd) {
 	if (!getenv("GALE_DOMAIN"))
 		gale_alert(GALE_ERROR,"GALE_DOMAIN not set",0);
 
-	if (uname(&un)) gale_alert(GALE_ERROR,"uname",errno);
+	if (uname(&un) < 0) gale_alert(GALE_ERROR,"uname",errno);
 
 	if (!getenv("HOST")) {
 		tmp = gale_malloc(strlen(un.nodename) + 30);
@@ -53,22 +54,67 @@ static void init_vars(struct passwd *pwd) {
 	}
 }
 
-static void read_conf(const char *s) {
-	int num;
-	FILE *fp = fopen(s,"r");
-	if (fp == NULL) return;
-	do {
-		char ch,var[40],value[256];
-		while (fscanf(fp," #%*[^\n]%c",&ch) == 1) ;
-		num = fscanf(fp,"%39s %255[^\n]",var,value);
-		if (num == 2) {
-			char *both,*prev = getenv(var);
-			if (prev && prev[0]) continue;
-			both = gale_malloc(strlen(var) + strlen(value) + 2);
-			sprintf(both,"%s=%s",var,value);
-			putenv(both);
+static char *read_line(FILE *fp) {
+	static char *buf = NULL;
+	static int alloc = 0;
+	int ch,size = 0;
+
+	if (!fp) return NULL;
+
+	while ((ch = fgetc(fp)) != EOF && ch != '\n') {
+		if (size >= alloc - 1) {
+			char *old = buf;
+			buf = gale_malloc(alloc = alloc ? alloc * 2 : 256);
+			memcpy(buf,old,size);
+			gale_free(old);
 		}
-	} while (num == 2);
+		buf[size++] = ch;
+	}
+
+	if (!size) return NULL;
+	buf[size++] = '\0';
+	return buf;
+}
+
+static void read_conf(const char *fn) {
+	FILE *fp = fopen(fn,"r");
+	char *s = read_line(fp);
+
+	while (s) {
+		char *var,*value,*both,*prev;
+
+		while (*s && isspace(*s)) ++s;
+		if (!*s || *s == '#') {
+			s = read_line(fp);
+			continue;
+		}
+		var = s;
+
+		while (*s && !isspace(*s)) ++s;
+		value = s;
+		while (*value && isspace(*value)) ++value;
+		*s = '\0';
+
+		prev = getenv(var);
+		if (prev && prev[0]) continue;
+		both = gale_malloc(strlen(var) + strlen(value) + 2);
+		sprintf(both,"%s=%s",var,value);
+
+		s = read_line(fp);
+		while (*s && isspace(*s)) {
+			char *old = both;
+			do ++s; while (*s && isspace(*s));
+			if (*s == '#') break;
+			
+			both = gale_malloc(strlen(old) + strlen(s) + 1);
+			sprintf(both,"%s%s",old,s);
+			gale_free(old);
+
+			s = read_line(fp);
+		}
+
+		putenv(both);
+	}
 }
 
 void gale_restart(void) {
@@ -111,12 +157,6 @@ void gale_init(const char *s,int argc,char * const *argv) {
 
 	gale_error_prefix = s;
 
-	dir = getenv("GALE_SYS_DIR");
-	if (!dir) dir = SYS_DIR;
-	sys_dir = make_dir(dir,0);
-
-	read_conf(dir_file(sys_dir,"conf"));
-
 	dir = getenv("HOME");
 	if (!dir) dir = pwd->pw_dir;
 	home_dir = make_dir(dir,0777);
@@ -129,6 +169,12 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	}
 
 	read_conf(dir_file(dot_gale,"conf"));
+
+	dir = getenv("GALE_SYS_DIR");
+	if (!dir) dir = SYS_DIR;
+	sys_dir = make_dir(dir,0);
+
+	read_conf(dir_file(sys_dir,"conf"));
 
 	init_vars(pwd);
 }

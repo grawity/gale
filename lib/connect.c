@@ -11,6 +11,7 @@
 #include "gale/connect.h"
 #include "gale/util.h" 
 #include "gale/error.h"
+#include "gale/compat.h"
 
 #define DEF_PORT (8413)
 
@@ -122,7 +123,7 @@ int select_connect(fd_set *wfd,struct gale_connect *conn) {
 	delete(conn,i);
 	abort_connect(conn);
 	fcntl(fd,F_SETFL,0);
-	setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,(char*) &one,sizeof(one));
+	setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,SUNSUCK &one,sizeof(one));
 	return fd;
 }
 
