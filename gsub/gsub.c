@@ -41,7 +41,7 @@ struct gale_link *conn;             	/* Physical link. */
 struct gale_server *server;		/* Logical connection. */
 struct gale_text presence;		/* Current presence state. */
 struct gale_text routing;
-char *tty;                              /* TTY device */
+struct gale_text kill_name;		/* Name to register and/or kill */
 
 struct gale_location *user_location = NULL;
 struct gale_location *notice_location = NULL;
@@ -64,6 +64,7 @@ int do_keys = 1;			/* Should we answer key requests? */
 int do_termcap = 0;                     /* Should we highlight headers? */
 int do_fork = 0;			/* Run in the background? */
 int do_kill = 0;			/* Kill other gsub processes? */
+int do_exit = 0;			/* Just exit? */
 int do_chat = 0;			/* Report goings-on? */
 int do_verbose = 0;			/* Report everything? */
 int sequence = 0;
@@ -116,7 +117,7 @@ static void slip(
 	frag.value.text = presence;
 	gale_group_add(&msg->data,frag);
 
-	gale_add_id(&msg->data,gale_text_from(gale_global->enc_filesys,tty,-1));
+	gale_add_id(&msg->data,kill_name);
 	if (NULL != extra) gale_group_replace(&msg->data,*extra);
 	gale_pack_message(source,msg,func,user);
 }
@@ -480,7 +481,7 @@ static void *on_packet(
 static void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gsub [-haAekKnqrv] [-f rcprog] "
+	"usage: gsub [-haAekKnqrv] [-N name] [-f rcprog] "
 #ifdef HAVE_DLOPEN
 	"[-l rclib] "
 #endif
@@ -491,7 +492,8 @@ static void usage(void) {
 	"       -e          Do not include default subscriptions\n"
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
-	"       -n          Do not fork (default if stdout redirected)\n"
+	"       -n          Do not fork (default if stdout is not a terminal)\n"
+	"       -N name     Kill other gsub processes that also use this name\n"
 	"       -q          Extra quiet mode\n"
 	"       -v          Extra verbose mode\n"
 	"       -r          Run the default internal gsubrc and exit\n"
@@ -625,16 +627,15 @@ static void *on_complete() {
 			         : G_("running in foreground as pid ")),
 			gale_text_from_number(getpid(),10,0)),0);
 
-	if (tty) {
-		const struct gale_text terminal =
-			gale_text_from(gale_global->enc_filesys,tty,-1);
-		if (do_verbose && do_kill)
+	if (kill_name.l > 0) {
+		if (do_verbose)
 			gale_alert(GALE_NOTICE,gale_text_concat(3,
-				G_("killing any other gsub on \""),
-				terminal,G_("\"")),0);
-		gale_kill(terminal,do_kill);
-		gale_watch_tty(source,1);
+				G_("this gsub is named \""),kill_name,do_kill 
+				? G_("\"; killing rivals") : G_("\"")),0);
+		gale_kill(kill_name,do_kill);
 	}
+
+	if (isatty(1)) gale_watch_tty(source,1);
 
 	routing = gale_pack_subscriptions(sub_location,sub_positive);
 
@@ -722,6 +723,7 @@ int main(int argc,char **argv) {
 	int opt,positive = 1;
 	struct gale_text rclib = null_text;
 	struct gale_text subs,line;
+	char *tty;
 
 	/* Initialize the gale libraries. */
 	gale_init("gsub",argc,argv);
@@ -732,6 +734,7 @@ int main(int argc,char **argv) {
 		/* Truncate the tty name for convenience. */
 		char *tmp = strrchr(tty,'/');
 		if (tmp) tty = tmp + 1;
+		kill_name = gale_text_from(gale_global->enc_filesys, tty, -1);
 		/* Go into the background; kill other gsub processes. */
 		do_fork = do_kill = 1;
 		/* Announce ourselves. */
@@ -748,7 +751,7 @@ int main(int argc,char **argv) {
 	if (!presence.l) presence = G_("in.present");
 
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"dDhaAenkKqvrf:l:p:"))) {
+	while (EOF != (opt = getopt(argc,argv,"dDhaAenN:kKqvrf:l:p:"))) {
 	struct gale_text str = !optarg ? null_text :
 		gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (opt) {
@@ -779,13 +782,16 @@ int main(int argc,char **argv) {
 		do_fork = do_kill = 0; 
 		break; 
 
+	case 'N': /* Set name */
+		kill_name = str;
+		do_kill = 1;
+		break;
+
 	case 'k': /* Do not kill other gsubs */
 		do_kill = 0; break;           
 
 	case 'K': /* only kill other gsubs */
-		if (tty) gale_kill(gale_text_from(
-			gale_global->enc_filesys,tty,-1),1);
-		return 0;			
+		do_kill = do_exit = 1; break;
 
 	case 'r': /* only run default_gsubrc */
 		do_run_default = 1;
@@ -815,13 +821,26 @@ int main(int argc,char **argv) {
 		break;
 
 	case 'v': /* Verbose */
-		do_chat = 0;
+		do_chat = 1;
 		do_verbose = 1;
 		break;
 
 	case 'h': /* Usage message */
 	case '?': usage();
 	} }
+
+	if (do_exit) {
+		if (do_kill && kill_name.l > 0) {
+			if (do_chat)
+				gale_alert(GALE_NOTICE,gale_text_concat(3,
+					G_("killing any gsub named \""),
+					kill_name,G_("\"")),0);
+			gale_kill(kill_name,do_kill);
+		}
+
+		if (do_chat) gale_alert(GALE_NOTICE,G_("exiting now"),0);
+		return 0;
+	}
 
 	if (do_run_default) {
 		if (do_verbose) 
