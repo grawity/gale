@@ -86,35 +86,34 @@ void default_gsubrc(void) {
 	struct gale_text answer = gale_var(G_("GALE_TEXT_ANSWER_RECEIPT"));
 	struct gale_text from_name = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
 	int i,len,buflen,bufloaded = 0,termwid = gale_columns(stdout);
-     int do_verbose = 0;
+	int do_verbose = 0;
 
 	if (termwid < 2) termwid = 80; /* Don't crash */
 
-     /* Get the verbosity setting */
-     if (0 != (text = gale_var(G_("GALE_VERBOSE"))).l) {
-          do_verbose = gale_text_to_number(text);
-     }
+	/* Get the verbosity setting */
+	if (0 != (text = gale_var(G_("GALE_VERBOSE"))).l) {
+		do_verbose = gale_text_to_number(text);
+	}
 
-     /* Check for _gale.query messages */
+	/* Check for _gale.query messages */
 	i = 1;
-     loc_value = gale_var(G_("GALE_TO"));
-	if (0 != loc_value.l) {
-          do {
-               /* "_gale.query." is 12 characters long */
-               if (0 == gale_text_compare(
-                              gale_text_left(loc_value, 12),
-                              G_("_gale.query."))) {
-                    if (do_verbose)
-                         gale_alert(GALE_NOTICE,gale_text_concat(3,
-                              G_("not printing message to \""),
-                              loc_value,
-                              G_("\"")),0);
-                    return;
-               }
-               loc_value = gale_var(gale_text_concat(3,G_("GALE_TO"),G_("_"),
-                    gale_text_from_number(++i,10,0)));
-          } while (0 != loc_value.l);
-     }
+	loc_value = gale_var(G_("GALE_TO"));
+	while (0 != loc_value.l) {
+		/* "_gale.query." is 12 characters long */
+		if (0 == gale_text_compare(
+			gale_text_left(loc_value, 12),
+			G_("_gale.query."))) 
+		{
+			if (do_verbose) gale_alert(GALE_NOTICE,
+				gale_text_concat(3,
+					G_("not printing message to \""),
+					loc_value,G_("\"")),0);
+			return;
+		}
+		loc_value = gale_var(gale_text_concat(3,
+			G_("GALE_TO"),G_("_"),
+			gale_text_from_number(++i,10,0)));
+	} 
 
 
 	/* Get the time */
@@ -132,9 +131,6 @@ void default_gsubrc(void) {
 			G_("\"")),0);
 		return;
 	}
-
-	if (0 != (text = gale_var(G_("GALE_TEXT_QUESTION_KEY"))).l)
-		return; /* ignore AKD request */
 
 	/* Format return receipts and presence notices specially */
 	if (0 != answer.l || 0 != presence.l) {
