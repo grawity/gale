@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <setjmp.h>
+#include <string.h>
 
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
