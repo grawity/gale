@@ -4,3 +4,7 @@ config.h.in
 configure
 gale-config
 gale-install
+ltmain.sh
+ltconfig
+config.guess
+config.sub

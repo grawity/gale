@@ -7,6 +7,14 @@ AM_CONFIG_HEADER(include/gale/config.h:config.h.in)
 AC_CANONICAL_HOST
 AM_PROG_LIBTOOL
 
+AC_ARG_ENABLE(adns,
+[  --enable-adns	   Use asynchronous DNS resolver],
+[case "${enableval}" in
+  yes) use_adns=true ;;
+  no)  use_adns=false ;;
+  *) AC_MSG_ERROR(bad value ${enableval} for --enable-adns) ;;
+esac],[use_adns=true])
+
 AC_ARG_ENABLE(gzgw,
 [  --enable-gzgw           Build the Zephyr gateway (requires Zephyr)],
 [case "${enableval}" in
@@ -51,7 +59,7 @@ if test NONE != "$prefix" ; then
 fi
 
 dnl Add special GCC warnings, but don't enable them yet.
-test yes = "$GCC" && warning_flags="-Wall -Wno-comment -Werror $CFLAGS"
+test yes = "$GCC" && warning_flags="-Wall -Wno-comment $CFLAGS"
 
 dnl System type checks.
 case "$host" in
@@ -203,14 +211,19 @@ if test -f "${srcdir}/liboop/oop.h"; then
   AC_MSG_RESULT(yes)
   INCLUDES="-I\${top_srcdir}/liboop $INCLUDES"
   build_liboop=true
-  GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop-adns.la -ladns"
+  if $use_adns; then
+    GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop-adns.la -ladns"
+  fi
   GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop.la"
 else
   AC_MSG_RESULT(no)
   AC_CHECK_LIB(oop,oop_sys_new,[:],[
     AC_MSG_ERROR(cannot find liboop library, see INSTALL directions)
   ])
-  GALE_LIBS="$GALE_LIBS -loop-adns -ladns -oop"
+  if $use_adns; then
+    GALE_LIBS="$GALE_LIBS -loop-adns -ladns"
+  fi
+  GALE_LIBS="$GALE_LIBS -loop"
 fi
 
 GALE_LIBS="$GALE_LIBS $termcap_lib"
