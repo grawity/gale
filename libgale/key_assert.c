@@ -126,10 +126,23 @@ static void retract_trust(struct gale_key_assertion *ass) {
 	}
 }
 
+static struct gale_key_assertion *get_bundled(struct gale_key_assertion *ass) {
+	struct gale_key_assertion **bundled = ass->bundled;
+	if (NULL == ass->key || NULL == bundled) return NULL;
+	while (NULL != *bundled && ass->key->signer != (*bundled)->key)
+		++bundled;
+	return *bundled;
+}
+
 static int beats(
 	struct gale_key_assertion *challenger,
 	struct gale_key_assertion *incumbent)
 {
+	int compare;
+
+	/* A key doesn't beat itself. */
+	if (challenger == incumbent) return 0;
+
 	/* An unsigned, untrusted key always loses. */
 	if (!public_good(challenger)) return 0;
 	if (!public_good(incumbent)) return 1;
@@ -140,9 +153,9 @@ static int beats(
 
 	if (incumbent->trust_count) {
 		/* Trusted: the key asserted most recently wins. */
-		return gale_time_compare(
+		compare = gale_time_compare(
 			incumbent->stamp,
-			challenger->stamp) <= 0;
+			challenger->stamp);
 	} else {
 		/* Untrusted: the key that was signed most recently wins. */
 		struct gale_fragment c,i;
@@ -156,8 +169,12 @@ static int beats(
 			G_("key.signed"),frag_time,&i))
 			i.value.time = gale_time_zero();
 
-		return gale_time_compare(i.value.time,c.value.time) <= 0;
+		compare = gale_time_compare(i.value.time,c.value.time);
 	}
+
+	if (compare < 0) return 1;
+	if (compare > 0) return 0;
+	return beats(get_bundled(challenger),get_bundled(incumbent));
 }
 
 /** Supply some raw key data to the system. 
@@ -204,7 +221,7 @@ struct gale_key_assertion *gale_key_assert(
 		output->source = source;
 		output->group = key_i_group(output->source);
 
-		if (!beats(output,key->private)) {
+		if (beats(key->private,output)) {
 			gale_alert(GALE_WARNING,gale_text_concat(3,
 				G_("\""),name,
 				G_("\": ignoring obsolete private key")),0);
@@ -258,7 +275,7 @@ struct gale_key_assertion *gale_key_assert(
 	    || 0 != gale_data_compare(key->public->source,source));
 
 	/* Fight for the key! */
-	if (beats(output,key->public)) {
+	if (!beats(key->public,output)) {
 		if (NULL != key->public) {
 			gale_alert(GALE_WARNING,gale_text_concat(3,
 				G_("\""),name,

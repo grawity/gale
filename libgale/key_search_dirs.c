@@ -52,9 +52,8 @@ static void wipe_file(int do_trust,struct dir_filename *f,
 	if (gale_erase_file(f->state))
 		gale_alert(GALE_NOTICE,gale_text_concat(3,
 			G_("erased \""),f->name,G_("\"")),0);
-	else if (0 != errno)
-		gale_alert(GALE_WARNING,gale_text_concat(3,
-			G_("could not erase \""),f->name,G_("\"")),errno);
+	else if (0 != errno && ENOENT != errno)
+		gale_alert(GALE_WARNING,f->name,errno);
 	gale_key_retract(f->ass,do_trust);
 	f->ass = NULL;
 }
