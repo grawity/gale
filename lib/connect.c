@@ -328,7 +328,9 @@ static void *on_write(oop_source *src,int fd,oop_event event,void *user) {
 		del_address(conn,i);
 	} else {
 		int one = 1;
+#if 0
 		struct linger linger = { 1, 5000 }; /* 5 seconds */
+#endif
 		struct gale_text name = conn->addresses[i]->name;
 		struct sockaddr_in addr = conn->addresses[i]->sin;
 
@@ -341,8 +343,10 @@ static void *on_write(oop_source *src,int fd,oop_event event,void *user) {
 		fcntl(fd,F_SETFL,0);
 		setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,
 		           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
+#if 0
 		setsockopt(fd,SOL_SOCKET,SO_LINGER,
 		           (SETSOCKOPT_ARG_4_T) &linger,sizeof(linger));
+#endif
 
 		return conn->call(fd,name,addr,conn->found_local,conn->data);
 	}
