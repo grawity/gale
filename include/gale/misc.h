@@ -7,6 +7,11 @@
 #include <stddef.h>
 #include "gale/types.h"
 
+/* -- terminal functions -------------------------------------------------- */
+
+/* Output the given termcap string. */
+void gale_tmode(char id[2]);
+
 /* -- process management --------------------------------------------------- */
 
 /* Restart ourselves -- re-exec() the program with the same argc and argv.
@@ -39,6 +44,8 @@ void gale_do_cleanup();
 
 /* -- memory management ---------------------------------------------------- */
 
+extern const struct gale_data null_data;
+
 /* You must define these two! */
 void *gale_malloc(size_t size);
 void gale_free(void *);
@@ -47,6 +54,9 @@ void gale_free(void *);
 void *gale_memdup(const void *,int);
 char *gale_strdup(const char *);
 char *gale_strndup(const char *,int);
+
+/* Compare memory blocks. */
+int gale_data_compare(struct gale_data,struct gale_data);
 
 /* Not really safe. */
 void *gale_realloc(void *,size_t);
@@ -83,15 +93,15 @@ struct timeval;
 struct gale_time gale_time_zero(void);
 struct gale_time gale_time_now(void);
 struct gale_time gale_time_forever(void);
+struct gale_time gale_time_seconds(int);
 
-int gale_time_less(struct gale_time,struct gale_time);
+int gale_time_compare(struct gale_time,struct gale_time);
+struct gale_time gale_time_diff(struct gale_time,struct gale_time);
 
 void gale_time_to(struct timeval *,struct gale_time);
 void gale_time_from(struct gale_time *,struct timeval *);
 
 /* -- data interchange conversion ------------------------------------------ */
-
-extern const struct gale_data null_data;
 
 int gale_unpack_copy(struct gale_data *,void *,size_t);
 int gale_unpack_compare(struct gale_data *,const void *,size_t);

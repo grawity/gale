@@ -13,6 +13,19 @@
 #include <string.h>
 #include <time.h>
 
+struct auth_id *gale_user(void) {
+	static struct auth_id *user_id = NULL;
+
+	if (user_id) return user_id;
+
+	user_id = lookup_id(gale_text_from_local(getenv("GALE_ID"),-1));
+	if (!auth_id_public(user_id))
+		auth_id_gen(user_id,
+		            gale_text_from_local(getenv("GALE_FROM"),-1));
+
+	return user_id;
+}
+
 static void do_connect(struct gale_client *client) {
 	struct gale_connect *conn = make_connect(client->server);
 	if (client->socket != -1) close(client->socket);

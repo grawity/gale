@@ -8,7 +8,7 @@ qgrep() {
 }
 
 testkey() {
-	gkinfo -x "$1" 2>/dev/null | qgrep '^ *Signed: <ROOT>'
+	gkinfo -x "$1" 2>/dev/null | qgrep "^Trusted public key: <$1>"
 }
 
 if [ -n "$GALE_SYS_DIR" ]; then

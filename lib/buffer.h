@@ -18,6 +18,7 @@ struct input_buffer *create_input_buffer(struct input_state initial);
 struct input_state release_input_buffer(struct input_buffer *);
 int input_buffer_ready(struct input_buffer *);
 int input_buffer_read(struct input_buffer *,int fd);
+void input_buffer_more(struct input_buffer *);
 
 int input_always_ready(struct input_state *);
 

@@ -106,9 +106,11 @@ static void ifn_message_body(struct input_state *inp) {
 	assert(NULL != l->in_msg);
 	switch (l->in_opcode) {
 	case opcode_puff:
+		assert(NULL == l->in_puff);
 		l->in_puff = l->in_msg;
 		break;
 	case opcode_will:
+		if (l->in_will) release_message(l->in_will);
 		l->in_will = l->in_msg;
 		break;
 	default:
@@ -162,14 +164,7 @@ static void ifn_category_len(struct input_state *inp) {
 
 static int ifn_message_ready(struct input_state *inp) {
 	struct gale_link *l = (struct gale_link *) inp->private;
-	switch (l->in_opcode) {
-	case opcode_puff:
-		return (NULL == l->in_puff);
-	case opcode_will:
-		return (NULL == l->in_will);
-	default:
-		assert(0);
-	}
+	return NULL == l->in_puff;
 }
 
 static void ist_message(struct input_state *inp) {
@@ -181,9 +176,13 @@ static void ist_message(struct input_state *inp) {
 	}
 
 	inp->next = ifn_category_len;
-	inp->ready = ifn_message_ready;
 	inp->data.p = NULL;
 	inp->data.l = gale_u32_size();
+
+	if (l->in_opcode == opcode_puff) 
+		inp->ready = ifn_message_ready;
+	else
+		inp->ready = input_always_ready;
 }
 
 static void ifn_subscribe_category(struct input_state *inp) {
@@ -191,7 +190,7 @@ static void ifn_subscribe_category(struct input_state *inp) {
 	size_t len = inp->data.l / gale_wch_size();
 	assert(opcode_gimme == l->in_opcode);
 	assert(l->in_length == inp->data.l);
-	assert(NULL == l->in_gimme.p);
+	free_gale_text(l->in_gimme);
 	l->in_gimme = new_gale_text(len);
 	if (gale_unpack_text_len(&inp->data,len,&l->in_gimme))
 		ist_idle(inp);
@@ -203,13 +202,9 @@ static void ifn_subscribe_category(struct input_state *inp) {
 	}
 }
 
-static int ifn_subscribe_ready(struct input_state *inp) {
-	return NULL == ((struct gale_link *) inp->private)->in_gimme.p;
-}
-
 static void ist_subscribe(struct input_state *inp) {
 	inp->next = ifn_subscribe_category;
-	inp->ready = ifn_subscribe_ready;
+	inp->ready = input_always_ready;
 	inp->data.l = ((struct gale_link *) inp->private)->in_length;
 	inp->data.p = NULL;
 }
@@ -343,6 +338,7 @@ struct gale_link *new_link(void) {
 	l->input = NULL;
 	l->in_msg = l->in_puff = l->in_will = NULL;
 	l->in_gimme.p = NULL;
+	l->in_gimme.l = 0;
 
 	l->output = NULL;
 	l->out_text.p = NULL;
@@ -496,6 +492,7 @@ struct gale_message *link_get(struct gale_link *l) {
 	if (l->old) return link_get_old(l->old);
 	puff = l->in_puff;
 	l->in_puff = NULL;
+	if (l->input) input_buffer_more(l->input);
 	return puff;
 }
 
@@ -504,6 +501,7 @@ struct gale_message *link_willed(struct gale_link *l) {
 	if (l->old) return link_willed_old(l->old);
 	will = l->in_will;
 	l->in_will = NULL;
+	if (l->input) input_buffer_more(l->input);
 	return will;
 }
 
@@ -520,5 +518,6 @@ struct gale_text link_subscribed(struct gale_link *l) {
 	text = l->in_gimme;
 	l->in_gimme.p = NULL;
 	l->in_gimme.l = 0;
+	if (l->input) input_buffer_more(l->input);
 	return text;
 }

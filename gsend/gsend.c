@@ -88,7 +88,7 @@ void headers(void) {
 	}
 	if (do_rrcpt) {
 		struct gale_text cat = 
-			id_category(user_id,G_("user"),G_("receipt"));
+			id_category(gale_user(),G_("user"),G_("receipt"));
 		char *pch = gale_text_to_latin1(cat);
 		reserve(20 + strlen(pch));
 		sprintf(msg->data.p + msg->data.l,"Receipt-To: %s\r\n",pch);
@@ -151,7 +151,7 @@ char *get_line(int tty)
 
 /* Output usage information, exit. */
 void usage(void) {
-	struct gale_id *id = lookup_id(G_("name@domain"));
+	struct auth_id *id = lookup_id(G_("name@domain"));
 	fprintf(stderr,
 		"%s\n"
 		"usage: gsend [-auUpP] [-S id] [-cC cat] [id [id ...]]\n"
@@ -185,7 +185,7 @@ int main(int argc,char *argv[]) {
 	msg = new_message();
 
 	/* Default is to sign with our key. */
-	signer = user_id;
+	signer = gale_user();
 
 	/* Parse command line options. */
 	while ((arg = getopt(argc,argv,"hac:C:t:PpS:uU")) != EOF) 

@@ -1,11 +1,11 @@
+#include "gale/all.h"
+
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
-
-#include "gale/all.h"
 
 struct gale_client *client;
 
@@ -34,7 +34,7 @@ void watch_cat(struct gale_text cat) {
 	subs[count_subs++] = cat;
 }
 
-void watch_ping(struct gale_text cat,struct gale_id *id) {
+void watch_ping(struct gale_text cat,struct auth_id *id) {
 	struct gale_message *msg;
 	char *tmp;
 
@@ -42,7 +42,7 @@ void watch_ping(struct gale_text cat,struct gale_id *id) {
 		const char *host = getenv("HOST");
 		char *tmp = gale_malloc(strlen(host) + 20);
 		sprintf(tmp,"%s.%d",host,(int) getpid());
-		receipt = id_category(user_id,
+		receipt = id_category(gale_user(),
 			G_("receipt"),
 			gale_text_from_latin1(tmp,-1));
 		gale_free(tmp);
@@ -69,7 +69,7 @@ void watch_ping(struct gale_text cat,struct gale_id *id) {
 	}
 }
 
-void watch_id(struct gale_id *id) {
+void watch_id(struct auth_id *id) {
 	watch_ping(id_category(id,G_("user"),G_(":/ping")),id);
 	watch_cat(id_category(id,G_("notice"),G_("")));
 }
@@ -146,20 +146,32 @@ void send_pings(void) {
 
 void incoming(
 	int type,
-	struct gale_id *id,
+	struct auth_id *id,
 	const char *agent,
 	const char *from,
-	int seq
+	int seq,
+	time_t when
 )
 {
 	(void) seq; (void) agent;
 	switch (type) {
-	case m_login: printf("<login>"); break;
-	case m_logout: printf("<logout>"); break;
-	case m_ping: printf("<ping>"); break;
+	case m_login: printf("* Login:"); break;
+	case m_logout: printf("* Logout:"); break;
+	case m_ping: printf("* Ping:"); break;
 	}
-	if (id) printf(" <%s>",gale_text_hack(auth_id_name(id)));
+	if (id) {
+		fputs(" <",stdout);
+		gale_tmode("md");
+		fputs(gale_text_hack(auth_id_name(id)),stdout);
+		gale_tmode("me");
+		fputs(">",stdout);
+	}
 	if (from) printf(" (%s)",from);
+	if (when) {
+		char buf[80];
+		strftime(buf,sizeof(buf)," %m/%d %H:%M",localtime(&when));
+		fputs(buf,stdout);
+	}
 	printf("\r\n");
 	fflush(stdout);
 }
@@ -168,9 +180,10 @@ void process_message(struct gale_message *msg) {
 	int type;
 	struct gale_text login,logout,debug;
 	char *next,*key,*data,*end;
-	struct gale_id *id_sign = NULL,*id_encrypt = NULL;
+	struct auth_id *id_sign = NULL,*id_encrypt = NULL;
 	char *agent = NULL,*from = NULL;
 	int sequence = -1;
+	time_t when = 0;
 
 	login = gale_text_from_latin1("/login",-1);
 	logout = gale_text_from_latin1("/logout",-1);
@@ -196,6 +209,7 @@ void process_message(struct gale_message *msg) {
 		if (!strcasecmp(key,"Agent")) agent = data;
 		if (!strcasecmp(key,"From")) from = data;
 		if (!strcasecmp(key,"Sequence")) sequence = atoi(data);
+		if (!strcasecmp(key,"Time")) when = atoi(data);
 	}
 
 #ifndef NDEBUG
@@ -206,14 +220,14 @@ void process_message(struct gale_message *msg) {
 	}
 #endif
 
-	incoming(type,id_sign,agent,from,sequence);
+	incoming(type,id_sign,agent,from,sequence,when);
 
 error:
 	free_gale_text(login);
 	free_gale_text(logout);
 	free_gale_text(debug);
-	if (id_sign) free_id(id_sign);
-	if (id_encrypt) free_id(id_encrypt);
+	if (id_sign) free_auth_id(id_sign);
+	if (id_encrypt) free_auth_id(id_encrypt);
 	if (msg) release_message(msg);
 }
 

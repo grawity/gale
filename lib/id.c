@@ -29,7 +29,7 @@ struct auth_id *lookup_id(struct gale_text spec) {
 	return id;
 }
 
-struct gale_text id_category(struct gale_id *id,
+struct gale_text id_category(struct auth_id *id,
                              struct gale_text pfx,struct gale_text sfx)
 {
 	struct gale_text user,name = auth_id_name(id);

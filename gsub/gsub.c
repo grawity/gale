@@ -24,23 +24,16 @@
 #include <dlfcn.h>
 #endif
 
-#ifdef HAVE_CURSES_H
-#define HAVE_CURSES
-#include <curses.h>
-#ifdef HAVE_TERM_H
-#include <term.h>
-#endif
-#endif
-
 extern char **environ;
 
 const char *rcprog = "gsubrc";		/* Filter program name. */
 gsubrc_t *dl_gsubrc = NULL;		/* Loaded gsubrc function. */
 gsubrc2_t *dl_gsubrc2 = NULL;		/* Extended gsubrc function. */
 struct gale_client *client;             /* Connection to server. */
+struct auth_id *user_id;		/* The user. */
 char *tty,*agent;                       /* TTY device, user-agent string. */
 
-int do_ping = 1;			/* Should we answer Receipt-To's? */
+int do_stealth = 0;			/* Should we answer Receipt-To's? */
 int do_beep = 1;			/* Should we beep? */
 int do_termcap = 0;                     /* Should we highlight headers? */
 int sequence = 0;
@@ -53,7 +46,7 @@ void gale_free(void *ptr) { free(ptr); }
 /* Generate a trivial little message with the given category.  Used for
    return receipts, login/logout notifications, and such. */
 struct gale_message *slip(struct gale_text cat,
-                          struct gale_id *sign,struct auth_id *encrypt)
+                          struct auth_id *sign,struct auth_id *encrypt)
 {
 	struct gale_message *msg;
 	int len = strlen(agent) + strlen(getenv("GALE_FROM"));
@@ -122,24 +115,13 @@ struct gale_message *send_key(void) {
 	return key;
 }
 
-/* Output a terminal mode string. */
-void tmode(char id[2]) {
-#ifdef HAVE_CURSES
-	char *cap;
-	if (do_termcap && (cap = tgetstr(id,NULL))) 
-		tputs(cap,1,(TPUTS_ARG_3_T) putchar);
-#else
-	(void) id;
-#endif
-}
-
 /* Print a user ID, with a default string (like "everyone") for NULL. */
 void print_id(const char *id,const char *dfl) {
 	putchar(' ');
 	putchar(id ? '<' : '*');
-	tmode("md");
+	gale_tmode("md");
 	fputs(id ? id : dfl,stdout);
-	tmode("me");
+	gale_tmode("me");
 	putchar(id ? '>' : '*');
 }
 
@@ -181,9 +163,9 @@ void default_gsubrc(void) {
 
 	/* Print the header: category, time, et cetera */
 	putchar('[');
-	tmode("md");
+	gale_tmode("md");
 	fputs(cat,stdout);
-	tmode("me");
+	gale_tmode("me");
 	putchar(']');
 	if ((tmp = getenv("HEADER_TIME"))) {
 		time_t when = atoi(tmp);
@@ -227,12 +209,12 @@ void default_gsubrc(void) {
 			else if (*ptr == '\n')
 				fputs(nl,stdout);
 			else {
-				tmode("mr");
+				gale_tmode("mr");
 				if (*ptr < 32)
 					printf("^%c",*ptr + 64);
 				else
 					printf("[0x%X]",*ptr);
-				tmode("me");
+				gale_tmode("me");
 			}
 		}
 		++count;
@@ -257,7 +239,8 @@ void send_message(char *body,char *end,int fd) {
 		while (body != tmp) {
 			int r = write(fd,body,tmp - body);
 			if (r <= 0) {
-				gale_alert(GALE_WARNING,"write",errno);
+				if (errno != EPIPE)
+					gale_alert(GALE_WARNING,"write",errno);
 				return;
 			}
 			body += r;
@@ -283,7 +266,7 @@ void present_message(struct gale_message *_msg) {
 
 	/* Lots of crap.  Discussed below, where they're used. */
 	char *next,**envp = NULL,*key,*data,*end,*tmp;
-	struct gale_id *id_encrypted = NULL,*id_sign = NULL;
+	struct auth_id *id_encrypted = NULL,*id_sign = NULL;
 	struct gale_message *rcpt = NULL,*akd = NULL,*msg = NULL;
 	int envp_global,envp_alloc,envp_len,status;
 	struct gale_text restart = gale_text_from_latin1("debug/restart",-1);
@@ -339,7 +322,7 @@ void present_message(struct gale_message *_msg) {
 	while (parse_header(&next,&key,&data,end)) {
 
 		/* Process receipts, if we do. */
-		if (do_ping && !strcasecmp(key,"Receipt-To")) {
+		if (!do_stealth && !strcasecmp(key,"Receipt-To")) {
 			/* Generate a receipt. */
 			struct gale_text cat;
 			cat = gale_text_from_latin1(data,-1);
@@ -348,7 +331,7 @@ void present_message(struct gale_message *_msg) {
 			free_gale_text(cat);
 		}
 
-		if (do_ping && !strcasecmp(key,"Request-Key")) {
+		if (!do_stealth && !strcasecmp(key,"Request-Key")) {
 			struct gale_text text = gale_text_from_latin1(data,-1);
 			if (!gale_text_compare(text,auth_id_name(user_id))) {
 				if (akd) release_message(akd);
@@ -467,8 +450,8 @@ error:
 		while (envp_global != envp_len) gale_free(envp[envp_global++]);
 		gale_free(envp);
 	}
-	if (id_encrypted) free_id(id_encrypted);
-	if (id_sign) free_id(id_sign);
+	if (id_encrypted) free_auth_id(id_encrypted);
+	if (id_sign) free_auth_id(id_sign);
 	if (msg) release_message(msg);
 	if (rcpt) release_message(rcpt);
 	if (akd) release_message(akd);
@@ -512,18 +495,17 @@ void set_agent(void) {
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gsub [-benkKpa] [-f rcprog] [-l rclib] cat\n"
+	"usage: gsub [-benkKa] [-f rcprog] [-l rclib] cat\n"
 	"flags: -b          Do not beep (normally personal messages beep)\n"
 	"       -e          Do not include default subscriptions\n"
 	"       -n          Do not fork (default if stdout redirected)\n"
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
+	"       -a          Run in \"stealth\" mode\n"
 	"       -f rcprog   Use rcprog (default gsubrc, if found)\n"
 #ifdef HAVE_DLOPEN
 	"       -l rclib    Use module (default gsubrc.so, if found)\n" 
 #endif
-	"       -p          Suppress return-receipt processing altogether\n"
-	"       -a          Disable login/logout notification\n"
 	,GALE_BANNER);
 	exit(1);
 }
@@ -583,13 +565,16 @@ void add_subs(struct gale_text *subs,struct gale_text add) {
 
 int main(int argc,char **argv) {
 	/* Various flags. */
-	int opt,do_notify = 1,do_fork = 0,do_kill = 0;
+	int opt,do_fork = 0,do_kill = 0;
 	const char *rclib = NULL;
 	/* Subscription list. */
 	struct gale_text serv = null_text;
 
 	/* Initialize the gale libraries. */
 	gale_init("gsub",argc,argv);
+
+	/* Figure out who we are. */
+	user_id = gale_user();
 
 	/* If we're actually on a TTY, we do things a bit differently. */
 	if ((tty = ttyname(1))) {
@@ -612,7 +597,7 @@ int main(int argc,char **argv) {
 	add_subs(&serv,gale_text_from_local(getenv("GALE_GSUB"),-1));
 
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"benkKpaf:l:h"))) switch (opt) {
+	while (EOF != (opt = getopt(argc,argv,"benkKaf:l:h"))) switch (opt) {
 	case 'b': do_beep = 0; break;		/* Do not beep */
 	case 'e': free_gale_text(serv);		/* Do not include defaults */
 	          serv.l = 0; serv.p = NULL; break;
@@ -622,8 +607,7 @@ int main(int argc,char **argv) {
 	          return 0;
 	case 'f': rcprog = optarg; break;       /* Use a wacky gsubrc */
 	case 'l': rclib = optarg; break;	/* Use a wacky gsubrc.so */
-	case 'p': do_ping = 0; break;           /* Do not honor Receipt-To: */
-	case 'a': do_notify = 0; break;         /* Do not send login/logout */
+	case 'a': do_stealth = 1; break;        /* Do not send login/logout */
 	case 'h':                               /* Usage message */
 	case '?': usage();
 	}
@@ -641,7 +625,7 @@ int main(int argc,char **argv) {
 	load_gsubrc(rclib);
 
 	/* Act as AKD proxy for this particular user. */
-	if (do_ping)
+	if (!do_stealth)
 		add_subs(&serv,id_category(user_id,G_("auth/query"),G_("")));
 
 #ifndef NDEBUG
@@ -660,7 +644,7 @@ int main(int argc,char **argv) {
 	set_agent();
 
 	/* Send a login message, as needed. */
-	if (do_notify) notify();
+	if (!do_stealth) notify();
 	for (;;) {
 		int r = 0;
 
@@ -692,7 +676,7 @@ int main(int argc,char **argv) {
 
 		/* Retry the server connection, unless we shouldn't. */
 		gale_retry(client);
-		if (do_notify) notify();
+		if (!do_stealth) notify();
 	}
 
 	gale_alert(GALE_ERROR,"connection lost",0);

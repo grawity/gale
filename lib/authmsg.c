@@ -7,7 +7,7 @@
 
 #include "gale/all.h"
 
-static struct gale_message *sign(struct gale_id *id,struct gale_message *in,
+static struct gale_message *sign(struct auth_id *id,struct gale_message *in,
                                  int tweak) 
 {
 	struct gale_message *out = NULL;
@@ -33,15 +33,15 @@ static struct gale_message *sign(struct gale_id *id,struct gale_message *in,
 	return out;
 }
 
-struct gale_message *sign_message(struct gale_id *id,struct gale_message *in) {
+struct gale_message *sign_message(struct auth_id *id,struct gale_message *in) {
 	return sign(id,in,0);
 }
 
-struct gale_message *_sign_message(struct gale_id *id,struct gale_message *in) {
+struct gale_message *_sign_message(struct auth_id *id,struct gale_message *in) {
 	return sign(id,in,1);
 }
 
-struct gale_message *encrypt_message(int num,struct gale_id **id,
+struct gale_message *encrypt_message(int num,struct auth_id **id,
                                      struct gale_message *in) 
 {
 	struct gale_message *out = NULL;
@@ -68,10 +68,10 @@ struct gale_message *encrypt_message(int num,struct gale_id **id,
 	return out;
 }
 
-struct gale_id *verify_message(struct gale_message *in) {
+struct auth_id *verify_message(struct gale_message *in) {
 	const char *ptr = in->data.p,*end;
 	const char *dptr,*dend = in->data.p + in->data.l;
-	struct gale_id *id = NULL;
+	struct auth_id *id = NULL;
 
 	for (end = ptr; end < dend && *end != '\r'; ++end) ;
 	dptr = end + 1;
@@ -97,12 +97,12 @@ struct gale_id *verify_message(struct gale_message *in) {
 	return id;
 }
 
-struct gale_id *decrypt_message(struct gale_message *in,
+struct auth_id *decrypt_message(struct gale_message *in,
                                 struct gale_message **out) 
 {
 	const char *ptr = in->data.p,*end;
 	const char *dptr,*dend = in->data.p + in->data.l;
-	struct gale_id *id = NULL;
+	struct auth_id *id = NULL;
 	*out = in;
 
 	for (end = ptr; end < dend && *end != '\r'; ++end) ;

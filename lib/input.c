@@ -27,7 +27,7 @@ struct input_state release_input_buffer(struct input_buffer *buf) {
 	return state;
 }
 
-void eat_remnant(struct input_buffer *buf) {
+static void eat_remnant(struct input_buffer *buf) {
 	size_t ptr = 0;
 	size_t r = buf->remnant;
 
@@ -68,6 +68,10 @@ void eat_remnant(struct input_buffer *buf) {
 
 		memmove(buf->buffer,buf->buffer + ptr,r);
 	}
+}
+
+void input_buffer_more(struct input_buffer *buf) {
+	eat_remnant(buf);
 }
 
 int input_buffer_read(struct input_buffer *buf,int fd) {
