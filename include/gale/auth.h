@@ -9,6 +9,9 @@
 
 struct auth_id;
 
+typedef void auth_hook(struct auth_id *);
+extern auth_hook *hook_find_public,*hook_find_private;
+
 void init_auth_id(struct auth_id **,const char *name);
 void free_auth_id(struct auth_id *);
 const char *auth_id_name(struct auth_id *);
@@ -26,6 +29,10 @@ void auth_sign(struct auth_id *,
                struct gale_data data,struct gale_data *sig);
 void auth_verify(struct auth_id **,
                  struct gale_data data,struct gale_data sig);
+
+/* Don't use this. */
+void _auth_sign(struct auth_id *,
+                struct gale_data data,struct gale_data *sig);
 
 void auth_encrypt(int num,struct auth_id **,
                   struct gale_data plain,struct gale_data *cipher);

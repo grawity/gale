@@ -6,7 +6,7 @@
 #include "gale/all.h"
 
 struct gale_client *client;
-struct gale_text category;
+struct gale_text old_cat,new_cat;
 struct auth_id *domain;
 
 void *gale_malloc(size_t size) { return malloc(size); }
@@ -44,77 +44,106 @@ void failure(struct auth_id *id,struct gale_message *msg) {
 	msg->data.l = strlen(msg->data.p);
 }
 
+void request(struct auth_id *id,struct gale_text category) {
+	struct gale_message *reply = new_message();
+	reply->cat = gale_text_dup(category);
+
+	if (!auth_id_public(id)) 
+		failure(id,reply);
+	else
+		success(id,reply);
+
+	if (reply->data.p) {
+		struct gale_message *new = _sign_message(domain,reply);
+		if (new) {
+			link_put(client->link,new);
+			release_message(new);
+		}
+	}
+
+	release_message(reply);
+}
+
+int prefix(struct gale_text x,struct gale_text prefix) {
+	return !gale_text_compare(gale_text_left(x,prefix.l),prefix);
+}
+
+int suffix(struct gale_text x,struct gale_text suffix) {
+	return !gale_text_compare(gale_text_right(x,suffix.l),suffix);
+}
+
 void incoming(struct gale_message *_msg) {
-	struct gale_text cat = { NULL,0 },rcpt = { NULL,0 },trailer;
-	struct gale_message *new,*msg = NULL,*reply = NULL;
-	struct auth_id *key = NULL,*encrypted = NULL,*signature = NULL;
-	char *user = NULL,*next,*header,*data,*end;
+	struct gale_text rcpt = { NULL,0 };
+	struct gale_message *msg = NULL;
+	struct auth_id *encrypted = NULL,*signature = NULL;
+	char *user = NULL;
 
 	encrypted = decrypt_message(_msg,&msg);
-	if (!msg) goto done;
+	if (!msg) return;
 	signature = verify_message(msg);
 
-	trailer = gale_text_from_latin1("/key",-1);
+	/* Figure out what we can from the headers. */
 
-	while (gale_text_token(_msg->cat,':',&cat)) {
-		if (gale_text_compare(category,gale_text_left(cat,category.l))
-		||  gale_text_compare(trailer,gale_text_right(cat,trailer.l)))
-			continue;
-		user = gale_text_to_latin1(gale_text_left(cat,-trailer.l));
+	{
+		char *next = msg->data.p,*end = next + msg->data.l;
+		char *header,*data;
+		while (parse_header(&next,&header,&data,end)) {
+			if (!strcasecmp(header,"Request-Key"))
+				user = gale_strdup(data);
+			else if (!strcasecmp(header,"Receipt-To")) {
+				if (rcpt.p) free_gale_text(rcpt);
+				rcpt = gale_text_from_latin1(data,-1);
+			}
+		}
 	}
 
-	free_gale_text(trailer);
-	if (!user) goto done;
-	key = lookup_id(user);
-	if (!key) goto done;
+	/* Now see what we can glean from the category */
 
-	next = msg->data.p; end = next + msg->data.l;
-	while (parse_header(&next,&header,&data,end))
-		if (!strcasecmp(header,"Receipt-To")) 
-			rcpt = gale_text_from_latin1(data,-1);
+	if (!user) {
+		struct gale_text trailer = gale_text_from_latin1("/key",-1);
+		struct gale_text cat = { NULL, 0 };
 
-	if (!rcpt.p) {
-		gale_alert(GALE_WARNING,"no Receipt-To header, cannot reply",0);
-		goto done;
+		while (gale_text_token(_msg->cat,':',&cat)) {
+			if (prefix(cat,old_cat) && suffix(cat,trailer))
+				user = gale_text_to_latin1(
+					gale_text_right(
+						gale_text_left(cat,-trailer.l),
+						-old_cat.l));
+			else if (prefix(cat,new_cat))
+				user = gale_text_to_latin1(
+					gale_text_right(cat,-new_cat.l));
+		}
+
+		free_gale_text(trailer);
 	}
 
-	reply = new_message();
-	reply->cat = rcpt;
-
-	if (!auth_id_public(key)) 
-		failure(key,reply);
-	else
-		success(key,reply);
-
-	if (!reply->data.p) goto done;
-
-	new = sign_message(domain,reply);
-	release_message(reply);
-	reply = new;
-	if (!reply) goto done;
-
-	if (signature) {
-		new = encrypt_message(1,&signature,reply);
-		release_message(reply);
-		reply = new;
-		if (!reply) goto done;
+	if (!user) 
+		gale_alert(GALE_WARNING,"cannot determine the key wanted",0);
+	else {
+		struct auth_id *key = lookup_id(user);
+		if (!rcpt.p) rcpt = id_category(key,"auth/key","");
+		gale_dprintf(3,"--- looking up key for %s\n",user);
+		if (key) {
+			request(key,rcpt);
+			free_auth_id(key);
+		}
 	}
 
-	link_put(client->link,reply);
+	if (rcpt.p) free_gale_text(rcpt);
 
-done:
-	if (key) free_auth_id(key);
 	if (encrypted) free_auth_id(encrypted);
 	if (signature) free_auth_id(signature);
 	if (user) gale_free(user);
 	if (msg) release_message(msg);
-	if (reply) release_message(msg);
 }
 
 int main(int argc,char *argv[]) {
 	int arg;
+	struct gale_text category,colon;
 
 	gale_init("gdomain",argc,argv);
+	disable_gale_akd();
+
 	while ((arg = getopt(argc,argv,"dDh")) != EOF)
 	switch (arg) {
 	case 'd': ++gale_debug; break;
@@ -128,7 +157,13 @@ int main(int argc,char *argv[]) {
 	if (!domain || !auth_id_private(domain))
 		gale_alert(GALE_ERROR,"no access to domain private key",0);
 
-	category = dom_category(NULL,"dom");
+	old_cat = dom_category(NULL,"dom");
+	new_cat = dom_category(NULL,"auth/query");
+	colon = gale_text_from_latin1(":",1);
+	category = new_gale_text(old_cat.l + new_cat.l + colon.l);
+	gale_text_append(&category,old_cat);
+	gale_text_append(&category,colon);
+	gale_text_append(&category,new_cat);
 	client = gale_open(category);
 
 	gale_daemon(0);

@@ -9,10 +9,13 @@
 
 #if SIZEOF_INT == 4
 typedef unsigned int u32;
+typedef signed int s32;
 #elif SIZEOF_LONG == 4
 typedef unsigned long u32;
+typedef signed long s32;
 #elif SIZEOF_SHORT == 4
 typedef unsigned short u32;
+typedef signed short s32;
 #else
 #error Cannot find 32-bit data type!
 #endif
@@ -42,6 +45,13 @@ struct gale_data {
 struct gale_text {
 	wch *p;
 	size_t l;	/* in wch's */
+};
+
+/* sufficiently high precision time */
+struct gale_time {
+	s32 sec_high;
+	u32 sec_low;
+	u32 frac_high,frac_low;
 };
 
 #endif

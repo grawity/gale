@@ -61,9 +61,8 @@ YACC = @YACC@
 
 lib_LIBRARIES = libgale.a
 libgale_a_SOURCES = \
-	auth.c authmsg.c client.c connect.c dir.c error.c exec.c gale.c \
-	header.c id.c init.c input.c kill.c libgale.c link.c link_old.c \
-	message.c output.c pack.c server.c text.c
+	auth.c authmsg.c client.c connect.c find.c header.c id.c init.c \
+	input.c kill.c libgale.c link.c link_old.c message.c output.c pack.c
 
 noinst_HEADERS = auth.h buffer.h link_old.h
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
@@ -77,9 +76,9 @@ CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 libgale_a_LIBADD = 
-libgale_a_OBJECTS =  auth.o authmsg.o client.o connect.o dir.o error.o \
-exec.o gale.o header.o id.o init.o input.o kill.o libgale.o link.o \
-link_old.o message.o output.o pack.o server.o text.o
+libgale_a_OBJECTS =  auth.o authmsg.o client.o connect.o find.o header.o \
+id.o init.o input.o kill.o libgale.o link.o link_old.o message.o \
+output.o pack.o
 AR = ar
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS)
@@ -94,10 +93,9 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 TAR = tar
 GZIP = --best
 DEP_FILES =  .deps/auth.P .deps/authmsg.P .deps/client.P .deps/connect.P \
-.deps/dir.P .deps/error.P .deps/exec.P .deps/gale.P .deps/header.P \
-.deps/id.P .deps/init.P .deps/input.P .deps/kill.P .deps/libgale.P \
-.deps/link.P .deps/link_old.P .deps/message.P .deps/output.P \
-.deps/pack.P .deps/server.P .deps/text.P
+.deps/find.P .deps/header.P .deps/id.P .deps/init.P .deps/input.P \
+.deps/kill.P .deps/libgale.P .deps/link.P .deps/link_old.P \
+.deps/message.P .deps/output.P .deps/pack.P
 SOURCES = $(libgale_a_SOURCES)
 OBJECTS = $(libgale_a_OBJECTS)
 

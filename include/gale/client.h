@@ -65,14 +65,14 @@ int parse_header(char **next,char **key,char **data,char *end);
 /* -- gale user id management ---------------------------------------------- */
 
 struct auth_id; /* defined in gauth.h */
-
 extern struct auth_id *user_id; /* Initialized to our own ID */
+
+/* Control AKD, if you need to suppress it.  Starts out enabled. */
+void disable_gale_akd(); /* Increases the "suppress count" */
+void enable_gale_akd();  /* Decreases the "suppress count" */
 
 /* Look up an ID by the local naming conventions. */
 struct auth_id *lookup_id(const char *);
-
-/* Locate the public key, locally or remotely.  (Potentially) very slow! */
-int find_id(struct auth_id *);
 
 /* Return @ domain / pfx / user / sfx in a newly allocated string. */
 struct gale_text id_category(struct auth_id *,const char *pfx,const char *sfx);
@@ -91,6 +91,9 @@ struct gale_message; /* defined in core.h */
 /* Sign a message with the given ID.  
    Returns the signed message, NULL if unsuccessful. */
 struct gale_message *sign_message(struct auth_id *id,struct gale_message *);
+
+/* Don't use this. */
+struct gale_message *_sign_message(struct auth_id *id,struct gale_message *);
 
 /* Encrypt a message to the given IDs.  
    Returns the encrypted message, NULL if unsuccessful. */

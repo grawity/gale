@@ -71,6 +71,19 @@ gale_text_to gale_text_to_local,gale_text_to_latin1;
 
 char *gale_text_hack(struct gale_text);
 
+/* -- time functions ------------------------------------------------------- */
+
+struct timeval;
+
+struct gale_time gale_time_zero(void);
+struct gale_time gale_time_now(void);
+struct gale_time gale_time_forever(void);
+
+int gale_time_less(struct gale_time,struct gale_time);
+
+void gale_time_to(struct timeval *,struct gale_time);
+void gale_time_from(struct gale_time *,struct timeval *);
+
 /* -- data interchange conversion ------------------------------------------ */
 
 int gale_unpack_copy(struct gale_data *,void *,size_t);
@@ -89,6 +102,14 @@ void gale_pack_str(struct gale_data *,const char *);
 int gale_unpack_u32(struct gale_data *,u32 *);
 void gale_pack_u32(struct gale_data *,u32);
 #define gale_u32_size() (sizeof(u32))
+
+int gale_unpack_skip(struct gale_data *);
+void gale_pack_skip(struct gale_data *,size_t);
+#define gale_skip_size(sz) ((sz) + gale_u32_size())
+
+int gale_unpack_time(struct gale_data *,struct gale_time *);
+void gale_pack_time(struct gale_data *,struct gale_time);
+#define gale_time_size() (sizeof(u32) * 4)
 
 /* -- directory management stuff ------------------------------------------- */
 

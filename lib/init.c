@@ -17,10 +17,16 @@ struct gale_id *user_id;
 
 static int main_argc;
 static char * const *main_argv;
-
 static sigset_t blocked;
-
 extern char **environ;
+
+extern auth_hook _gale_find_id;
+static auth_hook find_id,*old_find;
+
+static void find_id(struct auth_id *id) {
+	_gale_find_id(id);
+	if (old_find) old_find(id);
+}
 
 static void init_vars(struct passwd *pwd) {
 	char *tmp;
@@ -220,4 +226,6 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	read_conf(dir_file(sys_dir,"conf"));
 
 	init_vars(pwd);
+	old_find = hook_find_public;
+	hook_find_public = find_id;
 }

@@ -36,7 +36,8 @@ static void incoming(int fd,int old) {
 			gale_alert(GALE_WARNING,"accept",errno);
 		return;
 	}
-	gale_dprintf(2,"[%d] new connection\n",newfd);
+	gale_dprintf(2,"[%d] new connection from %s\n",
+	             newfd,inet_ntoa(sin.sin_addr));
 	setsockopt(newfd,SOL_SOCKET,SO_KEEPALIVE,
 	           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
 	add_connect(newfd,old);
@@ -159,25 +160,28 @@ static void loop(void) {
 }
 
 static void add_links(void) {
-	char *str,*val;
+	char *str,*val,*at;
+	struct attach *att;
 
 	str = getenv("GALE_LINKS"); if (!str) return;
 	str = gale_strdup(str);
-	val = strtok(str,";");
 
-	do {
-		char *at = strrchr(val,'@');
-		struct attach *att = new_attach();
-		if (at) {
-			att->subs = gale_text_from_local(val,at - val);
-			att->server = gale_strdup(at + 1);
-		} else {
-			att->subs = gale_text_from_local("",-1);
-			att->server = gale_strdup(val);
-		}
-		att->next = try;
-		try = att;
-	} while ((val = strtok(NULL,";")));
+	if ((val = strchr(str,';'))) {
+		*val = '\0';
+		gale_alert(GALE_WARNING,"extra connections in GALE_LINKS ignored",0);
+	}
+
+	at = strrchr(val,'@');
+	att = new_attach();
+	if (at) {
+		att->subs = gale_text_from_local(val,at - val);
+		att->server = gale_strdup(at + 1);
+	} else {
+		att->subs = gale_text_from_local("",-1);
+		att->server = gale_strdup(val);
+	}
+	att->next = try;
+	try = att;
 
 	gale_free(str);
 }

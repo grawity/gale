@@ -50,6 +50,7 @@ static struct gale_message *dequeue(struct gale_link *l) {
 		l->queue_mem -= message_size(link->msg);
 		m = link->msg;
 		gale_free(link);
+		gale_dprintf(7,"<- dequeueing message [%p]\n",m);
 	}
 	return m;
 }
@@ -442,13 +443,16 @@ void link_put(struct gale_link *l,struct gale_message *m) {
 	link = gale_malloc(sizeof(*link));
 	if (NULL == l->out_queue)
 		link->next = link;
-	else
+	else {
 		link->next = l->out_queue->next;
+		l->out_queue->next = link;
+	}
 	l->out_queue = link;
 
 	++l->queue_num;
 	l->queue_mem += message_size(m);
 	addref_message(link->msg = m);
+	gale_dprintf(7,"-> enqueueing message [%p]\n",m);
 }
 
 void link_will(struct gale_link *l,struct gale_message *m) {

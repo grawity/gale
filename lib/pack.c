@@ -51,6 +51,19 @@ int gale_unpack_str(struct gale_data *data,const char **p) {
 	return 1;
 }
 
+void gale_pack_skip(struct gale_data *data,size_t len) {
+	gale_pack_u32(data,len);
+}
+
+int gale_unpack_skip(struct gale_data *data) {
+	u32 len;
+	if (!gale_unpack_u32(data,&len)) return 0;
+	if (data->l < len) return 0;
+	data->l -= len;
+	data->p += len;
+	return 1;
+}
+
 void gale_pack_rle(struct gale_data *data,const void *p,size_t l) {
 	const byte *ptr = p,*end = ptr;
 	while (l) {

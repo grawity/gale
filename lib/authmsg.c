@@ -16,11 +16,13 @@ static int old_auth(void) {
 
 void gale_keys(void) {
 	if (old_auth()) old_gale_keys();
-	if (!auth_id_public(user_id) || !auth_id_private(user_id)) 
+	if (!auth_id_private(user_id) || !auth_id_public(user_id))
 		auth_id_gen(user_id,getenv("GALE_FROM"));
 }
 
-struct gale_message *sign_message(struct gale_id *id,struct gale_message *in) {
+static struct gale_message *sign(struct gale_id *id,struct gale_message *in,
+                                 int tweak) 
+{
 	struct gale_message *out = NULL;
 
     if (old_auth()) {
@@ -37,7 +39,10 @@ struct gale_message *sign_message(struct gale_id *id,struct gale_message *in) {
     } else {
 
 	struct gale_data sig;
-	auth_sign(id,in->data,&sig);
+	if (tweak)
+		_auth_sign(id,in->data,&sig);
+	else
+		auth_sign(id,in->data,&sig);
 	if (sig.p) {
 		int len = armor_len(sig.l);
 		out = new_message();
@@ -56,6 +61,14 @@ struct gale_message *sign_message(struct gale_id *id,struct gale_message *in) {
     }
 
 	return out;
+}
+
+struct gale_message *sign_message(struct gale_id *id,struct gale_message *in) {
+	return sign(id,in,0);
+}
+
+struct gale_message *_sign_message(struct gale_id *id,struct gale_message *in) {
+	return sign(id,in,1);
 }
 
 struct gale_message *encrypt_message(int num,struct gale_id **id,
@@ -89,7 +102,7 @@ struct gale_message *encrypt_message(int num,struct gale_id **id,
 	int i;
 
 	for (i = 0; i < num; ++i)
-		if (!find_id(id[i])) {
+		if (!auth_id_public(id[i])) {
 			gale_alert(GALE_WARNING,"cannot encrypt without key",0);
 			return NULL;
 		}

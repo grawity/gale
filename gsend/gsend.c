@@ -56,9 +56,7 @@ void headers(void) {
 
 	/* Most of these are fairly obvious. */
 	if (do_sign && !have_from) {
-		const char *from = NULL;
-		if (signer != user_id) from = auth_id_comment(signer);
-		if (!from || !*from) from = getenv("GALE_FROM");
+		const char *from = getenv("GALE_FROM");
 		reserve(20 + strlen(from));
 		sprintf(msg->data.p + msg->data.l,"From: %s\r\n",from);
 		msg->data.l += strlen(msg->data.p + msg->data.l);
@@ -213,7 +211,7 @@ int main(int argc,char *argv[]) {
 
 		if (!id) continue;
 
-		if (!find_id(id)) {
+		if (!auth_id_public(id)) {
 			char *buf = gale_malloc(strlen(argv[optind]) + 30);
 			sprintf(buf,"cannot find user \"%s\"",argv[optind]);
 			gale_alert(GALE_WARNING,buf,0);
@@ -232,12 +230,13 @@ int main(int argc,char *argv[]) {
 			signer = lookup_id(sign);
 		else
 			signer = user_id;
-		if (!auth_id_private(signer))
-			gale_alert(GALE_ERROR,"No private key to sign with.",0);
 	}
 
 	/* Generate keys. */
 	if (do_encrypt || do_sign) gale_keys();
+
+	if (do_sign && !auth_id_private(signer))
+		gale_alert(GALE_ERROR,"No private key to sign with.",0);
 
 	if (!msg->cat.p && do_encrypt) {  /* Default category... */
 		struct gale_text *n = gale_malloc(sizeof(*n) * num_rcpt);

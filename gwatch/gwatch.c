@@ -68,7 +68,7 @@ void watch_ping(struct gale_text cat,struct gale_id *id) {
 }
 
 void watch_id(struct gale_id *id) {
-	watch_ping(id_category(id,"user","ping"),id);
+	watch_ping(id_category(id,"user",":/ping"),id);
 	watch_cat(id_category(id,"notice",""));
 }
 

@@ -1,5 +1,7 @@
 /* gsub.c -- subscription client, outputs messages to the tty, optionally
-   sending them through a gsubrc filter. */
+   sending them through a gsubrc filter. 
+
+   Beware of using this as an example; it's insufficiently Unicode-ized. */
 
 #include "gale/all.h"
 #include "gale/gsubrc.h"
@@ -41,6 +43,7 @@ char *tty,*agent;                       /* TTY device, user-agent string. */
 
 int do_ping = 1;			/* Should we answer Receipt-To's? */
 int do_termcap = 0;                     /* Should we highlight headers? */
+int sequence = 0;
 
 #define TIMEOUT 300			/* Interval to poll for tty death */
 
@@ -53,10 +56,7 @@ struct gale_message *slip(struct gale_text cat,
                           struct gale_id *sign,struct auth_id *encrypt)
 {
 	struct gale_message *msg;
-	int len = strlen(agent);
-	static int sequence = 0;
-
-	if (auth_id_comment(user_id)) len += strlen(auth_id_comment(user_id));
+	int len = strlen(agent) + strlen(getenv("GALE_FROM"));
 
 	/* Create a new message. */
 	msg = new_message();
@@ -64,20 +64,13 @@ struct gale_message *slip(struct gale_text cat,
 	msg->data.p = gale_malloc(128 + len);
 
 	/* A few obvious headers. */
-	if (auth_id_comment(user_id))
-		sprintf(msg->data.p,
-			"From: %s\r\n"
-			"Time: %lu\r\n"
-			"Agent: %s\r\n"
-			"Sequence: %d\r\n"
-			"\r\n",
-		        getenv("GALE_FROM"),time(NULL),agent,sequence++);
-	else
-		sprintf(msg->data.p,
-			"Time: %lu\r\n"
-			"Agent: %s\r\n"
-			"Sequence: %d\r\n"
-			"\r\n",time(NULL),agent,sequence++);
+	sprintf(msg->data.p,
+		"From: %s\r\n"
+		"Time: %lu\r\n"
+		"Agent: %s\r\n"
+		"Sequence: %d\r\n"
+		"\r\n",
+	        getenv("GALE_FROM"),time(NULL),agent,sequence++);
 
 	msg->data.l = strlen(msg->data.p);
 
@@ -99,6 +92,34 @@ struct gale_message *slip(struct gale_text cat,
 	}
 
 	return msg;
+}
+
+/* Reply to an AKD request: post our key. */
+
+struct gale_message *send_key(void) {
+	struct gale_data data;
+	struct gale_message *key = new_message();
+	export_auth_id(user_id,&data,0);
+	key->cat = id_category(user_id,"auth/key","");
+	key->data.p = gale_malloc(256 
+	            + strlen(auth_id_name(user_id)) 
+	            + strlen(getenv("GALE_FROM"))
+	            + data.l);
+
+	sprintf(key->data.p,
+		"From: %s\r\n"
+		"Time: %lu\r\n"
+		"Agent: %s\r\n"
+		"Sequence: %d\r\n"
+		"Subject: success %s\r\n"
+		"\r\n",
+	        getenv("GALE_FROM"),time(NULL),agent,sequence++,
+		auth_id_name(user_id));
+	key->data.l = strlen(key->data.p);
+	memcpy(key->data.p + key->data.l,data.p,data.l);
+	key->data.l += data.l;
+
+	return key;
 }
 
 /* Output a terminal mode string. */
@@ -128,11 +149,13 @@ void default_gsubrc(void) {
 	char *nl = tty ? "\r\n" : "\n";
 	int count = 0;
 
-	/* Ignore messages to categories ending in /ping */
+	/* Ignore messages to category /ping */
 	tmp = cat;
 	while ((tmp = strstr(tmp,"/ping"))) {
+		if ((tmp == cat || tmp[-1] == ':')
+		&&  (tmp[5] == '\0' || tmp[5] == ':'))
+			return;
 		tmp += 5;
-		if (!*tmp || *tmp == ':') return;
 	}
 
 	/* Format return receipts specially */
@@ -191,7 +214,7 @@ void default_gsubrc(void) {
 
 		putchar(':');
 		fputs(nl,stdout);
-		if (to_id) putchar('\a');
+		if (tty && to_id) putchar('\a');
 	}
 
 	/* Print the message body.  Make sure to escape unprintables. */
@@ -261,7 +284,7 @@ void present_message(struct gale_message *_msg) {
 	/* Lots of crap.  Discussed below, where they're used. */
 	char *next,**envp = NULL,*key,*data,*end,*tmp;
 	struct gale_id *id_encrypted = NULL,*id_sign = NULL;
-	struct gale_message *rcpt = NULL,*msg = NULL;
+	struct gale_message *rcpt = NULL,*akd = NULL,*msg = NULL;
 	int envp_global,envp_alloc,envp_len,status;
 	struct gale_text restart = gale_text_from_latin1("debug/restart",-1);
 	pid_t pid;
@@ -322,6 +345,16 @@ void present_message(struct gale_message *_msg) {
 			free_gale_text(cat);
 		}
 
+		if (do_ping && !strcasecmp(key,"Request-Key")) {
+			if (strcmp(data,auth_id_name(user_id)))
+				gale_alert(GALE_WARNING,
+				           "invalid key request",0);
+			else {
+				if (akd) release_message(akd);
+				akd = send_key();
+			}
+		}
+
 		/* Create a HEADER_... environment entry for this. */
 		for (tmp = key; *tmp; ++tmp)
 			*tmp = isalnum(*tmp) ? toupper(*tmp) : '_';
@@ -348,6 +381,15 @@ void present_message(struct gale_message *_msg) {
 		gale_restart();
 	}
 #endif
+
+	/* Give them our key, if they wanted it. */
+	if (akd) {
+		link_put(client->link,akd);
+		if (rcpt) release_message(rcpt);
+		rcpt = NULL;
+		status = 0;
+		goto done;
+	}
 
 	/* Terminate the new environment. */
 	envp[envp_len] = NULL;
@@ -427,6 +469,7 @@ error:
 	if (id_sign) free_id(id_sign);
 	if (msg) release_message(msg);
 	if (rcpt) release_message(rcpt);
+	if (akd) release_message(akd);
 }
 
 /* Send a login notification, arrange for a logout notification. */
@@ -521,7 +564,7 @@ void load_gsubrc(const char *name) {
 
 /* add subscriptions to a list */
 
-void add_subs(char **subs,const char *add) {
+void add_subs_text(char **subs,const char *add) {
 	if (add == NULL) return;
 	if (*subs) {
 		char *n = gale_malloc(strlen(*subs) + strlen(add) + 2);
@@ -529,6 +572,11 @@ void add_subs(char **subs,const char *add) {
 		gale_free(*subs);
 		*subs = n;
 	} else *subs = gale_strdup(add);
+}
+
+void add_subs(char **subs,struct gale_text add) {
+	if (add.p == NULL) return;
+	add_subs_text(subs,gale_text_hack(add));
 }
 
 /* main */
@@ -559,8 +607,8 @@ int main(int argc,char **argv) {
 	}
 
 	/* Default subscriptions. */
-	add_subs(&serv,getenv("GALE_SUBS"));
-	add_subs(&serv,getenv("GALE_GSUB"));
+	add_subs_text(&serv,getenv("GALE_SUBS"));
+	add_subs_text(&serv,getenv("GALE_GSUB"));
 
 	/* Parse command line arguments. */
 	while (EOF != (opt = getopt(argc,argv,"enkKrpaf:l:h"))) switch (opt) {
@@ -580,7 +628,7 @@ int main(int argc,char **argv) {
 
 	/* One argument, at most (subscriptions) */
 	if (optind < argc - 1) usage();
-	if (optind == argc - 1) add_subs(&serv,argv[optind]);
+	if (optind == argc - 1) add_subs_text(&serv,argv[optind]);
 
 	/* We need to subscribe to *something* */
 	if (serv == NULL) 
@@ -597,9 +645,12 @@ int main(int argc,char **argv) {
 	/* Generate keys so people can send us messages. */
 	gale_keys();
 
+	/* Act as AKD proxy for this particular user. */
+	if (do_ping) add_subs(&serv,id_category(user_id,"auth/query",""));
+
 #ifndef NDEBUG
 	/* If in debug mode, listen to debug/ for restart messages. */
-	add_subs(&serv,"debug/");
+	add_subs_text(&serv,"debug/");
 #endif
 
 	/* Open a connection to the server. */
@@ -619,7 +670,7 @@ int main(int argc,char **argv) {
 	do {
 		int r = 0;
 
-		while (r >= 0 && !gale_send(client)) {
+		while (!gale_error(client) && r >= 0 && !gale_send(client)) {
 			fd_set fds;
 			struct timeval timeout;
 			struct gale_message *msg;
@@ -643,7 +694,7 @@ int main(int argc,char **argv) {
 				present_message(msg);
 				release_message(msg);
 			}
-		} while (r >= 0);
+		}
 
 		/* Retry the server connection, unless we shouldn't. */
 		if (do_retry) {
