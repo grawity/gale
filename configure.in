@@ -58,7 +58,13 @@ if test -z "$no_wacky_libs" ; then
   AC_CHECK_LIB(nsl,main)
   AC_CHECK_LIB(socket,socket)
 fi
-AC_CHECK_LIB(termcap,tgetent)
+
+AC_CHECK_LIB(termcap,tgetent,[
+  LIBS="-ltermcap $LIBS"
+],[
+  AC_CHECK_LIB(ncurses,tgetent)
+])
+
 AC_CHECK_LIB(dl,dlopen,[
   DL_LIBS="-ldl"
   AC_DEFINE(HAVE_LIBDL)])
