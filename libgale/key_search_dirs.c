@@ -59,14 +59,17 @@ static void wipe_file(int do_trust,struct dir_filename *f,
 	f->ass = NULL;
 }
 
-static void put_file(
+static void put_file(int trust,
 	const struct gale_key_assertion *ass,
 	struct dir_filename *f) 
 {
-	if (gale_write_file(f->name,gale_key_raw(ass),0,&f->state))
+	const struct gale_data d = gale_key_raw(ass);
+	if (gale_write_file(f->name,d,0,&f->state)) {
 		gale_alert(GALE_NOTICE,gale_text_concat(3,
 			G_("wrote \""),f->name,G_("\"")),0);
-	else
+		gale_key_retract(f->ass,trust);
+		f->ass = gale_key_assert(d,gale_get_file_time(f->state),trust);
+	} else
 		gale_alert(GALE_WARNING,gale_text_concat(3,
 			G_("could not write \""),f->name,G_("\"")),errno);
 }
@@ -125,7 +128,7 @@ static void dir_hook(struct gale_time now,oop_source *oop,
 		&&  pub != cache->public_written
 		&&  pub != cache->old.ass
 		&&  pub != cache->public.ass) {
-			put_file(pub,&cache->public);
+			put_file(trusted,pub,&cache->public);
 			cache->public_written = pub;
 		}
 
@@ -133,7 +136,7 @@ static void dir_hook(struct gale_time now,oop_source *oop,
 		&&  priv != cache->private_written
 		&&  priv != cache->old.ass
 		&&  priv != cache->private.ass) {
-			put_file(priv,&cache->private);
+			put_file(trusted,priv,&cache->private);
 			cache->private_written = priv;
 		}
 	}
