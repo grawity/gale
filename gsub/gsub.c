@@ -17,9 +17,9 @@
 
 extern char **environ;
 
-char *dotfile,*rcprog = NULL;
+char *dotfile,*rcprog = "gsubrc";
 struct gale_client *client;
-char *tty;
+char *tty,*agent;
 
 int pflag = 1,kflag = 0;
 
@@ -30,30 +30,29 @@ void exitfunc(void) {
 	if (dotfile) unlink(dir_file(dot_gale,dotfile));
 }
 
-void return_receipt(const char *cat,const char *rcpt,
-                    const char *sign,const char *encrypt) 
-{
+struct gale_message *slip(const char *cat,const char *sign,const char *enc) {
 	struct gale_message *msg;
 	const char *from = getenv("GALE_FROM");
 	const char *reply = getenv("GALE_REPLY_TO");
-	int len = strlen(rcpt) + strlen(from) + strlen(reply);
+	int len = strlen(from) + strlen(reply) + strlen(agent);
+	static int sequence = 0;
 
 	msg = new_message();
 	msg->category = gale_strdup(cat);
 	msg->data = gale_malloc(128 + len);
 	sprintf(msg->data,
-	        "Receipt-from: %s\r\n"
 		"From: %s\r\n"
 		"Reply-To: %s\r\n"
 	        "Time: %lu\r\n"
-	        "\r\n",rcpt,from,reply,time(NULL));
+		"Agent-ID: %s\r\n"
+		"Sequence: %d\r\n"
+	        "\r\n",from,reply,time(NULL),agent,sequence++);
 	msg->data_size = strlen(msg->data);
 
 	if (sign) sign_message(sign,msg);
-	if (encrypt) encrypt_message(encrypt,msg);
+	if (enc) encrypt_message(enc,msg);
 
-	link_put(client->link,msg);
-	release_message(msg);
+	return msg;
 }
 
 void default_gsubrc(void) {
@@ -127,7 +126,7 @@ void send_message(char *body,char *end,int fd) {
 void present_message(struct gale_message *msg) {
 	int pfd[2];
 	char *next,**envp = NULL,*key,*data,*end,*tmp,*decrypt = NULL;
-	char *id_encrypted = NULL,*id_signed = NULL;
+	char *id_encrypted = NULL,*id_sign = NULL;
 	int envp_global,envp_alloc,envp_len,first = 1;
 	pid_t pid;
 
@@ -160,10 +159,10 @@ void present_message(struct gale_message *msg) {
 			}
 
 			if (!strcasecmp(key,"Signature")) {
-				id_signed = verify_data(data,next,end);
-				if (id_signed) {
-					tmp = gale_malloc(strlen(id_signed)+13);
-					sprintf(tmp,"GALE_SIGNED=%s",id_signed);
+				id_sign = verify_data(data,next,end);
+				if (id_sign) {
+					tmp = gale_malloc(strlen(id_sign)+13);
+					sprintf(tmp,"GALE_SIGNED=%s",id_sign);
 					envp[envp_len++] = tmp;
 				}
 			}
@@ -180,9 +179,12 @@ void present_message(struct gale_message *msg) {
 				           "invalid receipt header",0);
 				continue;
 			}
-			if (pflag)
-				return_receipt(data,msg->category,
-				               id_encrypted,id_signed);
+			if (pflag) {
+				struct gale_message *rcpt;
+				rcpt = slip(msg->category,id_encrypted,id_sign);
+				link_put(client->link,rcpt);
+				release_message(rcpt);
+			}
 		}
 
 		for (tmp = key; *tmp; ++tmp)
@@ -210,6 +212,7 @@ void present_message(struct gale_message *msg) {
 
 	pid = fork();
 	if (!pid) {
+		const char *rc;
 		signal(SIGPIPE,SIG_DFL);
 		dotfile = NULL;
 		environ = envp;
@@ -217,13 +220,10 @@ void present_message(struct gale_message *msg) {
 		close(pfd[1]);
 		dup2(pfd[0],0);
 		if (pfd[0] != 0) close(pfd[0]);
-		if (rcprog) {
-			execl(rcprog,rcprog,NULL);
-			gale_alert(GALE_WARNING,rcprog,errno);
-		} else {
-			execl(dir_file(dot_gale,"gsubrc"),"gsubrc",NULL);
-			if (errno != ENOENT)
-				gale_alert(GALE_WARNING,"gsubrc",errno);
+		rc = dir_search(rcprog,1,dot_gale,sys_dir,NULL);
+		if (rc) {
+			execl(rc,rcprog,NULL);
+			gale_alert(GALE_WARNING,rc,errno);
 		}
 		default_gsubrc();
 		exit(0);
@@ -244,49 +244,82 @@ error:
 	}
 	if (decrypt) gale_free(decrypt);
 	if (id_encrypted) gale_free(id_encrypted);
-	if (id_signed) gale_free(id_signed);
+	if (id_sign) gale_free(id_sign);
+}
+
+void notify(void) {
+	struct gale_message *msg;
+	const char *id = getenv("GALE_ID");
+	char *tmp;
+
+	tmp = gale_idtocat("notice",id,"login");
+	msg = slip(tmp,id,NULL);
+	link_put(client->link,msg);
+	release_message(msg);
+	gale_free(tmp);
+
+	tmp = gale_idtocat("notice",id,"logout");
+	msg = slip(tmp,id,NULL);
+	link_will(client->link,msg);
+	release_message(msg);
+	gale_free(tmp);
 }
 
 void startup(void) {
-	char *dir;
+	char *dev,*user;
 	struct utsname un;
 	DIR *pdir;
 	struct dirent *de;
-	int len,fd;
+	int len,fd,pid;
 
-	if (!tty) return;
-	if ((dir = strrchr(tty,'/'))) tty = dir + 1;
 	if (uname(&un)) {
 		gale_alert(GALE_WARNING,"uname",errno);
 		exit(1);
 	}
 
-	len = strlen(un.nodename) + strlen(tty) + 7;
-	dotfile = gale_malloc(len + 15);
-	sprintf(dotfile,"gsub.%s.%s.",un.nodename,tty);
+	if (tty && (dev = strrchr(tty,'/'))) 
+		++dev;
+	else
+		dev = tty;
 
-	if (!kflag) {
-		pdir = opendir(dir_file(dot_gale,"."));
-		if (pdir == NULL) {
-			gale_alert(GALE_WARNING,"opendir",errno);
-			exit(1);
-		}
-		while ((de = readdir(pdir)))
-			if (!strncmp(de->d_name,dotfile,len)) {
-				kill(atoi(de->d_name + len),SIGHUP);
-				unlink(dir_file(dot_gale,de->d_name));
+	if (!dev) 
+		pid = getpid();
+	else {
+		len = strlen(un.nodename) + strlen(dev) + 7;
+		dotfile = gale_malloc(len + 15);
+		sprintf(dotfile,"gsub.%s.%s.",un.nodename,dev);
+
+		if (!kflag) {
+			pdir = opendir(dir_file(dot_gale,"."));
+			if (pdir == NULL) {
+				gale_alert(GALE_WARNING,"opendir",errno);
+				exit(1);
 			}
-		closedir(pdir);
+			while ((de = readdir(pdir)))
+				if (!strncmp(de->d_name,dotfile,len)) {
+					kill(atoi(de->d_name + len),SIGHUP);
+					unlink(dir_file(dot_gale,de->d_name));
+				}
+			closedir(pdir);
+		}
+
+		gale_cleanup(exitfunc);
+		signal(SIGPIPE,SIG_IGN);
+
+		gale_daemon(1);
+		pid = getpid();
+
+		sprintf(dotfile,"%s%d",dotfile,pid);
+		if ((fd = creat(dir_file(dot_gale,dotfile),0666)) >= 0)
+			close(fd);
 	}
 
-	gale_cleanup(exitfunc);
-	signal(SIGPIPE,SIG_IGN);
-
-	gale_daemon(1);
-
-	sprintf(dotfile,"%s%d",dotfile,(int) getpid());
-	if ((fd = creat(dir_file(dot_gale,dotfile),0666)) >= 0)
-		close(fd);
+	user = getenv("LOGNAME");
+	len = strlen(GALE_VERSION) + strlen(user) + strlen(un.nodename) 
+	    + (dev ? strlen(dev) : 0) + 30;
+	agent = gale_malloc(len);
+	sprintf(agent,"gsub/%s %s@%s %s %d",
+	        GALE_VERSION,user,un.nodename,dev ? dev : "none",pid);
 }
 
 void usage(void) {
@@ -299,24 +332,26 @@ void usage(void) {
 	"       -f rcprog   Use rcprog (default gsubrc, then built-in)\n"
 	"       -r          Terminate if connection fails (do not retry)\n"
 	"       -p          Suppress return-receipt processing altogether\n"
+	"       -y          Disable login/logout notification\n"
 	,GALE_BANNER);
 	exit(1);
 }
 
 int main(int argc,char *argv[]) {
-	int opt,fflag = 0,rflag = 1,Kflag = 0;
+	int opt,rflag = 1,Kflag = 0,yflag = 1;
 	struct gale_message *msg;
 
 	gale_init("gsub");
 	tty = ttyname(1);
 
-	while (EOF != (opt = getopt(argc,argv,"hgnkKf:rp:"))) switch (opt) {
+	while (EOF != (opt = getopt(argc,argv,"hgnkKf:rp:y"))) switch (opt) {
 	case 'k': ++kflag; break;
 	case 'K': ++Kflag; break;
-	case 'n': ++fflag; break;
+	case 'n': tty = NULL; break;
 	case 'f': rcprog = optarg; break;
 	case 'r': rflag = 0; break;
 	case 'p': pflag = 0; break;
+	case 'y': yflag = 0; break;
 	case 'h':
 	case '?': usage();
 	}
@@ -342,10 +377,11 @@ int main(int argc,char *argv[]) {
 			gale_alert(GALE_ERROR,"could not connect to server",0);
 	}
 
-	if (!fflag) startup();
+	startup();
 
 	if (!Kflag)
 	{
+		if (yflag) notify();
 		do {
 			while (!gale_send(client) && !gale_next(client)) {
 				if (tty && !isatty(1)) return 0;
@@ -354,7 +390,10 @@ int main(int argc,char *argv[]) {
 					release_message(msg);
 				}
 			}
-			if (rflag) gale_retry(client);
+			if (rflag) {
+				gale_retry(client);
+				if (yflag) notify();
+			}
 		} while (rflag);
 
 		gale_alert(GALE_ERROR,"connection lost",0);
