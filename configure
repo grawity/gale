@@ -2005,7 +2005,7 @@ EOF
 
 LIBS="-lgale -lgauth -lgmisc -lrsaref $LIBS"
 LDFLAGS="-L\${top_builddir}/lib -L\${top_builddir}/auth -L\${top_builddir}/misc $LDFLAGS"
-CPPFLAGS="-I\${top_srcdir}/include $CPPFLAGS"
+CPPFLAGS="-I\${top_srcdir}/include -I\${top_builddir}/include $CPPFLAGS"
 CPPFLAGS="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $CPPFLAGS"
 
 
