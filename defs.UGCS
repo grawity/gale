@@ -1,0 +1,2 @@
+ZEPHYR_INC = -I/usr/ug/include
+ZEPHYR_LIB = -L/usr/ug/lib -lzephyr -lcom_err
