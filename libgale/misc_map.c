@@ -56,7 +56,7 @@ void gale_map_add(struct gale_map *wt,struct gale_data key,void *data) {
 	else new->data = gale_make_ptr(data);
 }
 
-void *gale_map_find(struct gale_map *wt,struct gale_data key) {
+void *gale_map_find(const struct gale_map *wt,struct gale_data key) {
 	struct wt_node *n = *(find(wt,key));
 	return n ? gale_get_ptr(n->data) : NULL;
 }
@@ -96,7 +96,7 @@ static int walk(struct wt_node *node,const struct gale_data *after,
 	return 0;
 }
 
-int gale_map_walk(struct gale_map *wt,const struct gale_data *after,
+int gale_map_walk(const struct gale_map *wt,const struct gale_data *after,
                   struct gale_data *key,void **data) {
 	if (NULL == wt->root) return 0;
 	if (walk(wt->root,after,key,data)) return 1;
