@@ -261,7 +261,6 @@ void usage(void) {
 int main(int argc,char *argv[]) {
 	int opt,fflag = 0,kflag = 0,rflag = 1;
 	struct gale_message *msg;
-	char *cp;
 
 	tty = ttyname(1);
 
@@ -277,10 +276,8 @@ int main(int argc,char *argv[]) {
 
 	gale_keys();
 
-	if ((cp = strrchr(argv[optind],'@'))) *cp++ = '\0';
-
-	client = gale_open(cp,0,0);
-	if (!client || (!rflag && gale_error(client))) {
+	if (!(client = gale_open(argv[optind],0,0))) exit(1);
+	if (!rflag && gale_error(client)) {
 		fprintf(stderr,"error: could not connect to gale server\n");
 		exit(1);
 	}
@@ -288,7 +285,6 @@ int main(int argc,char *argv[]) {
 	if (!fflag) startup(kflag);
 
 	do {
-		link_subscribe(client->link,argv[optind]);
 		while (!gale_next(client)) {
 			if (tty && !isatty(1)) return 0;
 			if ((msg = link_get(client->link))) {

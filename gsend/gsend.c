@@ -87,12 +87,16 @@ int main(int argc,char *argv[]) {
 
 	if (optind != argc - 1) usage();
 
-	server = strrchr(argv[optind],'@');
-	if (server) *server++ = '\0';
+	if ((server = strrchr(argv[optind],'@')))
+		*server = '%';
+	else
+		server = argv[optind] + strlen(argv[optind]);
 
 	if (sflag || eflag) gale_keys();
 
 	client = gale_open(server,1,262144);
+	if (!client) exit(1);
+
 	while (gale_error(client)) {
 		if (rflag) {
 			fprintf(stderr,"error: could not contact server\n");
@@ -102,7 +106,7 @@ int main(int argc,char *argv[]) {
 	}
 
 	msg = new_message();
-	msg->category = gale_strdup(argv[optind]);
+	msg->category = gale_strndup(argv[optind],server - argv[optind]);
 
 	if (ttyin)
 		printf("Enter your message.  End it with an EOF or a dot.\n");
