@@ -9,19 +9,24 @@
 
 #include "gale/all.h"
 
-struct gale_dir *dot_gale,*home_dir;
+struct gale_dir *dot_gale,*home_dir,*sys_dir;
 
-char *gale_idtocat(const char *prefix,const char *id) {
+char *gale_idtocat(const char *prefix,const char *id,const char *suffix) {
 	char *at = strrchr(id,'@');
 	char *tmp;
+	int len = strlen(prefix) + strlen(id) + strlen(suffix);
 	if (at) {
-		tmp = gale_malloc(strlen(id) + strlen(prefix) + 2);
+		tmp = gale_malloc(len + 3);
 		sprintf(tmp,"%s/%s/",prefix,at + 1);
 		strncat(tmp,id,at - id);
 	} else {
 		const char *domain = getenv("GALE_DOMAIN");
-		tmp = gale_malloc(strlen(id)+strlen(prefix)+strlen(domain)+3);
+		tmp = gale_malloc(len + strlen(domain) + 4);
 		sprintf(tmp,"%s/%s/%s",prefix,domain,id);
+	}
+	if (suffix) {
+		strcat(tmp,"/");
+		strcat(tmp,suffix);
 	}
 	return tmp;
 }
@@ -32,6 +37,12 @@ static void init_vars(struct passwd *pwd) {
 
 	domain = getenv("GALE_DOMAIN");
 	if (!domain) gale_alert(GALE_ERROR,"GALE_DOMAIN not set",0);
+
+	if (!getenv("LOGNAME")) {
+		tmp = gale_malloc(strlen(pwd->pw_name) + 30);
+		sprintf(tmp,"LOGNAME=%s",pwd->pw_name);
+		putenv(tmp);
+	}
 
 	id = getenv("GALE_ID");
 	if (!id) {
@@ -48,7 +59,7 @@ static void init_vars(struct passwd *pwd) {
 
 	reply = getenv("GALE_REPLY_TO");
 	if (!reply) {
-		char *cat = gale_idtocat("user",id);
+		char *cat = gale_idtocat("user",id,"");
 		tmp = gale_malloc(strlen(cat) + 30);
 		sprintf(tmp,"GALE_REPLY_TO=%s",cat);
 		gale_free(cat);
@@ -96,7 +107,12 @@ void gale_init(const char *s) {
 	if (!pwd) gale_alert(GALE_ERROR,"you do not exist",0);
 
 	gale_error_prefix = s;
-	read_conf(GALE_CONF);
+
+	dir = getenv("GALE_SYS_DIR");
+	if (!dir) dir = SYS_DIR;
+	sys_dir = make_dir(dir,0);
+
+	read_conf(dir_file(sys_dir,"conf"));
 
 	dir = getenv("HOME");
 	if (!dir) dir = pwd->pw_dir;
@@ -110,5 +126,6 @@ void gale_init(const char *s) {
 	}
 
 	read_conf(dir_file(dot_gale,"conf"));
+
 	init_vars(pwd);
 }

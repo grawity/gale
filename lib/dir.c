@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +29,21 @@ const char *dir_file(struct gale_dir *d,const char *s) {
 	return d->buf;
 }
 
+const char *dir_search(const char *s,int cwd,struct gale_dir *d,...) {
+	va_list ap;
+	const char *r = NULL;
+	if (s[0] == '/') return access(s,F_OK) ? NULL : s;
+	if (cwd && !access(s,F_OK)) return s;
+	va_start(ap,d);
+	while (r == NULL && d != NULL) {
+		r = dir_file(d,s);
+		if (access(r,F_OK)) r = NULL;
+		d = va_arg(ap,struct gale_dir *);
+	}
+	va_end(ap);
+	return r;
+}
+
 struct gale_dir *dup_dir(struct gale_dir *d) {
 	struct gale_dir *r = gale_malloc(sizeof(struct gale_dir));
 	r->len = d->len;
@@ -41,8 +57,9 @@ struct gale_dir *make_dir(const char *s,int mode) {
 	struct gale_dir *r = gale_malloc(sizeof(struct gale_dir));
 	r->len = strlen(s);
 	strcpy(r->buf = gale_malloc(r->alloc = r->len + 1),s);
-	if ((stat(r->buf,&buf) || !S_ISDIR(buf.st_mode)) && mkdir(r->buf,mode))
-		gale_alert(GALE_WARNING,r->buf,errno);
+	if (stat(r->buf,&buf) || !S_ISDIR(buf.st_mode))
+		if (mode && mkdir(r->buf,mode))
+			gale_alert(GALE_WARNING,r->buf,errno);
 	return r;
 }
 

@@ -99,17 +99,34 @@ static int read_file(const char *dir,int mode,const char *file) {
 	sub_dir(dot_gale,dir,mode);
 	fd = open(dir_file(dot_gale,file),O_RDONLY);
 	up_dir(dot_gale);
-	if (fd < 0) {
-		if (errno == ENOENT) return -1;
-		gale_alert(GALE_WARNING,file,errno);
-		exit(1);
+	if (fd < 0 && errno == ENOENT) {
+		sub_dir(sys_dir,dir,0);
+		fd = open(dir_file(sys_dir,file),O_RDONLY);
+		up_dir(sys_dir);
 	}
+	if (fd < 0 && errno != ENOENT)
+		gale_alert(GALE_WARNING,file,errno);
 	return fd;
 }
 
 static int read_pub_key(const char *id,R_RSA_PUBLIC_KEY *key) {
 	int r,fd = read_file("public-keys",0777,id);
+	const char *cp,*domain = getenv("GALE_DOMAIN");
+
+	if (fd < 0 && (cp = strchr(id,'@')) && !strcmp(cp + 1,domain)) {
+		char *tmp = gale_strndup(id,cp - id);
+		struct passwd *pwd = getpwnam(tmp);
+		gale_free(tmp);
+		if (pwd) {
+			tmp = gale_malloc(strlen(pwd->pw_dir) + 20);
+			sprintf(tmp,"%s/.gale-public-key",pwd->pw_dir);
+			fd = open(tmp,O_RDONLY);
+			gale_free(tmp);
+		}
+	}
+
 	if (fd < 0) return -1;
+
 	r = read(fd,key,sizeof(*key));
 	close(fd);
 	if (r < (int) sizeof(*key)) return -1;
@@ -132,10 +149,7 @@ static int write_file(const char *dir,int dmode,const char *file,int fmode) {
 	sub_dir(dot_gale,dir,dmode);
 	fd = creat(dir_file(dot_gale,file),fmode);
 	up_dir(dot_gale);
-	if (fd < 0) {
-		gale_alert(GALE_WARNING,file,errno);
-		exit(1);
-	}
+	if (fd < 0) gale_alert(GALE_ERROR,file,errno);
 	return fd;
 }
 
@@ -193,43 +207,6 @@ void gale_keys(void) {
 	up_dir(dot_gale);
 }
 
-static int find_key(const char *id,R_RSA_PUBLIC_KEY *key) {
-	struct passwd *pwd;
-	const char *cp,*dir,*domain;
-	char *tmp;
-	int fd = -1,r;
-
-	if (!read_pub_key(id,key)) return 0;
-
-	if (fd < 0 && (dir = getenv("GALE_KEY_DIR")) && dir[0]) {
-		tmp = gale_malloc(strlen(dir) + strlen(id) + 2);
-		sprintf(tmp,"%s/%s",dir,id);
-		fd = open(tmp,O_RDONLY);
-		gale_free(tmp);
-	}
-
-	domain = getenv("GALE_DOMAIN");
-	if (fd < 0 && (cp = strchr(id,'@')) && !strcmp(cp + 1,domain)) {
-		tmp = gale_strndup(id,cp - id);
-		pwd = getpwnam(tmp);
-		gale_free(tmp);
-		if (pwd) {
-			tmp = gale_malloc(strlen(pwd->pw_dir) + 20);
-			sprintf(tmp,"%s/.gale-public-key",pwd->pw_dir);
-			fd = open(tmp,O_RDONLY);
-			gale_free(tmp);
-		}
-	}
-
-	if (fd < 0) return -1;
-
-	r = read(fd,key,sizeof(*key));
-	close(fd);
-	if (r < (int) sizeof(*key)) return -1;
-	key->bits = ntohl(key->bits);
-	return 0;
-}
-
 char *sign_data(const char *eid,const char *data,const char *end) {
 	R_SIGNATURE_CTX ctx;
 	unsigned char *ptr,sig[MAX_SIGNATURE_LEN];
@@ -278,7 +255,7 @@ char *verify_data(const char *sig,const char *data,const char *end) {
 		return NULL;
 	}
 	id = gale_strndup(sig + 8,cp - (sig + 8));
-	if (find_key(id,&key)) {
+	if (read_pub_key(id,&key)) {
 		gale_free(id);
 		return NULL;
 	}
@@ -331,7 +308,7 @@ char *encrypt_data(const char *eid,const char *data,const char *dend,
 	gale_keys();
 	id = canonicalize(eid);
 
-	if (find_key(id,&key)) {
+	if (read_pub_key(id,&key)) {
 		char *tmp = gale_malloc(128 + strlen(id));
 		sprintf(tmp,"Can't find key \"%s\"\r\n",id);
 		gale_alert(GALE_ERROR,tmp,0);
