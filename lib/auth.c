@@ -1,4 +1,3 @@
-#include <sys/utsname.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/stat.h>

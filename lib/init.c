@@ -16,27 +16,32 @@ char *gale_idtocat(const char *prefix,const char *id,const char *suffix) {
 	char *tmp;
 	int len = strlen(prefix) + strlen(id) + strlen(suffix);
 	if (at) {
-		tmp = gale_malloc(len + 3);
-		sprintf(tmp,"%s/%s/",prefix,at + 1);
-		strncat(tmp,id,at - id);
+		tmp = gale_malloc(len + 4);
+		sprintf(tmp,"%s/%s/%.*s/",prefix,at + 1,at - id,id);
 	} else {
 		const char *domain = getenv("GALE_DOMAIN");
-		tmp = gale_malloc(len + strlen(domain) + 4);
-		sprintf(tmp,"%s/%s/%s",prefix,domain,id);
+		tmp = gale_malloc(len + strlen(domain) + 5);
+		sprintf(tmp,"%s/%s/%s/",prefix,domain,id);
 	}
-	if (suffix) {
-		strcat(tmp,"/");
-		strcat(tmp,suffix);
-	}
+	if (suffix) strcat(tmp,suffix);
 	return tmp;
 }
 
 static void init_vars(struct passwd *pwd) {
 	char *tmp;
 	const char *domain,*id,*reply;
+	struct utsname un;
 
 	domain = getenv("GALE_DOMAIN");
 	if (!domain) gale_alert(GALE_ERROR,"GALE_DOMAIN not set",0);
+
+	if (uname(&un)) gale_alert(GALE_ERROR,"uname",errno);
+
+	if (!getenv("HOST")) {
+		tmp = gale_malloc(strlen(un.nodename) + 30);
+		sprintf(tmp,"HOST=%s",un.nodename);
+		putenv(tmp);
+	}
 
 	if (!getenv("LOGNAME")) {
 		tmp = gale_malloc(strlen(pwd->pw_name) + 30);
@@ -81,11 +86,11 @@ static void init_vars(struct passwd *pwd) {
 }
 
 static void read_conf(const char *s) {
-	char ch,var[40],value[256];
 	int num;
 	FILE *fp = fopen(s,"r");
 	if (fp == NULL) return;
 	do {
+		char ch,var[40],value[256];
 		while (fscanf(fp," #%*[^\n]%c",&ch) == 1) ;
 		num = fscanf(fp,"%39s %255[^\n]",var,value);
 		if (num == 2) {

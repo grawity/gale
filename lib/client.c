@@ -52,39 +52,16 @@ void gale_retry(struct gale_client *client) {
 
 struct gale_client *gale_open(const char *spec,int num,int mem) {
 	struct gale_client *client;
-	char *at;
 
 	client = gale_malloc(sizeof(*client));
 
-	if (spec && (at = strrchr(spec,'@'))) {
-		client->server = at[1] ? gale_strdup(at+1) : NULL;
-		client->subscr = gale_strndup(spec,at - spec);
-	} else {
-		client->server = NULL;
-		client->subscr = NULL;
-		if (spec) {
-			if (spec[0] == '%')
-				client->server = gale_strdup(spec + 1);
-			else
-				client->subscr = gale_strdup(spec);
-		}
-	}
-
+	client->server = getenv("GALE_SERVER");
+	client->subscr = spec ? gale_strdup(spec) : NULL;
 	client->socket = -1;
 	client->link = new_link();
 	link_limits(client->link,num,mem);
 
-	if (!client->server || !client->server[0]) {
-		char *env = getenv("GALE_SERVER");
-		if (client->server) gale_free(client->server);
-		if (env) client->server = gale_strdup(env);
-	}
-	if (!client->server || !client->server[0]) {
-		gale_alert(GALE_WARNING,
-		"no server specified and $GALE_SERVER not set\n",0);
-		gale_close(client);
-		return NULL;
-	}
+	if (!client->server) gale_alert(GALE_ERROR,"$GALE_SERVER not set\n",0);
 
 	do_connect(client);
 
