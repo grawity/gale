@@ -195,29 +195,34 @@ void gale_keys(void) {
 
 static int find_key(const char *id,R_RSA_PUBLIC_KEY *key) {
 	struct passwd *pwd;
-	const char *cp,*domain,*dir;
+	const char *cp,*dir,*domain;
 	char *tmp;
-	int fd,r;
+	int fd = -1,r;
+
 	if (!read_pub_key(id,key)) return 0;
-	cp = strrchr(id,'@');
-	domain = getenv("GALE_DOMAIN");
-	if (!cp || strcmp(cp + 1,domain)) return -1;
-	tmp = gale_strndup(id,cp - id);
-	pwd = getpwnam(tmp);
-	gale_free(tmp);
-	fd = -1;
-	if (pwd) {
-		tmp = gale_malloc(strlen(pwd->pw_dir) + 20);
-		sprintf(tmp,"%s/.gale-public-key",pwd->pw_dir);
-		fd = open(tmp,O_RDONLY);
-		gale_free(tmp);
-	}
+
 	if (fd < 0 && (dir = getenv("GALE_KEY_DIR")) && dir[0]) {
 		tmp = gale_malloc(strlen(dir) + strlen(id) + 2);
 		sprintf(tmp,"%s/%s",dir,id);
 		fd = open(tmp,O_RDONLY);
 		gale_free(tmp);
 	}
+
+	domain = getenv("GALE_DOMAIN");
+	if (fd < 0 && (cp = strchr(id,'@')) && !strcmp(cp + 1,domain)) {
+		tmp = gale_strndup(id,cp - id);
+		pwd = getpwnam(tmp);
+		gale_free(tmp);
+		if (pwd) {
+			tmp = gale_malloc(strlen(pwd->pw_dir) + 20);
+			sprintf(tmp,"%s/.gale-public-key",pwd->pw_dir);
+			fd = open(tmp,O_RDONLY);
+			gale_free(tmp);
+		}
+	}
+
+	if (fd < 0) return -1;
+
 	r = read(fd,key,sizeof(*key));
 	close(fd);
 	if (r < (int) sizeof(*key)) return -1;

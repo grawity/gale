@@ -32,17 +32,23 @@ void gale_dprintf(int level,const char *fmt,...) {
 	va_end(ap);
 }
 
-void gale_daemon(void) {
-	int fd;
+void gale_daemon(int keep_tty) {
 	if (!gale_debug) {
-		gale_error_handler = gale_error_syslog;
-		setsid();
-		fd = open("/dev/null",O_RDWR);
-		if (fd >= 0) {
-			dup2(fd,0);
-			dup2(fd,1);
-			dup2(fd,2);
-			if (fd > 2) close(fd);
+		if (keep_tty) {
+			signal(SIGINT,SIG_IGN);
+			signal(SIGQUIT,SIG_IGN);
+			signal(SIGTTOU,SIG_IGN);
+		} else {
+			int fd;
+			gale_error_handler = gale_error_syslog;
+			setsid();
+			fd = open("/dev/null",O_RDWR);
+			if (fd >= 0) {
+				dup2(fd,0);
+				dup2(fd,1);
+				dup2(fd,2);
+				if (fd > 2) close(fd);
+			}
 		}
 		if (fork()) exit(0);
 	}

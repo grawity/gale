@@ -300,7 +300,7 @@ int main(int argc,char *argv[]) {
 	}
 
 	gale_dprintf(1,"starting\n");
-	gale_daemon();
+	gale_daemon(0);
 
 	gale_cleanup(cleanup);
 

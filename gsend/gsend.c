@@ -65,13 +65,15 @@ void headers(void) {
 void usage(void) {
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-suU] [-e id] [-p cat] cat@server\n"
+		"usage: gsend [-suU] [-et id] [-p cat] cat@server\n"
 		"flags: -s       Sign message with your private key\n"
 		"       -e id    Encrypt message with <id>'s public key\n"
+		"       -t id    Default to id's category without encryption\n"
 		"       -r       Do not retry server connection\n"
 		"       -p cat   Request a return receipt\n"
 		"       -u       Expect user-supplied headers\n"
 		"       -U       Ditto, and don't supply default headers\n"
+		"If you use -e or -t, cat defaults to \"user/domain/username\".\n"
 		,GALE_BANNER);
 	exit(1);
 }
@@ -80,14 +82,15 @@ int main(int argc,char *argv[]) {
 	struct gale_client *client;
 	int arg,uflag = 0,sflag = 0,rflag = 0;
 	int ttyin = isatty(0),newline = 1;
-	char *cp,*tmp,*server,*eflag = NULL;
+	char *cp,*tmp,*server = NULL,*eflag = NULL,*tflag = NULL;
 
 	gale_init("gsend");
 
-	while ((arg = getopt(argc,argv,"hse:p:ruU")) != EOF) 
+	while ((arg = getopt(argc,argv,"hse:t:p:ruU")) != EOF) 
 	switch (arg) {
 	case 's': sflag++; break;
 	case 'e': eflag = optarg; break;
+	case 't': tflag = optarg; break;
 	case 'p': pflag = optarg; break;
 	case 'r': rflag = 1; break;
 	case 'u': uflag = 1; break;
@@ -96,12 +99,22 @@ int main(int argc,char *argv[]) {
 	case '?': usage();
 	}
 
-	if (optind != argc - 1) usage();
+	msg = new_message();
 
-	if ((server = strrchr(argv[optind],'@')))
-		*server = '%';
-	else
-		server = argv[optind] + strlen(argv[optind]);
+	if (optind == argc && eflag)
+		msg->category = gale_idtocat("user",eflag);
+	else if (optind == argc && tflag)
+		msg->category = gale_idtocat("user",tflag);
+	else if (optind != argc - 1)
+		usage();
+	else {
+		if ((server = strrchr(argv[optind],'@')))
+			*server = '%';
+		else
+			server = argv[optind] + strlen(argv[optind]);
+		msg->category = 
+			gale_strndup(argv[optind],server - argv[optind]);
+	}
 
 	if (sflag || eflag) gale_keys();
 
@@ -112,9 +125,6 @@ int main(int argc,char *argv[]) {
 		if (rflag) gale_alert(GALE_ERROR,"could not contact server",0);
 		gale_retry(client);
 	}
-
-	msg = new_message();
-	msg->category = gale_strndup(argv[optind],server - argv[optind]);
 
 	if (ttyin)
 		printf("Enter your message.  End it with an EOF or a dot.\n");

@@ -1,8 +1,9 @@
 check key generation messages; should gsend give a notice during encryption?
 error reporting in glcgi
-reply-to, new convention for user/, still (user/domain/user)
 command-line interface to logs (log server)
 summary log view in CGI, links, URL detection, menus, other spiffiness
+have gsub search in .gale
+$var expansion in gale.conf
 ping thingy
 multiple signatures
 multiple encryption

@@ -21,7 +21,7 @@ char *dotfile,*rcprog = NULL;
 struct gale_client *client;
 char *tty;
 
-int pflag = 1,kflag = 0,gflag = 1;
+int pflag = 1,kflag = 0;
 
 void *gale_malloc(int size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
@@ -57,11 +57,17 @@ void return_receipt(const char *cat,const char *rcpt,
 }
 
 void default_gsubrc(void) {
-	char *tmp,*tmp2,buf[80];
+	char *tmp,*tmp2,buf[80],*cat = getenv("GALE_CATEGORY");
 	char *nl = isatty(1) ? "\r\n" : "\n";
 	int count = 0;
 
-	printf("[%s]",getenv("GALE_CATEGORY"));
+	tmp = cat;
+	while ((tmp = strstr(tmp,"/ping"))) {
+		tmp += 5;
+		if (!*tmp || *tmp == ':') return;
+	}
+
+	printf("[%s]",cat);
 	if ((tmp = getenv("HEADER_TIME"))) {
 		time_t when = atoi(tmp);
 		strftime(buf,sizeof(buf)," %m/%d %H:%M",localtime(&when));
@@ -195,14 +201,6 @@ void present_message(struct gale_message *msg) {
 		envp[envp_len++] = tmp;
 	}
 
-	if (gflag) {
-		tmp = msg->category;
-		while ((tmp = strstr(tmp,"/ping"))) {
-			tmp += 5;
-			if (!*tmp || *tmp == ':') goto error;
-		}
-	}
-
 	envp[envp_len] = NULL;
 
 	if (pipe(pfd)) {
@@ -281,13 +279,11 @@ void startup(void) {
 		closedir(pdir);
 	}
 
-	if (fork()) exit(0);
-
 	gale_cleanup(exitfunc);
-	signal(SIGINT,SIG_IGN);
-	signal(SIGQUIT,SIG_IGN);
-	signal(SIGTTOU,SIG_IGN);
 	signal(SIGPIPE,SIG_IGN);
+
+	gale_daemon(1);
+
 	sprintf(dotfile,"%s%d",dotfile,(int) getpid());
 	if ((fd = creat(dir_file(dot_gale,dotfile),0666)) >= 0)
 		close(fd);
@@ -302,7 +298,6 @@ void usage(void) {
 	"       -K          Kill other gsubs on the tty, then terminate\n"
 	"       -f rcprog   Use rcprog (default gsubrc, then built-in)\n"
 	"       -r          Terminate if connection fails (do not retry)\n"
-	"       -g          Do not ignore messages to /ping\n"
 	"       -p          Suppress return-receipt processing altogether\n"
 	,GALE_BANNER);
 	exit(1);
@@ -320,7 +315,6 @@ int main(int argc,char *argv[]) {
 	case 'K': ++Kflag; break;
 	case 'n': ++fflag; break;
 	case 'f': rcprog = optarg; break;
-	case 'g': gflag = 0; break;
 	case 'r': rflag = 0; break;
 	case 'p': pflag = 0; break;
 	case 'h':

@@ -11,6 +11,21 @@
 
 struct gale_dir *dot_gale,*home_dir;
 
+char *gale_idtocat(const char *prefix,const char *id) {
+	char *at = strrchr(id,'@');
+	char *tmp;
+	if (at) {
+		tmp = gale_malloc(strlen(id) + strlen(prefix) + 2);
+		sprintf(tmp,"%s/%s/",prefix,at + 1);
+		strncat(tmp,id,at - id);
+	} else {
+		const char *domain = getenv("GALE_DOMAIN");
+		tmp = gale_malloc(strlen(id)+strlen(prefix)+strlen(domain)+3);
+		sprintf(tmp,"%s/%s/%s",prefix,domain,id);
+	}
+	return tmp;
+}
+
 static void init_vars(struct passwd *pwd) {
 	char *tmp;
 	const char *domain,*id,*reply;
@@ -33,10 +48,10 @@ static void init_vars(struct passwd *pwd) {
 
 	reply = getenv("GALE_REPLY_TO");
 	if (!reply) {
-		char *at = strchr(id,'@');
-		tmp = gale_malloc(strlen(id) + 30);
-		sprintf(tmp,"GALE_REPLY_TO=user/%s/",at + 1);
-		strncat(tmp,id,at - id);
+		char *cat = gale_idtocat("user",id);
+		tmp = gale_malloc(strlen(cat) + 30);
+		sprintf(tmp,"GALE_REPLY_TO=%s",cat);
+		gale_free(cat);
 		putenv(tmp);
 		reply = getenv("GALE_REPLY_TO");
 	}

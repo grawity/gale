@@ -216,7 +216,7 @@ int main(int argc,char *argv[]) {
 		gale_alert(GALE_ERROR,"listen",errno);
 
 	gale_dprintf(1,"bound socket, entering main loop\n");
-	gale_daemon();
+	gale_daemon(0);
 	loop();
 
 	return 0;
