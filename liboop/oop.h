@@ -69,8 +69,10 @@ typedef struct oop_source_sys oop_source_sys;
 oop_source_sys *oop_sys_new(void);   
 
 /* Process events until either of the following two conditions:
-   1 -- some callback returns non-NULL; will return the value in question.
-   2 -- no callbacks are registered; will return NULL. */
+   1 -- some callback returns anything but OOP_CONTINUE; 
+        will return the value in question.
+   2 -- no callbacks are registered; will return OOP_CONTINUE. 
+   3 -- an error occurs; will return OOP_ERROR (check errno). */
 void *oop_sys_run(oop_source_sys *); 
 
 /* Delete a system event source.  No callbacks may be registered. */

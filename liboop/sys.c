@@ -101,6 +101,7 @@ static void sys_cancel_fd(oop_source *source,int fd,oop_event ev) {
 	oop_source_sys *sys = verify_source(source);
 	if (fd < sys->num_files && NULL != sys->files[fd][ev].f) {
 		sys->files[fd][ev].f = NULL;
+		sys->files[fd][ev].v = NULL;
 		--sys->num_events;
 	}
 }
