@@ -1,14 +1,7 @@
-ZEPHYR_INC = -I/ofb/include # -I/usr/ug/include
-ZEPHYR_LIB = -L/ofb/lib -lzephyr -lcom_err # -L/usr/ug/lib
-
-RSAREF_INC = -I/ofb/include
-RSAREF_LIB = -L/ofb/lib -lrsaref
-
-BIN_DIR = /home/egnor/bin
-LIB_DIR = /home/egnor/lib
-INC_DIR = /home/egnor/include/gale
-
-# --------------------------------------------------------------------------- #
+sinclude $(TOP)/defs
+sinclude $(TOP)/defs.$(HOST)
+sinclude $(TOP)/defs.$(LAB)
+sinclude $(TOP)/defs.$(ARCH)
 
 CC = gcc
 CFLAGS = -Wall -g

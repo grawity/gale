@@ -104,7 +104,6 @@ int select_connect(fd_set *wfd,struct gale_connect *conn) {
 		if (connect(conn->array[i].sock,
 		            (struct sockaddr *) &conn->array[i].sin,
 		            sizeof(conn->array[i].sin)) && errno != EISCONN) {
-perror("connect");
 			close(conn->array[i].sock);
 			delete(conn,i);
 			continue;

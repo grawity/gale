@@ -1,0 +1,12 @@
+RSAREF_INC = -I$(TOP)/../source
+INC_DIR = $(HOME)/include/gale
+
+ifdef ARCH
+RSAREF_LIB = $(TOP)/../rsaref/build.$(ARCH)/rsaref.a
+BIN_DIR = $(HOME)/bin/$(ARCH)
+LIB_DIR = $(HOME)/lib/$(ARCH)
+else
+RSAREF_LIB = $(TOP)/../rsaref/build/rsaref.a
+BIN_DIR = $(HOME)/bin
+LIB_DIR = $(HOME)/lib
+endif
