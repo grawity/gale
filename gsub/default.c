@@ -205,7 +205,8 @@ void default_gsubrc(void) {
 		int quotelen = 0, quotecol = 0;
 		char curchar;
 		/* Read more data in order to process a line of input: */
-		bufloaded += fread(buf + bufloaded, 1, buflen - bufloaded, stdin);
+		if (!feof(stdin))
+			bufloaded += fread(buf + bufloaded, 1, buflen - bufloaded, stdin);
 		if (!bufloaded && feof(stdin)) goto done_proper;
 
 		/* Find the Quote. */
@@ -251,7 +252,8 @@ void default_gsubrc(void) {
 						/* Read more, if necessary. */
 						if (pos == bufloaded) {
 							pos = bufloaded = quotelen;
-							bufloaded += fread(buf + bufloaded, 1, buflen - bufloaded, stdin);
+							if (!feof(stdin))
+								bufloaded += fread(buf + bufloaded, 1, buflen - bufloaded, stdin);
 							if (pos == bufloaded && feof(stdin)) goto done_premie;
 						}
 					} while (!isspace(buf[pos]));
@@ -260,7 +262,8 @@ void default_gsubrc(void) {
 					for (; '\n' != buf[pos] && isspace(buf[pos]);)
 						if (++pos == bufloaded) {
 							pos = bufloaded = quotelen;
-							bufloaded += fread(buf + bufloaded, 1, buflen - bufloaded, stdin);
+							if (!feof(stdin))
+								bufloaded += fread(buf + bufloaded, 1, buflen - bufloaded, stdin);
 							if (pos == bufloaded && feof(stdin)) goto done_premie;
 						}
 					gale_print(stdout,0,G_("\n"));
@@ -298,7 +301,8 @@ void default_gsubrc(void) {
 						for (; '\n' != buf[pos] && isspace(buf[pos]);)
 							if (++pos == bufloaded) {
 								pos = bufloaded = quotelen;
-								bufloaded += fread(buf + bufloaded,1,buflen - bufloaded,stdin);
+								if (!feof(stdin))
+									bufloaded += fread(buf + bufloaded,1,buflen - bufloaded,stdin);
 								if (pos == bufloaded && feof(stdin)) goto done_premie;
 							}
 						if ('\n' == buf[pos]) {
@@ -336,7 +340,8 @@ void default_gsubrc(void) {
 			}
 
 			end_out_line:
-			bufloaded += fread(buf + bufloaded, 1, buflen - bufloaded, stdin);
+			if (!feof(stdin))
+				bufloaded += fread(buf + bufloaded, 1, buflen - bufloaded, stdin);
 			if (!bufloaded && feof(stdin)) goto done_proper;
 		}
 		end_line: ;
