@@ -55,7 +55,7 @@ struct gale_client *gale_open(const char *spec) {
 
 	client = gale_malloc(sizeof(*client));
 
-	client->server = getenv("GALE_SERVER");
+	client->server = gale_strdup(getenv("GALE_SERVER"));
 	client->subscr = spec ? gale_strdup(spec) : NULL;
 	client->socket = -1;
 	client->link = new_link();
@@ -70,7 +70,7 @@ struct gale_client *gale_open(const char *spec) {
 void gale_close(struct gale_client *client) {
 	if (client->socket != -1) close(client->socket);
 	free_link(client->link);
-	gale_free(client->subscr);
+	if (client->subscr) gale_free(client->subscr);
 	gale_free(client->server);
 	gale_free(client);
 }
