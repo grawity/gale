@@ -235,10 +235,12 @@ int gale_text_compare(struct gale_text a,struct gale_text b) {
 	return a.l - b.l;
 }
 
-/** Parse a number.
- *  \param str The string to parse.
- *  \return The number in \a str, or zero if unsuccessful.
- *  \sa gale_text_from_number() */
+/** Create a text representation of a number.
+ *  \param n The number to format.
+ *  \param base The numeric base to use (0 < \a base <= 36).
+ *  \param pad The minimum field width.  Zeroes will be added if necessary.
+ *  \return The formatted representation of this number.
+ *  \sa gale_text_to_number() */
 struct gale_text gale_text_from_number(int n,int base,int pad) {
 	wch *buf;
 	struct gale_text text;
@@ -274,12 +276,10 @@ struct gale_text gale_text_from_number(int n,int base,int pad) {
 	return text;
 }
 
-/** Create a text representation of a number.
- *  \param n The number to format.
- *  \param base The numeric base to use (0 < \a base <= 36).
- *  \param pad The minimum field width.  Zeroes will be added if necessary.
- *  \return The formatted representation of this number.
- *  \sa gale_text_to_number() */
+/** Parse a number.
+ *  \param text The string to parse.
+ *  \return The number in \a text, or zero if unsuccessful.
+ *  \sa gale_text_from_number() */
 int gale_text_to_number(struct gale_text text) {
 	return atoi(gale_text_to(NULL,text));
 }
