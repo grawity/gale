@@ -321,6 +321,26 @@ void gale_set_file_time(struct gale_file_state *which,struct gale_time time) {
 		if (!utime(name,&ut) && !stat(name,&buf)) {
 			which->file_time = buf.st_mtime;
 			which->inode_time = buf.st_ctime;
+			return;
+		}
+	}
+
+	{
+		/* That failed; now try making a copy. */
+		struct stat buf;
+		struct gale_file_state *state;
+		struct gale_data copy = gale_read_file(
+			which->name,which->file_size,1,&state);
+
+		/* Yet another race condition, sigh. */
+		if (copy.l != which->file_size || stat(name,&buf) 
+		||  compare(&buf,which)
+		||  compare(&buf,state)) return;
+		if (gale_write_file(which->name,copy,
+			!(buf.st_mode & S_IROTH),&state))
+		{
+			*which = *state;
+			return;
 		}
 	}
 }
