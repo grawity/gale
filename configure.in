@@ -90,8 +90,9 @@ AC_MSG_CHECKING([for local copy of Boehm GC])
 if test -f "${srcdir}/gc/alloc.c"; then
   AC_MSG_RESULT(yes)
   if test -f "${srcdir}/gc/Makefile" -a ! -f "gc/Makefile.gc" ; then
-    cp "${srcdir}/gc/Makefile" "gc/Makefile.gc"
-    rm -f "gc/Makefile"
+    mkdir -p gc
+    cp "${srcdir}/gc/Makefile" gc/Makefile.gc
+    rm -f gc/Makefile
   fi
   CPPFLAGS="$CPPFLAGS -I\${top_srcdir}/gc/include"
   GALE_LIBS="$GALE_LIBS \${top_builddir}/gc/libgc.a"
