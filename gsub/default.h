@@ -3,7 +3,6 @@
 
 #include "gale/types.h"
 
-void default_gsubrc(int do_beep);
-void print_id(struct gale_text id,struct gale_text dfl);
+void default_gsubrc(void);
 
 #endif

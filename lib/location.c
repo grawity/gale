@@ -160,6 +160,18 @@ struct gale_text gale_location_name(struct gale_location *loc) {
 	return loc->name;
 }
 
+struct gale_data gale_location_public_bits(struct gale_location *loc) {
+	struct gale_data bits = null_data;
+	if (auth_id_public(loc->key)) export_auth_id(loc->key,&bits,0);
+	return bits;
+}
+
+struct gale_data gale_location_private_bits(struct gale_location *loc) {
+	struct gale_data bits = null_data;
+	if (auth_id_private(loc->key)) export_auth_id(loc->key,&bits,1);
+	return bits;
+}
+
 struct gale_group gale_location_public_data(struct gale_location *loc) {
 	return loc->key->pub_data;
 }

@@ -1,20 +1,48 @@
 /* default.c -- default gsubrc implementation. */
 
 #include "default.h"
-
 #include "gale/all.h"
 #include "gale/gsubrc.h"
 
 #include <ctype.h>
+#include <stdlib.h> /* TODO */
+
+/* Print a user ID, with a default string (like "everyone") for NULL. */
+static void print_id(struct gale_text id,struct gale_text dfl) {
+	struct gale_text tok = null_text;
+	int first = 1;
+
+	if (0 == id.l) {
+		gale_print(stdout,0,G_(" *"));
+		gale_print(stdout,gale_print_bold,dfl);
+		gale_print(stdout,0,G_("*"));
+		return;
+	}
+
+	while (gale_text_token(id,',',&tok)) {
+		if (first) first = 0; else gale_print(stdout,0,G_(","));
+		gale_print(stdout,0,G_(" <"));
+		gale_print(stdout,gale_print_bold,tok);
+		gale_print(stdout,0,G_(">"));
+	}
+}
+
+static int id_width(struct gale_text id,struct gale_text dfl) {
+	struct gale_text tok = null_text;
+	int len = 0;
+	if (0 == id.l) return 3 + dfl.l;
+	while (gale_text_token(id,',',&tok))
+		if (0 == len) len += 3 + tok.l; else len += 4 + tok.l;
+	return len;
+}
 
 /* The Wacky Quoting Proposal (WQP), as implemented:
    For any line of text, the Quote is /^([ >]*|\|[^>])/.  The Quote is repeated
    at the beginning of all wrap lines.  If the Quote is longer than the screen,
    then it is no longer considered the Quote. */
-void default_gsubrc(int do_beep) {
+void default_gsubrc(void) {
 	char *buf, *quotebuf;
-
-	struct gale_text timecode,text,cat = gale_var(G_("GALE_CATEGORY"));
+	struct gale_text timecode,text;
 	struct gale_text presence = gale_var(G_("GALE_TEXT_NOTICE_PRESENCE"));
 	struct gale_text answer = gale_var(G_("GALE_TEXT_ANSWER_RECEIPT"));
 	struct gale_text from_name = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
@@ -22,11 +50,6 @@ void default_gsubrc(int do_beep) {
 	int len,buflen,bufloaded = 0,termwid = gale_columns(stdout);
 
 	if (termwid < 2) termwid = 80; /* Don't crash */
-
-	/* Ignore messages to category /ping */
-	text = null_text;
-	while (gale_text_token(cat,':',&text))
-		if (!gale_text_compare(G_("/ping"),text)) return;
 
 	/* Get the time */
 	if (0 == (timecode = gale_var(G_("GALE_TIME_ID_TIME"))).l) {
@@ -37,8 +60,7 @@ void default_gsubrc(int do_beep) {
 	}
 
 	if (0 != gale_var(G_("GALE_DATA_SECURITY_ENCRYPTION")).l) {
-		gale_alert(GALE_WARNING,gale_text_concat(3,
-			G_("decryption error in \""),cat,G_("\"")),0);
+		gale_alert(GALE_WARNING,G_("decryption error"),0);
 		return;
 	}
 
@@ -58,7 +80,7 @@ void default_gsubrc(int do_beep) {
 			gale_print(stdout,0,subject);
 			gale_print(stdout,0,G_("\""));
 		}
-		print_id(gale_var(G_("GALE_SIGNED")),G_("unverified"));
+		print_id(gale_var(G_("GALE_FROM")),G_("unverified"));
 		if (from_name.l) {
 			gale_print(stdout,0,G_(" ("));
 			gale_print(stdout,0,from_name);
@@ -75,46 +97,28 @@ void default_gsubrc(int do_beep) {
 	gale_print(stdout,gale_print_clobber_right,G_("-"));
 	gale_print(stdout,0,G_("\n"));
 
-	/* Print the header: category, et cetera */
-	{
-		struct gale_text subcat = null_text;
-		gale_print(stdout,gale_print_clobber_left,G_("["));
-		while (gale_text_token(cat,':',&subcat)) {
-			if (subcat.p != cat.p) gale_print(stdout,0,G_(":"));
-			gale_print(stdout,gale_print_bold,subcat);
-		}
-		gale_print(stdout,0,G_("]"));
-		len += 2 + cat.l;
-	}
+	/* Print the header */
 
-	if (subject.l) {
-		gale_print(stdout,0,G_(" ["));
-		gale_print(stdout,gale_print_bold,subject);
-		gale_print(stdout,0,G_("]"));
-		len += 3 + subject.l;
-	}
-
-	text = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
-	if (text.l) {
-		gale_print(stdout,0,G_(" from "));
-		gale_print(stdout,gale_print_bold,text);
-		len += G_(" from ").l + text.l;
-	}
-
+	gale_print(stdout,0,G_("To"));
 	text = gale_var(G_("GALE_TEXT_MESSAGE_RECIPIENT"));
 	if (text.l) {
-		gale_print(stdout,0,G_(" to "));
-		gale_print(stdout,gale_print_bold,text);
-		len += G_(" to ").l + text.l;
+		gale_print(stdout,0,G_(" "));
+		gale_print(stdout,0,text);
+	}
+
+	print_id(gale_var(G_("GALE_TO")),G_("unknown"));
+
+	if (subject.l) {
+		gale_print(stdout,0,G_(" re \""));
+		gale_print(stdout,gale_print_bold,subject);
+		gale_print(stdout,0,G_("\""));
 	}
 
 	if (gale_var(G_("GALE_TEXT_QUESTION_RECEIPT")).l) {
 		gale_print(stdout,gale_print_clobber_right,G_(" [rcpt]"));
-		len += G_(" [rcpt]").l;
 	}
 
-	gale_print(stdout,gale_print_clobber_right,G_(""));
-	gale_print(stdout,0,G_("\n"));
+	gale_print(stdout,gale_print_clobber_right,G_(":\n"));
 
 	/* Print the message body. */
 	buflen = termwid; /* can't be longer than this */
@@ -270,37 +274,31 @@ void default_gsubrc(int do_beep) {
 
 	/* Print the signature information. */
 	{
-		struct gale_text from_id = gale_var(G_("GALE_SIGNED"));
-		struct gale_text to_id = gale_var(G_("GALE_ENCRYPTED"));
+		struct gale_text from_id = gale_var(G_("GALE_FROM"));
 		struct gale_text from_name = 
 			gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
 		int len = 0;
 
-		if (from_id.l) len += from_id.l;
-		else if (from_name.l) len += G_("unverified").l;
-		else len += G_("anonymous").l;
-
-		if (to_id.l) len += to_id.l;
-		else len += G_("everyone").l;
-
-		while (len++ < termwid - 34) gale_print(stdout,0,G_(" "));
+		if (0 == from_name.l)
+			len += id_width(from_id,G_("anonymous"));
+		else
+			len += id_width(from_id,G_("unverified")) + from_name.l + 1;
+		while (len++ < termwid - 24) gale_print(stdout,0,G_(" "));
 
 		gale_print(stdout,0,G_("--"));
-		if (from_name.l)
-			print_id(from_id,G_("unverified"));
-		else
+		if (0 == from_name.l)
 			print_id(from_id,G_("anonymous"));
-
-		gale_print(stdout,0,G_(" for"));
-		print_id(to_id,G_("everyone"));
+		else {
+			gale_print(stdout,0,G_(" "));
+			gale_print(stdout,0,from_name);
+			print_id(from_id,G_("unverified"));
+		}
 
 		gale_print(stdout,0,G_(" at "));
 		gale_print(stdout,gale_print_clobber_right,
 			gale_text_right(timecode,-5));
 		gale_print(stdout,0,G_(" --"));
 		gale_print(stdout,gale_print_clobber_right,G_("\n"));
-
-		if (to_id.l && do_beep) gale_beep(stdout);
 	}
 
 	fflush(stdout);

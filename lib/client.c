@@ -101,6 +101,12 @@ static void *on_error(struct gale_link *l,int err,void *user) {
 	return OOP_CONTINUE;
 }
 
+struct gale_server *gale_make_server(
+	oop_source *source,struct gale_link *l,
+	struct gale_text server,int avoid_local_port) {
+	return gale_open(source,l,G_("-"),server,avoid_local_port);
+}
+
 struct gale_server *gale_open(
 	oop_source *source,struct gale_link *l,
         struct gale_text sub,struct gale_text server,
@@ -166,7 +172,7 @@ struct auth_id *gale_user(void) {
 
 		frag.name = G_("key.owner");
 		frag.type = frag_text;
-		frag.value.text = gale_var(G_("GALE_FROM"));
+		frag.value.text = gale_var(G_("GALE_NAME"));
 		gale_group_add(&group,frag);
 		auth_id_gen(user_id,group);
 	}

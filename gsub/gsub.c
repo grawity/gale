@@ -1,7 +1,5 @@
 /* gsub.c -- subscription client, outputs messages to the tty, optionally
-   sending them through a gsubrc filter. 
-
-   Beware of using this as an example; it's insufficiently Unicode-ized. */
+   sending them through a gsubrc filter.  */
 
 #include "default.h"
 
@@ -41,36 +39,73 @@ oop_source_sys *sys;			/* Event source. */
 oop_source *source;
 struct gale_link *conn;             	/* Physical link. */
 struct gale_server *server;		/* Logical connection. */
-struct auth_id *user_id;		/* The user. */
 struct gale_text presence;		/* Current presence state. */
+struct gale_text routing;
 char *tty;                              /* TTY device */
+
+struct gale_location *user_location = NULL;
+struct gale_location *key_query_location = NULL,*key_answer_location = NULL;
+#ifndef NDEBUG
+struct gale_location *restart_from_location,*restart_to_location;
+#endif
+int lookup_count = 0;
+
+struct sub { 
+	struct gale_location *loc; 
+	int positive; 
+	struct sub *next; 
+};
+
+struct sub *subs = NULL;
 
 int do_run_default = 0;			/* Flag to run default_gsubrc */
 int do_presence = 0;			/* Should we announce presence? */
 int do_default = 1;			/* Default subscriptions? */
 int do_keys = 1;			/* Should we answer key requests? */
-int do_beep = 1;			/* Should we beep? */
 int do_termcap = 0;                     /* Should we highlight headers? */
+int do_fork = 0;			/* Run in the background? */
+int do_kill = 0;			/* Kill other gsub processes? */
+int do_stop = 0;
 int sequence = 0;
-int is_done = 0;			/* Ready to terminate? */
+
+/* Send a message once it's all packed. */
+static void *on_put(struct gale_packet *packet,void *user) {
+	link_put(conn,packet);
+	return OOP_CONTINUE;
+}
+
+/*
+static void *on_will(struct gale_packet *packet,void *user) {
+	link_will(conn,packet);
+	return OOP_CONTINUE;
+}
+*/
 
 /* Generate a trivial little message with the given category.  Used for
    return receipts, login/logout notifications, and such. */
-struct old_gale_message *slip(struct gale_text cat,
-                          struct gale_text presence,
-                          struct gale_fragment *extra,
-                          struct auth_id *sign,struct auth_id *encrypt)
+static void slip(
+	struct gale_location *to,
+	struct gale_fragment *extra,
+	gale_call_packet *func,void *user) 
 {
-	struct old_gale_message *msg;
+	struct gale_message *msg;
 	struct gale_fragment frag;
 
 	/* Create a new message. */
-	msg = gale_make_message();
-	msg->cat = cat;
+	gale_create(msg);
+	msg->data = gale_group_empty();
+
+	gale_create_array(msg->to,2);
+	msg->to[0] = to;
+	msg->to[1] = NULL;
+
+	gale_create_array(msg->from,2);
+	msg->from[0] = user_location;
+	msg->from[1] = NULL;
 
 	frag.name = G_("message/sender");
 	frag.type = frag_text;
-	frag.value.text = gale_var(G_("GALE_FROM"));
+	frag.value.text = gale_var(G_("GALE_NAME"));
 	gale_group_add(&msg->data,frag);
 
 	frag.name = G_("notice/presence");
@@ -79,47 +114,31 @@ struct old_gale_message *slip(struct gale_text cat,
 	gale_group_add(&msg->data,frag);
 
 	gale_add_id(&msg->data,gale_text_from(gale_global->enc_filesys,tty,-1));
-	if (extra) gale_group_add(&msg->data,*extra);
-
-	/* Sign and encrypt the message, if appropriate. */
-	if (sign) auth_sign(&msg->data,sign,AUTH_SIGN_NORMAL);
-
-	/* For safety's sake, don't leave the old message in place if 
-	   encryption fails. */
-	if (encrypt && !auth_encrypt(&msg->data,1,&encrypt)) msg = NULL;
-
-	return msg;
+	if (NULL != extra) gale_group_add(&msg->data,*extra);
+	gale_pack_message(source,msg,func,user);
 }
 
 /* Register login/logout notices with the server. */
-void notify(int in,struct gale_text presence) {
-	struct gale_text cat;
-
-	if (in) {
-		cat = id_category(user_id,G_("notice"),G_("login"));
-		link_put(conn,gale_transmit(slip(cat,presence,NULL,user_id,NULL)));
-	} else {
-		cat = id_category(user_id,G_("notice"),G_("logout"));
-		link_will(conn,gale_transmit(slip(cat,presence,NULL,user_id,NULL)));
-	}
+static void notify(int in,struct gale_text presence) {
+	/* TODO */
 }
 
 /* Halt the main event loop when we finish sending our notices. */
-void *on_empty(struct gale_link *link,void *data) {
-	is_done = 1;
+static void *on_empty(struct gale_link *link,void *data) {
 	gale_alert(GALE_NOTICE,G_("disconnecting and terminating"),0);
+	do_stop = 1;
 	return OOP_HALT;
 }
 
 /* Give up trying to send a disconnection notice. */
-void *on_timeout(oop_source *source,struct timeval time,void *x) {
+static void *on_timeout(oop_source *source,struct timeval time,void *x) {
 	gale_alert(GALE_WARNING,G_("cannot send logout notice, giving up"),0);
-	is_done = 1;
+	do_stop = 1;
 	return OOP_HALT;
 }
 
 /* When we receive a signal, send termination notices, and prepare to halt. */
-void *on_signal(oop_source *source,int sig,void *data) {
+static void *on_signal(oop_source *source,int sig,void *data) {
 	struct timeval tv;
 
 	if (do_presence) switch (sig) {
@@ -135,7 +154,7 @@ void *on_signal(oop_source *source,int sig,void *data) {
 	return OOP_CONTINUE; /* but real soon... */
 }
 
-void *on_disconnect(struct gale_server *server,void *data) {
+static void *on_disconnect(struct gale_server *server,void *data) {
 	if (do_presence) {
 		notify(1,G_("in/reconnected"));
 		notify(0,G_("out/disconnected"));
@@ -143,28 +162,8 @@ void *on_disconnect(struct gale_server *server,void *data) {
 	return OOP_CONTINUE;
 }
 
-/* Reply to an AKD request: post our key. */
-
-struct old_gale_message *send_key(void) {
-	struct gale_fragment frag;
-
-	frag.name = G_("answer/key");
-	frag.type = frag_data;
-	export_auth_id(user_id,&frag.value.data,0);
-
-	return slip(id_category(user_id,G_("auth/key"),G_("")),
-	            presence,&frag,NULL,NULL);
-}
-
-/* Print a user ID, with a default string (like "everyone") for NULL. */
-void print_id(struct gale_text id,struct gale_text dfl) {
-	gale_print(stdout,0,id.l ? G_(" <") : G_(" *"));
-	gale_print(stdout,gale_print_bold,id.l ? id : dfl);
-	gale_print(stdout,0,id.l ? G_(">") : G_("*"));
-}
-
 /* Transmit a message body to a gsubrc process. */
-void send_message(char *body,char *end,int fd) {
+static void send_message(char *body,char *end,int fd) {
 	char *tmp;
 
 	while (body != end) {
@@ -194,34 +193,49 @@ void send_message(char *body,char *end,int fd) {
 	}
 }
 
+/* Create a comma-separated list of locations. */
+static struct gale_text comma_list(struct gale_location **loc) {
+	struct gale_text list = null_text;
+	if (NULL != loc && NULL != *loc) {
+		list = gale_location_name(*loc);
+		while (NULL != *++loc)
+			list = gale_text_concat(3,
+				list,G_(","),
+				gale_location_name(*loc));
+	}
+	return list;
+}
+
+static void *on_receipt(struct gale_text n,struct gale_location *to,void *x) {
+	struct gale_fragment reply;
+	if (NULL != user_location) {
+		reply.name = G_("answer/receipt");
+		reply.type = frag_text;
+		reply.value.text = gale_location_name(user_location);
+		slip(to,&reply,on_put,NULL);
+	}
+	return OOP_CONTINUE;
+}
+
 /* Take the message passed as an argument and show it to the user, running
    their gsubrc if present, using the default formatter otherwise. */
-void *on_message(struct gale_link *link,struct gale_packet *pkt,void *data) {
-	struct old_gale_message *msg = gale_receive(pkt);
+static void *on_message(struct gale_message *msg,void *data) {
 	int pfd[2];             /* Pipe file descriptors. */
 
 	/* Lots of crap.  Discussed below, where they're used. */
 	struct gale_environ *save = gale_save_environ();
 	struct gale_group group;
 	struct gale_text body = null_text;
-	struct auth_id *id_encrypted = NULL,*id_sign = NULL;
-	struct old_gale_message *rcpt = NULL,*akd = NULL;
 	int status = 0;
 	pid_t pid;
 	char *szbody = NULL;
-
-	/* Decrypt, if necessary. */
-	id_encrypted = auth_decrypt(&msg->data);
-
-	/* Verify a signature, if possible. */
-	id_sign = auth_verify(&msg->data);
 
 #ifndef NDEBUG
 	/* In debug mode, restart if we get a properly authorized message. 
 	   Do this before setting environment variables, to avoid "sticky
 	   sender syndrome". */
-	if (!gale_text_compare(msg->cat,G_("debug/restart")) && id_sign 
-	&&  !gale_text_compare(auth_id_name(id_sign),G_("egnor@ofb.net"))) {
+	if (NULL != msg->to && restart_to_location == msg->to[0]
+	&&  NULL != msg->from && restart_from_location == msg->from[0]) {
 		gale_alert(GALE_NOTICE,G_("restarting from debug/restart."),0);
 		notify(0,G_("restarting"));
 		gale_set(G_("GALE_ANNOUNCE"),G_("in/restarted"));
@@ -230,13 +244,8 @@ void *on_message(struct gale_link *link,struct gale_packet *pkt,void *data) {
 #endif
 
 	/* Set some variables for gsubrc. */
-	gale_set(G_("GALE_CATEGORY"),msg->cat);
-
-	if (id_encrypted)
-		gale_set(G_("GALE_ENCRYPTED"),auth_id_name(id_encrypted));
-
-	if (id_sign)
-		gale_set(G_("GALE_SIGNED"),auth_id_name(id_sign));
+	gale_set(G_("GALE_FROM"),comma_list(msg->from));
+	gale_set(G_("GALE_TO"),comma_list(msg->to));
 
 	/* Go through the message fragments. */
 	group = msg->data;
@@ -250,21 +259,26 @@ void *on_message(struct gale_link *link,struct gale_packet *pkt,void *data) {
 
 		/* Process receipts, if we do. */
 		if (do_presence && frag.type == frag_text
-		&&  !gale_text_compare(frag.name,G_("question/receipt"))) {
-			/* Generate a receipt. */
-			struct gale_fragment reply;
-			reply.name = G_("answer/receipt");
-			reply.type = frag_text;
-			reply.value.text = msg->cat;
-			rcpt = slip(frag.value.text,
-			            presence,&reply,user_id,id_sign);
-		}
+		&& !gale_text_compare(frag.name,G_("question/receipt")))
+			gale_find_exact_location(source,
+				frag.value.text,
+				on_receipt,NULL);
 
 		/* Handle AKD requests for us. */
-		if (do_keys && frag.type == frag_text
-		&&  !gale_text_compare(frag.name,G_("question/key"))
-		&&  !gale_text_compare(frag.value.text,auth_id_name(user_id)))
-			akd = send_key();
+		if (do_keys 
+		&&  NULL != key_answer_location
+		&&  NULL != user_location
+		&&  frag.type == frag_text
+		&& !gale_text_compare(frag.name,G_("question/key"))
+		&& !gale_text_compare(frag.value.text,
+		                      gale_location_name(user_location))) {
+			struct gale_fragment frag;
+			frag.name = G_("answer/key");
+			frag.type = frag_data;
+			frag.value.data = 
+				gale_location_public_bits(user_location);
+			slip(key_answer_location,&frag,on_put,NULL);
+		}
 
 		/* Save the message body for later. */
 		if (frag.type == frag_text
@@ -282,48 +296,20 @@ void *on_message(struct gale_link *link,struct gale_packet *pkt,void *data) {
 		name.l = frag.name.l;
 
 		/* Create environment variables. */
-		if (frag_text == frag.type) {
-			struct gale_text varname = null_text;
-
-			if (!gale_text_compare(frag.name,G_("message/subject")))
-				varname = G_("HEADER_SUBJECT");
-			else 
-			if (!gale_text_compare(frag.name,G_("message/sender")))
-				varname = G_("HEADER_FROM");
-			else 
-			if (!gale_text_compare(frag.name,G_("message/recipient")))
-				varname = G_("HEADER_TO");
-			else
-			if (!gale_text_compare(frag.name,G_("question/receipt")))
-				varname = G_("HEADER_RECEIPT_TO");
-			else
-			if (!gale_text_compare(frag.name,G_("id/instance")))
-				varname = G_("HEADER_AGENT");
-
-			if (varname.l > 0)
-				gale_set(varname,frag.value.text);
-
-			if (gale_text_compare(frag.name,G_("message/body")))
-				gale_set(
-				gale_text_concat(2,G_("GALE_TEXT_"),name),
-				frag.value.text);
-		}
+		if (frag_text == frag.type
+		&&  gale_text_compare(frag.name,G_("message/body")))
+			gale_set(gale_text_concat(2,G_("GALE_TEXT_"),name),
+			         frag.value.text);
 
 		if (frag_time == frag.type) {
-			struct gale_text time;
 			char buf[30];
 			struct timeval tv;
 			time_t when;
 			gale_time_to(&tv,frag.value.time);
 			when = tv.tv_sec;
 			strftime(buf,30,"%Y-%m-%d %H:%M:%S",localtime(&when));
-			time = gale_text_from(NULL,buf,-1);
-
-			if (!gale_text_compare(frag.name,G_("id/time")))
-				gale_set(G_("HEADER_TIME"),
-					gale_text_from_number(tv.tv_sec,10,0));
-
-			gale_set(gale_text_concat(2,G_("GALE_TIME_"),name),time);
+			gale_set(gale_text_concat(2,G_("GALE_TIME_"),name),
+			         gale_text_from(NULL,buf,-1));
 		}
 
 		if (frag_number == frag.type)
@@ -333,14 +319,6 @@ void *on_message(struct gale_link *link,struct gale_packet *pkt,void *data) {
 		if (frag_data == frag.type)
 			gale_set(gale_text_concat(2,G_("GALE_DATA_"),name),
 				G_("(stuff)"));
-	}
-
-	/* Give them our key, if they wanted it. */
-	if (akd) {
-		link_put(conn,gale_transmit(akd));
-		rcpt = NULL;
-		status = 0;
-		goto done;
 	}
 
 	/* Convert the message body to local format. */
@@ -388,7 +366,7 @@ void *on_message(struct gale_link *link,struct gale_packet *pkt,void *data) {
 		}
 
 		/* If we can't find or can't run gsubrc, use default. */
-		default_gsubrc(do_beep);
+		default_gsubrc();
 		exit(0);
 	}
 
@@ -403,16 +381,19 @@ void *on_message(struct gale_link *link,struct gale_packet *pkt,void *data) {
 	status = gale_wait(pid);
 
 done:
-	/* Put the receipt on the queue, if we have one. */
-	if (rcpt && !status) link_put(conn,gale_transmit(rcpt));
 	gale_restore_environ(save);
 	return OOP_CONTINUE;
 }
 
-void usage(void) {
+static void *on_packet(struct gale_link *link,struct gale_packet *pkt,void *data) {
+	gale_unpack_message(source,pkt,on_message,data);
+	return OOP_CONTINUE;
+}
+
+static void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gsub [-habekKnr] [-o id] [-f rcprog] "
+	"usage: gsub [-haAekKnr] [-f rcprog] "
 #ifdef HAVE_DLOPEN
 	"[-l rclib] "
 #endif
@@ -420,24 +401,22 @@ void usage(void) {
 	"flags: -h          Display this message\n"
 	"       -a          Never announce presence or send receipts\n"
 	"       -A          Always announce presence and send receipts\n"
-	"       -b          Do not beep (normally personal messages beep)\n"
 	"       -e          Do not include default subscriptions\n"
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
 	"       -n          Do not fork (default if stdout redirected)\n"
-	"       -o id       Listen to messages for id (as well as \"%s\")\n"
 	"       -r          Run the default internal gsubrc and exit\n"
 	"       -f rcprog   Use rcprog (default gsubrc, if found)\n"
 #ifdef HAVE_DLOPEN
 	"       -l rclib    Use module (default gsubrc.so, if found)\n" 
 #endif
 	"       -p state    Announce presence state (eg. \"out/to/lunch\")\n"
-	,GALE_BANNER,gale_text_to(gale_global->enc_console,gale_var(G_("GALE_ID"))));
+	,GALE_BANNER);
 	exit(1);
 }
 
 /* Search for and load a shared library with a custom message presenter. */
-void load_gsubrc(struct gale_text name) {
+static void load_gsubrc(struct gale_text name) {
 #ifdef HAVE_DLOPEN
 	struct gale_text rc;
 	const char *err;
@@ -481,57 +460,131 @@ void load_gsubrc(struct gale_text name) {
 #endif
 }
 
-/* add subscriptions to a list */
-
-void add_subs(struct gale_text *subs,struct gale_text add) {
-	if (add.p == NULL) return;
-	if (subs->l)
-		*subs = gale_text_concat(3,*subs,G_(":"),add);
-	else
-		*subs = add;
-}
-
-/* listen to another user category */
-
-void add_other(struct gale_text *subs,struct gale_text add) {
-	struct auth_id *id = lookup_id(add);
-	if (!auth_id_private(id)) {
-		struct gale_text err = gale_text_concat(3,
+static void add_sub(int positive,struct gale_location *loc) {
+	struct sub *sub;
+	if (NULL == loc) return;
+	if (!gale_location_receive_ok(loc))
+		gale_alert(GALE_WARNING,gale_text_concat(3,
 			G_("no private key for \""),
-			auth_id_name(id),
-			G_("\""));
-		gale_alert(GALE_ERROR,err,0);
-	}
-	add_subs(subs,id_category(id,G_("user"),G_("")));
+			gale_location_name(loc),
+			G_("\"")),0);
+	gale_create(sub);
+	sub->loc = loc;
+	sub->next = subs;
+	sub->positive = positive;
+	subs = sub;
 }
 
-/* notify the user when a connection is established */
+static gale_call_location on_lookup,on_location;
 
-void *on_connected(struct gale_server *server,
-	struct gale_text host,struct sockaddr_in addr,
-	void *d) 
-{
-	gale_alert(GALE_NOTICE,gale_text_concat(2,
-		G_("connected to "),gale_connect_text(host,addr)),0);
+static void do_lookup(struct gale_text name,struct gale_location **loc) {
+	gale_find_location(source,name,on_lookup,loc);
+	++lookup_count;
+}
+
+static void do_location(struct gale_text sub) {
+	int positive = 1;
+	if (!gale_text_compare(G_("-"),gale_text_left(sub,1))) {
+		positive = 0;
+		sub = gale_text_right(sub,-1);
+	}
+	gale_find_location(source,sub,on_location,(void *) positive);
+	++lookup_count;
+}
+
+static void *on_complete() {
+	struct sub *s;
+	struct gale_location **list;
+	int count,*positive;
+
+	if (0 != --lookup_count) return OOP_CONTINUE;
+
+	if (do_default) add_sub(1,user_location);
+	if (do_keys) add_sub(1,key_query_location);
+#ifndef NDEBUG
+	add_sub(1,restart_to_location);
+#endif
+
+	if (NULL == subs) gale_alert(GALE_ERROR,G_("no subscriptions!"),0);
+
+	/* Fork ourselves into the background, unless we shouldn't. */
+	if (do_fork) gale_daemon(source);
+	source->on_signal(source,SIGHUP,on_signal,NULL);
+	source->on_signal(source,SIGTERM,on_signal,NULL);
+	source->on_signal(source,SIGINT,on_signal,NULL);
+	if (tty) {
+		gale_kill(gale_text_from(gale_global->enc_filesys,tty,-1),do_kill);
+		gale_watch_tty(source,1);
+	}
+
+	count = 0;
+	for (s = subs; NULL != s; s = s->next) ++count;
+
+	gale_create_array(list,1 + count);
+	gale_create_array(positive,count);
+
+	count = 0;
+	for (s = subs; NULL != s; s = s->next) {
+		list[count] = s->loc;
+		positive[count] = s->positive;
+		++count;
+	}
+	list[count] = NULL;
+	routing = gale_pack_subscriptions(list,positive);
+	link_subscribe(conn,routing);
+
+	/* Send a login message, as needed. */
+	if (do_presence) {
+		struct gale_text announce = gale_var(G_("GALE_ANNOUNCE"));
+		if (!announce.l) announce = presence;
+		notify(1,announce);
+		notify(0,G_("out/disconnected"));
+	}
+
+	link_on_message(conn,on_packet,NULL);
+	gale_on_disconnect(server,on_disconnect,NULL);
 	return OOP_CONTINUE;
 }
 
-/* main */
+static void *on_lookup(struct gale_text n,struct gale_location *loc,void *x) {
+	struct gale_location **target = (struct gale_location **) x;
+	*target = loc;
 
+	if (target == &user_location) {
+		/* TODO lookup key_{query,answer}_location */
+	}
+
+	return on_complete();
+}
+
+static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
+	add_sub((int) x,loc);
+	return on_complete();
+}
+
+static void *on_connected(
+	struct gale_server *server,
+	struct gale_text host,struct sockaddr_in addr,void *d) 
+{
+	gale_alert(GALE_NOTICE,gale_text_concat(2,
+		G_("connected to "),
+		gale_connect_text(host,addr)),0);
+	if (0 < routing.l) link_subscribe(conn,routing);
+	return on_complete();
+}
+
+/* main */
 int main(int argc,char **argv) {
 	/* Various flags. */
-	int opt,do_fork = 0,do_kill = 0;
+	int opt;
 	struct gale_text rclib = null_text;
-
-	/* Subscription list. */
-	struct gale_text serv = null_text;
 
 	/* Initialize the gale libraries. */
 	gale_init("gsub",argc,argv);
 	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
 
 	/* Default values. */
-	rcprog = G_("gsubrc");
+	rcprog = G_("cheeserc");
 
 	/* If we're actually on a TTY, we do things a bit differently. */
 	if ((tty = ttyname(1))) {
@@ -552,7 +605,7 @@ int main(int argc,char **argv) {
 	if (!presence.l) presence = G_("in/present");
 
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"dDhaAbenkKro:f:l:p:"))) {
+	while (EOF != (opt = getopt(argc,argv,"dDhaAenkKr:f:l:p:"))) {
 	struct gale_text str = !optarg ? null_text :
 		gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (opt) {
@@ -562,7 +615,6 @@ int main(int argc,char **argv) {
 						/* Stay quiet */
 	case 'A': do_presence = do_keys = 1; break;
 						/* Don't */
-	case 'b': do_beep = 0; break;		/* Do not beep */
 	case 'e': do_default = 0; break;        /* Do not include defaults */
 	case 'n': do_fork = do_kill = 0; break; /* Do not background */
 	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
@@ -572,83 +624,49 @@ int main(int argc,char **argv) {
 	case 'r': do_run_default = 1; break;	/* only run default_gsubrc */
 	case 'f': rcprog = str;	break;          /* Use a wacky gsubrc */
 	case 'l': rclib = str; break;	        /* Use a wacky gsubrc.so */
-	case 'o': add_other(&serv,str); break;  /* Listen to a different id */
 	case 'p': do_presence = 1; presence = str;
 	          break;			/* Presence */
 	case 'h':                               /* Usage message */
 	case '?': usage();
 	} }
 
-	/* Figure out who we are. */
-	if (do_presence || do_keys) user_id = gale_user();
-
 	if (do_run_default) {
-		default_gsubrc(do_beep);
+		default_gsubrc();
 		return 0;
 	}
 
 	if (do_default) {
-		/* Other IDs to listen to. */
-		struct gale_text others,other = null_text;
-		others = gale_var(G_("GALE_OTHERS"));
-		while (gale_text_token(others,',',&other))
-			if (0 != other.l) add_other(&serv,other);
-
-		/* Default subscriptions. */
-		if (gale_var(G_("GALE_SUBS")).l)
-			add_subs(&serv,gale_var(G_("GALE_SUBS")));
-		else
-			add_other(&serv,gale_var(G_("GALE_ID")));
-		add_subs(&serv,gale_var(G_("GALE_GSUB")));
+		struct gale_text env = gale_var(G_("GALE_CHEESEBALL"));
+		if (0 != env.l) {
+			struct gale_text sub = null_text;
+			while (gale_text_token(env,',',&sub)) do_location(sub);
+			do_default = 0;
+		}
 	}
 
 	/* One argument, at most (subscriptions) */
-	if (optind < argc - 1) usage();
-	if (optind == argc - 1) 
-		add_subs(&serv,gale_text_from(gale_global->enc_cmdline,argv[optind],-1));
+	while (argc != optind)
+		do_location(gale_text_from(
+			gale_global->enc_cmdline,
+			argv[optind++],-1));
 
-	/* We need to subscribe to *something* */
-	if (0 == serv.l)
-		gale_alert(GALE_ERROR,G_("No subscriptions specified."),0);
+	do_lookup(G_("egnor@ofb.net"),&restart_from_location);
+#ifndef NDEBUG
+	do_lookup(G_("debug.restart@gale.org"),&restart_to_location);
+#endif
+	gale_find_default_location(source,on_lookup,&user_location);
+	++lookup_count;
 
 	/* Look for a gsubrc.so */
 	load_gsubrc(rclib);
 
-	/* Act as AKD proxy for this particular user. */
-	if (do_keys)
-		add_subs(&serv,id_category(user_id,G_("auth/query"),G_("")));
-
-#ifndef NDEBUG
-	/* If in debug mode, listen to debug/ for restart messages. */
-	add_subs(&serv,G_("debug/"));
-#endif
-
 	/* Open a connection to the server. */
 	conn = new_link(source);
-	server = gale_open(source,conn,serv,null_text,0);
+	routing = null_text;
+	server = gale_make_server(source,conn,null_text,0);
 	gale_on_connect(server,on_connected,NULL);
+	++lookup_count;
 
-	/* Fork ourselves into the background, unless we shouldn't. */
-	if (do_fork) gale_daemon(source);
-	source->on_signal(source,SIGHUP,on_signal,NULL);
-	source->on_signal(source,SIGTERM,on_signal,NULL);
-	source->on_signal(source,SIGINT,on_signal,NULL);
-	if (tty) {
-		gale_kill(gale_text_from(gale_global->enc_filesys,tty,-1),do_kill);
-		gale_watch_tty(source,1);
-	}
-
-	/* Send a login message, as needed. */
-	if (do_presence) {
-		struct gale_text announce = gale_var(G_("GALE_ANNOUNCE"));
-		if (!announce.l) announce = presence;
-		notify(1,announce);
-		notify(0,G_("out/disconnected"));
-	}
-
-	link_on_message(conn,on_message,NULL);
-	gale_on_disconnect(server,on_disconnect,NULL);
-	while (!is_done) oop_sys_run(sys);
-
+	while (!do_stop) oop_sys_run(sys);
 	return 0;
 }

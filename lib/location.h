@@ -1,6 +1,8 @@
 #ifndef LOCATION_H
 #define LOCATION_H
 
+#include "gale/client.h"
+
 struct gale_location_callback {
 	gale_call_location *func;
 	void *user;

@@ -10,8 +10,9 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#define SLOW_RETRY 1200
-#define FAST_RETRY 5
+#define EXEC_RETRY 1200
+#define CALL_RETRY 1200
+#define CACHE_RETRY 5
 
 static int elapsed(struct gale_time *last,int min) {
 	struct gale_time now = gale_time_now();
@@ -58,7 +59,11 @@ static int open_pub_fd(struct auth_id *id,int fd,struct gale_text n,int flag) {
 	return status;
 }
 
-static int open_pub_file(struct auth_id *id,struct gale_text path,int flag) {
+static int open_pub_file(
+	struct auth_id *id,
+	struct gale_text dir,struct gale_text fn,int flag) 
+{
+	struct gale_text path = dir_file(dir,fn);
 	if (unchanged(path,&id->pub_inode)) return _ga_trust_pub(id);
 	if (0 == id->pub_inode.name.l) id->pub_trusted = 0;
 	return open_pub_fd(id,_ga_read_file(path),path,flag);
@@ -71,13 +76,11 @@ int _ga_find_pub(struct auth_id *id) {
 	pid_t pid;
 	int fd,status;
 
-	if (!elapsed(&id->pub_time_slow,SLOW_RETRY)) return 0;
-	gale_dprintf(11,"(auth) \"%s\": searching desperately for key\n",
-	             gale_text_to(gale_global->enc_console,id->name));
-
-	if (NULL != gale_global->find_public 
+	if (NULL != gale_global->find_public
+	&&  elapsed(&id->pub_time_callback,CALL_RETRY)
 	&&  gale_global->find_public(id)) return 1;
 
+	if (!elapsed(&id->pub_time_gkfind,EXEC_RETRY)) return 0;
 	argv[1] = gale_text_to(gale_global->enc_cmdline,id->name);
 	pid = gale_exec("gkfind",argv,NULL,&fd,nop);
 	status = open_pub_fd(id,fd,null_text,IMPORT_NORMAL);
@@ -92,21 +95,15 @@ int auth_id_public(struct auth_id *id) {
 	gale_diprintf(10,2,"(auth) \"%s\": looking for public key\n",
 	             gale_text_to(gale_global->enc_console,id->name));
 
-	if (!elapsed(&id->pub_time_fast,FAST_RETRY)) {
-		gale_diprintf(10,-2,"(auth) \"%s\": fast timeout not elapsed\n",
-		             gale_text_to(gale_global->enc_console,id->name));
-		return _ga_trust_pub(id);
-	}
-
-	if (open_pub_file(id,dir_file(G->dot_trusted,id->name),IMPORT_TRUSTED)
-	||  open_pub_file(id,dir_file(G->dot_local,id->name),IMPORT_NORMAL)
-	||  open_pub_file(id,dir_file(G->sys_trusted,id->name),IMPORT_TRUSTED)
-	||  open_pub_file(id,dir_file(G->sys_local,id->name),IMPORT_NORMAL)
-	||  open_pub_file(id,dir_file(G->sys_cache,id->name),IMPORT_NORMAL)) {
-		gale_diprintf(10,-2,"(auth) \"%s\": done looking, found it\n",
-		             gale_text_to(gale_global->enc_console,id->name));
-		return 1;
-	}
+	if (elapsed(&id->pub_time_cache,CACHE_RETRY)) {
+		if (open_pub_file(id,G->dot_trusted,id->name,IMPORT_TRUSTED)
+		||  open_pub_file(id,G->dot_local,id->name,IMPORT_NORMAL)
+		||  open_pub_file(id,G->sys_trusted,id->name,IMPORT_TRUSTED)
+		||  open_pub_file(id,G->sys_local,id->name,IMPORT_NORMAL)
+		||  open_pub_file(id,G->sys_cache,id->name,IMPORT_NORMAL))
+			return 1;
+	} else 
+		if (_ga_trust_pub(id)) return 1;
 
 	status = _ga_find_pub(id);
 	gale_diprintf(10,-2,"(auth) \"%s\": done looking (%s)\n",
@@ -137,7 +134,11 @@ static int open_priv_fd(struct auth_id *id,int fd,struct gale_text path) {
 	return status;
 }
 
-static int open_priv_file(struct auth_id *id,struct gale_text path) {
+static int open_priv_file(
+	struct auth_id *id,
+	struct gale_text dir,struct gale_text fn) 
+{
+	struct gale_text path = dir_file(dir,fn);
 	if (unchanged(path,&id->priv_inode)) 
 		return !gale_group_null(id->priv_data);
 	return open_priv_fd(id,_ga_read_file(path),path);
@@ -148,18 +149,20 @@ static int get_private(struct auth_id *id) {
 	pid_t pid;
 	char *argv[] = { "gkfetch", NULL, NULL };
 
-	if (!elapsed(&id->priv_time_fast,FAST_RETRY)) 
-		return !gale_group_null(id->priv_data);
+	if (elapsed(&id->priv_time_cache,CACHE_RETRY)) {
+		if (open_priv_file(id,gale_global->dot_private,id->name)
+		||  open_priv_file(id,gale_global->sys_private,id->name))
+			return 1;
+	} else
+		if (!gale_group_null(id->priv_data)) return 1;
 
-	if (open_priv_file(id,dir_file(gale_global->dot_private,id->name))
-	||  open_priv_file(id,dir_file(gale_global->sys_private,id->name)))
+	if (NULL != gale_global->find_private
+	&&  elapsed(&id->priv_time_callback,CALL_RETRY)
+	&&  gale_global->find_private(id))
 		return 1;
 
-	if (!elapsed(&id->priv_time_slow,SLOW_RETRY)) 
+	if (!elapsed(&id->priv_time_gkfetch,EXEC_RETRY)) 
 		return !gale_group_null(id->priv_data);
-
-	if (gale_global->find_private && gale_global->find_private(id)) 
-		return 1;
 
 	argv[1] = gale_text_to(gale_global->enc_cmdline,id->name);
 	pid = gale_exec("gkfetch",argv,NULL,&fd,nop);

@@ -45,6 +45,7 @@ release: dist
 	mv $(PACKAGE)-$(VERSION).* ../gdist ; \
 	ln -sf $(PACKAGE)-$(VERSION).tar.gz ../gdist/$(PACKAGE).tar.gz ; \
 	ln -sf $(PACKAGE)-$(VERSION).tar.bz2 ../gdist/$(PACKAGE).tar.bz2 ; fi
+	@echo '** NOW TAG THE CVS REPOSITORY! **'
 
 dist-hook:
 	test ! -f $(srcdir)/lib/.deps/alloc.P

@@ -18,11 +18,13 @@ auth_hook _gale_find_id;
 static int inhibit = 0;
 
 void disable_gale_akd(void) {
+	if (0 == inhibit) gale_global->find_public = NULL;
 	++inhibit;
 }
 
 void enable_gale_akd(void) {
 	if (inhibit) --inhibit;
+	if (0 == inhibit) gale_global->find_public = _gale_find_id;
 }
 
 struct akd_request {
@@ -85,12 +87,13 @@ int _gale_find_id(struct auth_id *id) {
 
 	name = auth_id_name(id);
 	tok = null_text;
-	if (!gale_text_token(name,'@',&tok) 
-	||  !gale_text_token(name,0,&tok)) return 0;
+	if (!gale_text_token(name,'@',&tok) || 0 == tok.l
+	||  !gale_text_token(name,'/',&tok) || 0 == tok.l) return 0;
 	init_auth_id(&domain,tok);
+	if (gale_text_token(name,0,&tok)) return 0;
 
 	/* prevent re-entrancy */
-	if (inhibit) return 0;
+	assert(!inhibit);
 	disable_gale_akd();
 
 	/* notify the user */

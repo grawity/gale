@@ -39,13 +39,15 @@ void init_auth_id(struct auth_id **pid,struct gale_text name) {
 		             gale_text_to(gale_global->enc_console,name));
 		gale_create(ptr);
 		ptr->name = name;
-		ptr->priv_time_fast = gale_time_zero();
-		ptr->priv_time_slow = gale_time_zero();
+		ptr->priv_time_cache = gale_time_zero();
+		ptr->priv_time_callback = gale_time_zero();
+		ptr->priv_time_gkfetch = gale_time_zero();
 		ptr->priv_data = gale_group_empty();
 		ptr->priv_inode = _ga_init_inode();
 
-		ptr->pub_time_fast = gale_time_zero();
-		ptr->pub_time_slow = gale_time_zero();
+		ptr->pub_time_cache = gale_time_zero();
+		ptr->pub_time_callback = gale_time_zero();
+		ptr->pub_time_gkfind = gale_time_zero();
 		ptr->pub_data = gale_group_empty();
 		ptr->pub_orig = null_data;
 		ptr->pub_signer = NULL;

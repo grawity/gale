@@ -80,12 +80,19 @@ static void init_vars(struct passwd *pwd) {
 		}
 	}
 
-	if (!gale_var(G_("GALE_FROM")).l) {
+	if (!gale_var(G_("GALE_NAME")).l) {
+		struct gale_text from = gale_var(G_("GALE_FROM"));
 		char *name = strtok(pwd->pw_gecos,",");
-		if (!name || !*name) name = "unknown";
-		gale_set(G_("GALE_FROM"),gale_text_from(
-			gale_global->enc_sys,name,-1));
+		if (0 != from.l)
+			gale_set(G_("GALE_NAME"),from);
+		else if (NULL != name && '\0' != *name)
+			gale_set(G_("GALE_NAME"),
+				gale_text_from(gale_global->enc_sys,name,-1));
+		else
+			gale_set(G_("GALE_NAME"),G_("unknown"));
 	}
+
+	gale_set(G_("GALE_FROM"),null_text);
 
 	if (!gale_var(G_("GALE_ID")).l)
 		gale_set(G_("GALE_ID"),gale_text_from(

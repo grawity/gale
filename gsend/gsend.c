@@ -19,7 +19,7 @@ struct gale_location *user = NULL;	/* The local user. */
 struct gale_location *bad_location = (struct gale_location *) 0xbaadbaad;
 oop_source *oop;			/* Event source. */
 int lookup_count = 0;			/* Outstanding lookup requests. */
-int do_rrcpt = 1,do_identify = 1;       /* Various flags. */
+int do_rrcpt = 0,do_identify = 1;       /* Various flags. */
 
 /* Construct a comma-separated list of names. */
 static struct gale_text comma_list(struct gale_location **list) {
@@ -49,7 +49,7 @@ void headers(void) {
 
 	frag.name = G_("message/sender");
 	frag.type = frag_text;
-	frag.value.text = gale_var(G_("GALE_FROM"));
+	frag.value.text = gale_var(G_("GALE_NAME"));
 	if (0 != frag.value.text.l) gale_group_add(&msg->data,frag);
 
 	tty = ttyname(0);
@@ -222,13 +222,12 @@ static void find_location(struct gale_text name,struct gale_location **ptr) {
 static void usage(void) {
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-hapP] [-s subj] [-S address] address [address ...]\n"
+		"usage: gsend [-hap] [-s subj] [-S address] address [address ...]\n"
 		"flags: -h          Display this message\n"
 		"       -s subject  Set the message subject\n"
 		"       -S address  Sign message with a specific <address>\n"
 		"       -a          Do not sign message (anonymous)\n"
 		"       -p          Always request a return receipt\n"
-		"       -P          Never request a return receipt\n"
 		"       -t nm=val   Include text fragment 'nm' set to 'val'\n"
 		"You must specify at least one recipient address.\n"
 		,GALE_BANNER);
@@ -253,7 +252,7 @@ int main(int argc,char *argv[]) {
 	msg->data = gale_group_empty();
 
 	/* Parse command line options. */
-	while ((arg = getopt(argc,argv,"Ddhat:Pps:S:")) != EOF) {
+	while ((arg = getopt(argc,argv,"Ddhat:ps:S:")) != EOF) {
 		struct gale_text str = (NULL == optarg) ? null_text :
 			gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (arg) {
@@ -274,8 +273,7 @@ int main(int argc,char *argv[]) {
 		msg->from[1] = NULL;
 		break;
 
-	case 'p': do_rrcpt = 2; break;		/* Return receipt */
-	case 'P': do_rrcpt = 0; break;
+	case 'p': do_rrcpt = 1; break;		/* Return receipt */
 
 	case 't': 
 		frag.type = frag_text;

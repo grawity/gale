@@ -43,9 +43,10 @@ AC_PROG_INSTALL
 AC_PROG_YACC
 PROG_LDCONFIG=:
 
+dnl Add prefix to LDFLAGS and INCLUDES to help find previously installed foo.
 test NONE != "$exec_prefix" && LDFLAGS="$LDFLAGS -L${exec_prefix}/lib"
 if test NONE != "$prefix" ; then
-  CPPFLAGS="$CPPFLAGS -I${prefix}/include"
+  INCLUDES="$INCLUDES -I${prefix}/include"
   test NONE = "$exec_prefix" && LDFLAGS="$LDFLAGS -L${prefix}/lib"
 fi
 
@@ -142,7 +143,7 @@ if test -f "${srcdir}/gc/alloc.c"; then
     fi
     rm -f "gc/Makefile"
   fi
-  CPPFLAGS="-I\${top_srcdir}/gc/include $CPPFLAGS"
+  INCLUDES="-I\${top_srcdir}/gc/include $INCLUDES"
   GALE_LIBS="$GALE_LIBS \${top_builddir}/gc/libgc.a"
   build_gc=true
 else
@@ -156,7 +157,7 @@ fi
 AC_MSG_CHECKING([for local copy of RSAREF source])
 if test -f "${srcdir}/rsaref/source/rsa.c"; then
   AC_MSG_RESULT(yes)
-  CPPFLAGS="-I\${top_srcdir}/rsaref/source $CPPFLAGS"
+  INCLUDES="-I\${top_srcdir}/rsaref/source $INCLUDES"
   build_rsaref=true
   AC_CHECK_FUNCS(MD5Init MD5Update MD5Final,[
     dnl Some operating systems define these functions themselves; they're
@@ -181,7 +182,7 @@ fi
 AC_MSG_CHECKING([for local copy of liboop])
 if test -f "${srcdir}/liboop/oop.h"; then
   AC_MSG_RESULT(yes)
-  CPPFLAGS="-I\${top_srcdir}/liboop $CPPFLAGS"
+  INCLUDES="-I\${top_srcdir}/liboop $INCLUDES"
   build_liboop=true
   GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop-adns.la -ladns"
   GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop.la"
@@ -199,7 +200,7 @@ dnl Checks for header files.
 AC_CHECK_HEADERS(sys/bitypes.h sys/select.h curses.h term.h dlfcn.h readline/readline.h getopt.h)
 
 if test -d /usr/include/rsaref ; then
-  CPPFLAGS="$CPPFLAGS -I/usr/include/rsaref"
+  INCLUDES="$INCLUDES -I/usr/include/rsaref"
 fi
 
 if test ! -f "${srcdir}/rsaref/source/rsaref.h"; then
