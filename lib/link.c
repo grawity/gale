@@ -3,6 +3,8 @@
 #include "buffer.h"
 
 #include <assert.h>
+#include <unistd.h>
+#include <errno.h>
 
 #define opcode_puff 0
 #define opcode_will 1
@@ -33,6 +35,26 @@ struct pair {
 };
 
 struct gale_link {
+	struct oop_source *source;
+	int fd;
+
+	/* event handlers */
+
+	void *(*on_error)(struct gale_link *,int,void *);
+	void *on_error_data;
+
+	void *(*on_empty)(struct gale_link *,void *);
+	void *on_empty_data;
+
+	void *(*on_message)(struct gale_link *,struct gale_message *,void *);
+	void *on_message_data;
+
+	void *(*on_will)(struct gale_link *,struct gale_message *,void *);
+	void *on_will_data;
+
+	void *(*on_subscribe)(struct gale_link *,struct gale_text,void *);
+	void *on_subscribe_data;
+
 	/* input stuff */
 
 	struct input_buffer *input;                     /* version 0 */
@@ -96,8 +118,17 @@ static void ifn_version(struct input_state *inp) {
 	struct gale_link *l = (struct gale_link *) inp->private;
 	u32 version;
 	gale_unpack_u32(&inp->data,&version);
-	if (version > PROTOCOL_VERSION) l->in_version = PROTOCOL_VERSION;
-	else l->in_version = version;
+	assert(0 == inp->data.l);
+/* gale_dprintf(1,"[%d] got: version %d\n",l->fd,version); */
+	if (version > PROTOCOL_VERSION) {
+		struct gale_text error = gale_text_concat(4,
+			G_("remote protocol v"),
+			gale_text_from_number(version,10,0),
+			G_(" > our protocol v"),
+			gale_text_from_number(PROTOCOL_VERSION,10,0));
+		gale_alert(GALE_WARNING,gale_text_to_local(error),0);
+		l->in_version = PROTOCOL_VERSION;
+	} else l->in_version = version;
 	l->in_length = 0;
 	ist_idle(inp);
 }
@@ -114,6 +145,7 @@ static void ifn_opcode(struct input_state *inp) {
 	gale_unpack_u32(&inp->data,&l->in_opcode);
 	gale_unpack_u32(&inp->data,&l->in_length);
 	assert(0 == inp->data.l);
+/* gale_dprintf(1,"[%d] got: opcode %d, length %d\n",l->fd,l->in_opcode,l->in_length); */
 	if (l->in_length > SIZE_LIMIT) {
 		gale_alert(GALE_WARNING,"excessively big message dropped",0);
 		ist_unknown(inp);
@@ -242,7 +274,6 @@ static void ist_message(struct input_state *inp) {
 static void ifn_text(struct input_state *inp) {
 	struct gale_link *l = (struct gale_link *) inp->private;
 	size_t len = inp->data.l / gale_wch_size();
-	struct gale_text text;
 	assert(l->in_length == inp->data.l);
 	l->in_length -= inp->data.l;
 	if (gale_unpack_text_len(&inp->data,len,l->in_text))
@@ -556,9 +587,18 @@ static int get_data(struct gale_link *l,
 	return 1;
 }
 
-struct gale_link *new_link(void) {
+struct gale_link *new_link(struct oop_source *source) {
 	struct gale_link *l;
 	gale_create(l);
+
+	l->source = source;
+	l->fd = -1;
+
+	l->on_error = NULL;
+	l->on_empty = NULL;
+	l->on_message = NULL;
+	l->on_will = NULL;
+	l->on_subscribe = NULL;
 
 	l->input = NULL;
 	l->in_msg = l->in_puff = l->in_will = NULL;
@@ -589,17 +629,55 @@ struct gale_link *new_link(void) {
 	return l;
 }
 
-void reset_link(struct gale_link *l) {
-	/* reset temporary fields and protocol state machine */
-	if (l->in_msg) l->in_msg = NULL;
-	if (l->input) l->input = NULL;
+static oop_call_fd on_read,on_write;
+static oop_call_time on_process;
 
-	if (l->out_msg) l->out_msg = NULL;
-	if (l->out_text.l) l->out_text = null_text;
-	if (l->output) l->output = NULL;
+static void *on_process(oop_source *source,struct timeval tv,void *user) {
+	struct gale_link *l = (struct gale_link *) user;
+	void *ret = OOP_CONTINUE;
+	assert(source == l->source);
+
+	while (OOP_CONTINUE == ret 
+	    && NULL != l->in_puff 
+            && NULL != l->on_message) {
+		struct gale_message *puff = l->in_puff;
+		l->in_puff = NULL;
+		ret = l->on_message(l,puff,l->on_message_data);
+		if (NULL != l->input) input_buffer_more(l->input);
+	}
+
+	if (OOP_CONTINUE == ret && NULL != l->in_will && NULL != l->on_will) {
+		struct gale_message *will = l->in_will;
+		l->in_will = NULL;
+		ret = l->on_will(l,will,l->on_will_data);
+	}
+
+	if (OOP_CONTINUE == ret 
+	&&  0 != l->in_gimme.l && NULL != l->on_subscribe) {
+		struct gale_text sub = l->in_gimme;
+		l->in_gimme = null_text;
+		ret = l->on_subscribe(l,sub,l->on_subscribe_data);
+	}
+
+	if (OOP_CONTINUE == ret 
+	&&  0 == link_queue_num(l) && NULL != l->on_empty) {
+		ret = l->on_empty(l,l->on_empty_data);
+		l->source->on_time(l->source,OOP_TIME_NOW,on_process,l);
+	} else if (OOP_CONTINUE != ret)
+		l->source->on_time(l->source,OOP_TIME_NOW,on_process,l);
+
+	/* We may have freed up room for more reading. */
+	l->source->cancel_fd(l->source,l->fd,OOP_READ,on_read,l);
+	l->source->on_fd(l->source,l->fd,OOP_READ,on_read,l);
+	return ret;
 }
 
-int link_receive_q(struct gale_link *l) {
+static void *on_read(oop_source *source,int fd,oop_event event,void *user) {
+	struct gale_link *l = (struct gale_link *) user;
+	void *ret = OOP_CONTINUE;
+	assert(source == l->source);
+	assert(fd == l->fd);
+
 	if (NULL == l->input) {
 		struct input_state initial;
 		initial.private = l;
@@ -607,15 +685,26 @@ int link_receive_q(struct gale_link *l) {
 		l->input = create_input_buffer(initial);
 	}
 
-	return input_buffer_ready(l->input);
+	if (!input_buffer_ready(l->input))
+		l->source->cancel_fd(l->source,l->fd,OOP_READ,on_read,l);
+	else if (input_buffer_read(l->input,l->fd)) {
+		int err = errno;
+/* gale_dprintf(1,"[%d] closing\n",l->fd); */
+		link_set_fd(l,-1);
+		if (NULL != l->on_error) 
+			ret = l->on_error(l,err,l->on_error_data);
+	} else
+		l->source->on_time(l->source,OOP_TIME_NOW,on_process,l);
+
+	return ret;
 }
 
-int link_receive(struct gale_link *l,int fd) {
-	assert(NULL != l->input); /* call link_receive_q first! */
-	return input_buffer_read(l->input,fd);
-}
+static void *on_write(oop_source *source,int fd,oop_event event,void *user) {
+	struct gale_link *l = (struct gale_link *) user;
+	void *ret = OOP_CONTINUE;
+	assert(source == l->source);
+	assert(fd == l->fd);
 
-int link_transmit_q(struct gale_link *l) {
 	if (NULL == l->output) {
 		struct output_state initial;
 		initial.private = l;
@@ -623,16 +712,61 @@ int link_transmit_q(struct gale_link *l) {
 		l->output = create_output_buffer(initial);
 	}
 
-	return output_buffer_ready(l->output);
+	if (!output_buffer_ready(l->output))
+		l->source->cancel_fd(l->source,l->fd,OOP_WRITE,on_write,l);
+	else if (output_buffer_write(l->output,l->fd)) {
+		int err = errno;
+/* gale_dprintf(1,"[%d] closing\n",l->fd); */
+		link_set_fd(l,-1);
+		if (NULL != l->on_error)
+			ret = l->on_error(l,err,l->on_error_data);
+	}
+
+	if (OOP_CONTINUE == ret
+	&&  0 == link_queue_num(l) && NULL != l->on_empty)
+		ret = l->on_empty(l,l->on_empty_data);
+
+	return ret;
 }
 
-int link_transmit(struct gale_link *l,int fd) {
-	assert(NULL != l->output); /* call link_transmit_q first! */
-	return output_buffer_write(l->output,fd);
+static void deactivate(struct gale_link *l) {
+	if (-1 != l->fd) {
+		l->source->cancel_fd(l->source,l->fd,OOP_READ,on_read,l);
+		l->source->cancel_fd(l->source,l->fd,OOP_WRITE,on_write,l);
+		l->source->cancel_time(l->source,OOP_TIME_NOW,on_process,l);
+	}
+}
+
+static void activate(struct gale_link *l) {
+	deactivate(l);
+	if (-1 != l->fd) {
+		l->source->on_fd(l->source,l->fd,OOP_READ,on_read,l);
+		l->source->on_fd(l->source,l->fd,OOP_WRITE,on_write,l);
+		l->source->on_time(l->source,OOP_TIME_NOW,on_process,l);
+	}
+}
+
+void link_set_fd(struct gale_link *l,int fd) {
+	if (-1 != l->fd) {
+		/* reset temporary fields and protocol state machine */
+		if (l->in_msg) l->in_msg = NULL;
+		if (l->input) l->input = NULL;
+
+		if (l->out_msg) l->out_msg = NULL;
+		if (l->out_text.l) l->out_text = null_text;
+		if (l->output) l->output = NULL;
+
+		close(l->fd);
+		deactivate(l);
+	}
+
+	l->fd = fd;
+	activate(l);
 }
 
 void link_subscribe(struct gale_link *l,struct gale_text spec) {
 	l->out_gimme = spec;
+	activate(l);
 }
 
 void link_put(struct gale_link *l,struct gale_message *m) {
@@ -651,10 +785,12 @@ void link_put(struct gale_link *l,struct gale_message *m) {
 	++l->queue_num;
 	l->queue_mem += message_size(m);
 	gale_dprintf(7,"-> enqueueing message [%p]\n",m);
+	activate(l);
 }
 
 void link_will(struct gale_link *l,struct gale_message *m) {
 	l->out_will = m;
+	activate(l);
 }
 
 int link_queue_num(struct gale_link *l) {
@@ -669,30 +805,44 @@ void link_queue_drop(struct gale_link *l) {
 	if (NULL != l->out_queue) dequeue(l);
 }
 
-int link_version(struct gale_link *l) {
-	return l->in_version;
+void link_on_error(struct gale_link *l,
+     void *(*call)(struct gale_link *,int,void *),
+     void *data) {
+	l->on_error = call;
+	l->on_error_data = data;
+	activate(l);
 }
 
-struct gale_message *link_get(struct gale_link *l) {
-	struct gale_message *puff;
-	puff = l->in_puff;
-	l->in_puff = NULL;
-	if (l->input) input_buffer_more(l->input);
-	return puff;
+void link_on_empty(struct gale_link *l,
+     void *(*call)(struct gale_link *,void *),
+     void *data) {
+	l->on_empty = call;
+	l->on_empty_data = data;
+	activate(l);
 }
 
-struct gale_message *link_willed(struct gale_link *l) {
-	struct gale_message *will;
-	will = l->in_will;
-	l->in_will = NULL;
-	if (l->input) input_buffer_more(l->input);
-	return will;
+void link_on_message(struct gale_link *l,
+     void *(*call)(struct gale_link *,struct gale_message *,void *),
+     void *data) {
+	l->on_message = call;
+	l->on_message_data = data;
+	activate(l);
 }
 
-struct gale_text link_subscribed(struct gale_link *l) {
-	struct gale_text text = null_text;
-	get_text(l,&l->in_gimme,&text);
-	return text;
+void link_on_will(struct gale_link *l,
+     void *(*call)(struct gale_link *,struct gale_message *,void *),
+     void *data) {
+	l->on_will = call;
+	l->on_will_data = data;
+	activate(l);
+}
+
+void link_on_subscribe(struct gale_link *l,
+     void *(*call)(struct gale_link *,struct gale_text,void *),
+     void *data) {
+	l->on_subscribe = call;
+	l->on_subscribe_data = data;
+	activate(l);
 }
 
 /* -- API: version 1 -------------------------------------------------------- */

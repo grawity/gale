@@ -4,40 +4,28 @@
 #define GALE_CLIENT_H
 
 #include "gale/core.h"
+#include "oop.h"
 
-/* -- simplified interface to server connections ----------------------------*/
+/* -- server connection management ------------------------------------------*/
 
-/* Client structure.  Don't write any of these fields yourself. */
+/* Using the given event source, keep a gale_link connected to the server.
+   Subscribe to the given subscription list.
+   Uses the on_error event handler. */
+struct gale_server *gale_open(
+	oop_source *,struct gale_link *,
+	struct gale_text subscr,struct gale_text server);
 
-struct gale_client {
-	int socket;                   /* The file descriptor (for select). */
-	struct gale_link *link;       /* The link object (see link.h) */
-	struct gale_text server;      /* Name of server */
-	struct gale_text subscr;      /* Sub list */
-};
+/* Stop connecting to the server. */
+void gale_close(struct gale_server *);
 
-/* Open a connection to the server (defined by GALE_SERVER).  "spec" is the
-   subscription list to use; NULL if you don't want to subscribe. */
-struct gale_client *gale_open(struct gale_text spec);
+/* Notifications. */
+void gale_on_connect(struct gale_server *,
+     void *(*)(struct gale_server *,void *),
+     void *);
 
-/* Close a connection opened by gale_open. */
-void gale_close(struct gale_client *);
-
-/* If you get an error, use this to reattempt connection to the server.  It
-   will retry with progressive delay until it succeeds. */
-void gale_retry(struct gale_client *);
-
-/* Return nonzero if an error has occurred (and you should call gale_retry), 0
-   otherwise.  If this returns nonzero, you can't do either of the following 
-   two operations on the connection. */
-int gale_error(struct gale_client *);
-
-/* Transmit any queued messages on the link.  Returns 0 if successful. */
-int gale_send(struct gale_client *);
-
-/* Wait for the next message on the link.  Returns 0 if successful.  (Extract
-   the actual message from the gale_link -- see link.h.) */
-int gale_next(struct gale_client *);
+void gale_on_disconnect(struct gale_server *,
+     void *(*)(struct gale_server *,void *),
+     void *);
 
 /* -- standard fragment utilities -------------------------------------------*/
 

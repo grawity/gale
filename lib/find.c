@@ -24,19 +24,24 @@ void enable_gale_akd(void) {
 	if (inhibit) --inhibit;
 }
 
-/*
-   1: got a key
-   0: no success
-  -1: no key exists
-*/
-static int process(struct auth_id *id,struct auth_id *domain,
-                   struct gale_message *msg) 
-{
+struct akd_request {
+	oop_source *source;
+	enum { FOUND, NONE, DUNNO } status;
+	struct auth_id *id,*domain;
+};
+
+static void *on_timeout(oop_source *source,struct timeval tv,void *user) {
+	/* stop processing */
+	return OOP_HALT;
+}
+
+static void *on_message(struct gale_link *l,struct gale_message *msg,void *d) {
+	struct akd_request *req = (struct akd_request *) d;
 	struct auth_id *encrypted,*signature;
 	struct gale_group group;
 
 	encrypted = decrypt_message(msg,&msg);
-	if (!msg) return 0;
+	if (!msg) return OOP_CONTINUE;
 	signature = verify_message(msg,&msg);
 
 	group = gale_group_find(msg->data,G_("answer/key"));
@@ -45,28 +50,36 @@ static int process(struct auth_id *id,struct auth_id *domain,
 		if (frag_data == frag.type) {
 			struct auth_id *found;
 			import_auth_id(&found,frag.value.data,0);
-			if (found == id) return 1;
+			if (found == req->id) {
+				req->status = FOUND;
+				return OOP_HALT;
+			}
 		}
 	}
 
 	group = gale_group_find(msg->data,G_("answer/key/error"));
 	if (!gale_group_null(group)) {
-		struct gale_fragment frag = gale_group_first(group);
-		if (domain && signature == domain) return -1;
+		if (NULL != req->domain && signature == req->domain) {
+			req->status = NONE;
+			return OOP_HALT;
+		}
 	}
 
-	return 0;
+	return OOP_CONTINUE;
 }
 
 int _gale_find_id(struct auth_id *id) {
-	struct gale_client *client;
+	oop_source_sys *sys;
+	oop_source *source;
+	struct akd_request req;
+	struct gale_server *server;
 	struct gale_message *msg;
+	struct gale_link *link;
 	struct gale_text tok,name,category;
 	struct gale_fragment frag;
 	struct auth_id *domain = NULL;
 	char *tmp;
-	time_t timeout;
-	int status = 0;
+	struct timeval timeout;
 
 	name = auth_id_name(id);
 	tok = null_text;
@@ -79,62 +92,48 @@ int _gale_find_id(struct auth_id *id) {
 	if (inhibit) return 0;
 	disable_gale_akd();
 
+	/* notify the user */
 	tmp = gale_malloc(80 + name.l);
-	sprintf(tmp,"requesting key \"%s\"",
-	        gale_text_to_local(name));
+	sprintf(tmp,"requesting key \"%s\"",gale_text_to_local(name));
 	gale_alert(GALE_NOTICE,tmp,0);
-	gale_free(tmp);
 
-	timeout = time(NULL);
+	/* create the connection */
 	category = id_category(id,G_("auth/key"),G_(""));
-	client = gale_open(category);
+	sys = oop_sys_new();
+	source = oop_sys_source(sys);
+	link = new_link(source);
+	server = gale_open(source,link,category,null_text);
 
+	/* enqueue the request */
 	msg = new_message();
-
 	msg->cat = id_category(id,G_("auth/query"),G_(""));
 	gale_add_id(&msg->data,G_("AKD"));
 	frag.name = G_("question/key");
 	frag.type = frag_text;
 	frag.value.text = name;
 	gale_group_add(&msg->data,frag);
+	link_put(link,msg);
 
-	timeout += TIMEOUT;
-	link_put(client->link,msg);
-	while (gale_send(client) && time(NULL) < timeout) {
-		gale_retry(client);
-		if (link_queue_num(client->link) < 1) 
-			link_put(client->link,msg);
-	}
+	/* set up the timeout handler */
+	gettimeofday(&timeout,NULL);
+	timeout.tv_sec += TIMEOUT;
+	source->on_time(source,timeout,on_timeout,NULL);
 
-	while (!status && time(NULL) < timeout) {
-		struct gale_message *reply;
-		struct timeval tv;
-		fd_set fds;
-		int retval;
+	/* set up the message handler */
+	req.source = source;
+	req.status = NONE;
+	req.id = id;
+	req.domain = domain;
+	link_on_message(link,on_message,&req);
 
-		/* eh */
-		tv.tv_sec = 3;
-		tv.tv_usec = 0;
+	/* do it! */
+	oop_sys_run(sys);
 
-		FD_ZERO(&fds);
-		FD_SET(client->socket,&fds);
-		retval = select(FD_SETSIZE,(SELECT_ARG_2_T) &fds,NULL,NULL,&tv);
-		if (retval < 0 && EINTR == errno) continue;
-		if (retval < 0) {
-			gale_alert(GALE_WARNING,"select",errno);
-			break;
-		}
-		if (retval == 0) continue;
-		if (gale_next(client)) {
-			gale_retry(client);
-			continue;
-		}
+	/* one way or another, we're done... */
+	source->cancel_time(source,timeout,on_timeout,NULL);
+	gale_close(server);
+	oop_sys_delete(sys);
 
-		while (!status && (reply = link_get(client->link)))
-			status = process(id,domain,reply);
-	}
-
-	gale_close(client);
 	enable_gale_akd();
-	return status > 0;
+	return req.status == FOUND;
 }

@@ -12,7 +12,7 @@
 
 struct gale_text dotfile = { NULL, 0 };
 
-static void remove_dotfile(void) {
+static void remove_dotfile(void *data) {
 	if (0 != dotfile.l) {
 		struct gale_text df = dir_file(gale_global->dot_gale,dotfile);
 		unlink(gale_text_to_local(df));
@@ -32,7 +32,7 @@ void gale_kill(struct gale_text class,int do_kill) {
 	len = dotfile.l;
 	dotfile = gale_text_concat(2,dotfile,gale_text_from_number(pid,10,0));
 
-	gale_cleanup(remove_dotfile);
+	gale_cleanup(remove_dotfile,NULL);
 	df = gale_text_to_local(dir_file(gale_global->dot_gale,dotfile));
 	fd = creat(df,0666);
 	if (fd >= 0) 
@@ -67,23 +67,31 @@ void gale_kill(struct gale_text class,int do_kill) {
 	}
 }
 
-static int watch_fd;
+struct watch {
+	int fd;
+	struct timeval tv;
+};
 
-static void alarm_received(int sig) {
-	if (!isatty(watch_fd)) raise(SIGHUP);
-	gale_watch_tty(watch_fd);
+static void *on_watch(oop_source *source,struct timeval tv,void *user) {
+	struct watch *watch = (struct watch *) user;
+	sigset_t set,oldset;
+	sigfillset(&set);
+	sigprocmask(SIG_BLOCK,&set,&oldset);
+	if (!isatty(watch->fd)) 
+		raise(SIGHUP);
+	else {
+		gettimeofday(&tv,NULL);
+		tv.tv_sec += 15;
+		source->on_time(source,tv,on_watch,watch);
+	}
+	sigprocmask(SIG_SETMASK,&oldset,NULL);
+	return OOP_CONTINUE;
 }
 
-void gale_watch_tty(int fd) {
-	struct sigaction act;
-	watch_fd = fd;
-	if (sigaction(SIGALRM,NULL,&act)) 
-		gale_alert(GALE_ERROR,"sigaction",errno);
-	act.sa_handler = alarm_received;
-#ifdef SA_RESTART
-	act.sa_flags |= SA_RESTART;
-#endif
-	if (sigaction(SIGALRM,&act,NULL)) 
-		gale_alert(GALE_ERROR,"sigaction",errno);
-	alarm(15);
+void gale_watch_tty(oop_source *source,int fd) {
+	struct watch *watch;
+	gale_create(watch);
+	watch->fd = fd;
+	watch->tv = OOP_TIME_NOW;
+	source->on_time(source,watch->tv,on_watch,watch);
 }

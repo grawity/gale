@@ -1,3 +1,6 @@
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <ctype.h>
 #include <pwd.h>
 
 #include "gale/globals.h"
@@ -72,6 +75,7 @@ void _gale_globals(struct passwd *pwd) {
 	/* These are in this particular order to allow each 'conf' file to
 	   redirect the location of the next one. */
 
+	G->cleanup_list = NULL;
 	G->home_dir = gale_var(G_("HOME"));
 	if (0 == G->home_dir.l) 
 		G->home_dir = gale_text_from_local(pwd->pw_dir,-1);

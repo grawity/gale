@@ -127,7 +127,7 @@ static int find(struct cid cid,struct gale_text dir,struct gale_text file,
 	}
 	if (buf.st_size != cid.size) {
                 char *err = gale_malloc(strlen(sz) + 64);
-                sprintf(err,"\"%s\": expected size %d, found size %d",
+                sprintf(err,"\"%s\": expected size %d, found size %lu",
 		        sz,cid.size,buf.st_size);
 		gale_alert(GALE_WARNING,err,0);
 		goto error;
@@ -324,6 +324,6 @@ void cache_store_raw(struct gale_data id,struct gale_data data)  {
 	gale_wt_add(gale_global->cache_tree,gale_text_as_data(name),pdata);
 
 	/* Store on disk. */
-	store(gale_global->system_cache,name,data) || 
-	store(gale_global->user_cache,name,data);
+	(void) (store(gale_global->system_cache,name,data) || 
+	        store(gale_global->user_cache,name,data));
 }

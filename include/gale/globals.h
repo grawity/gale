@@ -7,6 +7,9 @@
 #include "gale/misc.h"
 #include "gale/auth.h"
 
+/* Internal structures. */
+struct gale_cleanup;
+
 /* Any global variables in libgale which might reference heap data 
    must go in this structure. */
 
@@ -52,6 +55,7 @@ extern struct gale_global_data {
 	/* System internals. */
 	struct gale_wt *auth_tree;
 	struct gale_wt *cache_tree;
+	struct gale_cleanup *cleanup_list;
 } *gale_global;
 
 #endif

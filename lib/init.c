@@ -10,11 +10,11 @@
 #include <pwd.h>
 #include <assert.h>
 
+#include "oop.h"
 #include "gale/all.h"
 
 static int main_argc;
 static char * const *main_argv;
-static sigset_t blocked;
 extern char **environ;
 
 extern auth_hook _gale_find_id;
@@ -72,29 +72,38 @@ static void init_vars(struct passwd *pwd) {
 }
 
 void gale_restart(void) {
-	sigprocmask(SIG_SETMASK,&blocked,NULL);
 	assert(main_argv[main_argc] == NULL);
 	alarm(0);
 	execvp(main_argv[0],main_argv);
 	gale_alert(GALE_WARNING,main_argv[0],errno);
 }
 
-static void sig_usr1(int x) {
-	(void) x;
+static void *on_restart(oop_source *source,int sig,void *user) {
 	gale_alert(GALE_NOTICE,"SIGUSR1 received, restarting",0);
 	gale_restart();
+	return OOP_HALT;
 }
 
-static void sig_pipe(int x) {
-	(void) x;
-	/* do nothing */
+static void *on_pipe(oop_source *source,int sig,void *user) {
+	return OOP_CONTINUE;
+}
+
+static void *on_term(oop_source *source,int sig,void *user) {
+	return OOP_HALT;
+}
+
+void gale_init_signals(oop_source *source) {
+	source->on_signal(source,SIGUSR1,on_restart,NULL);
+	source->on_signal(source,SIGPIPE,on_pipe,NULL);
+	source->on_signal(source,SIGINT,on_term,NULL);
+	source->on_signal(source,SIGQUIT,on_term,NULL);
+	source->on_signal(source,SIGHUP,on_term,NULL);
+	source->on_signal(source,SIGTERM,on_term,NULL);
 }
 
 void gale_init(const char *s,int argc,char * const *argv) {
 	struct passwd *pwd = NULL;
 	char *user;
-	struct sigaction act;
-	sigset_t empty;
 
 	if (getuid() != geteuid()) {
 		environ = malloc(sizeof(*environ));
@@ -104,25 +113,12 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	main_argc = argc;
 	main_argv = argv;
 
+	oop_malloc = gale_malloc;
+	oop_free = gale_free;
+
 #ifdef HAVE_SOCKS
 	SOCKSinit(s);
 #endif
-
-	/* Rationalize signal handling. */
-
-	sigemptyset(&empty);
-	sigprocmask(SIG_BLOCK,&empty,&blocked);
-
-	sigaction(SIGUSR1,NULL,&act);
-	act.sa_handler = sig_usr1;
-	sigaction(SIGUSR1,&act,NULL);
-
-	sigaction(SIGPIPE,NULL,&act);
-#ifdef SA_RESETHAND
-	act.sa_flags &= ~SA_RESETHAND;
-#endif
-	act.sa_handler = sig_pipe;
-	sigaction(SIGPIPE,&act,NULL);
 
 	/* Identify the user. */
 

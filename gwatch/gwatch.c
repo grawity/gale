@@ -264,8 +264,8 @@ int main(int argc,char *argv[]) {
 	case 'p': watch_ping(gale_text_from_local(optarg,-1),NULL); break;
 	case 'm': max_num = atoi(optarg); do_fork = 0; break;
 	case 's': alarm(atoi(optarg)); do_fork = 0; break;
-	case 'w': read_file(gale_text_from_local(optarg,-1));
-	case 'f': gwatchrc = gale_text_from_local(optarg,-1);
+	case 'w': read_file(gale_text_from_local(optarg,-1)); break;
+	case 'f': gwatchrc = gale_text_from_local(optarg,-1); break;
 	case 'h':
 	case '?': usage();
 	}

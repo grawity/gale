@@ -134,7 +134,6 @@ void gale_group_prefix(struct gale_group *g,struct gale_group tail) {
 
 int gale_unpack_group(struct gale_data *data,struct gale_group *group) {
 	u32 type,len;
-	int i,count = 0;
 
 	*group = gale_group_empty();
 	while (gale_unpack_u32(data,&type)) {
@@ -246,8 +245,6 @@ void gale_pack_group(struct gale_data *data,struct gale_group group) {
 }
 
 size_t gale_group_size(struct gale_group group) {
-	struct gale_data msgdata;
-	struct gale_fragment **ptr;
 	size_t size = 0;
 
 	while (!gale_group_null(group)) {

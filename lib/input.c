@@ -92,6 +92,7 @@ int input_buffer_read(struct input_buffer *buf,int fd) {
 		vec[0].iov_len = buf->state.data.l - buf->remnant;
 		vec[1].iov_base = buf->buffer;
 		vec[1].iov_len = sizeof(buf->buffer);
+		errno = 0;
 		l = readv(fd,vec,2);
 		if (l < 0) return -(errno != EINTR);
 		if (l <= 0) return -1;
@@ -99,6 +100,7 @@ int input_buffer_read(struct input_buffer *buf,int fd) {
 	} else {
 		int l,r = buf->remnant;
 		if (NULL != buf->state.data.p) r -= buf->state.data.l;
+		errno = 0;
 		l = read(fd,buf->buffer + r,sizeof(buf->buffer) - r);
 		if (l < 0) return -(errno != EINTR);
 		if (l <= 0) return -1;

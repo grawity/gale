@@ -9,39 +9,12 @@
 #include <fcntl.h>
 #include <errno.h>
 
-static struct link {
-	void (*func)(void);
+struct gale_cleanup {
+	void (*func)(void *);
+	void *data;
 	pid_t pid;
-	struct link *next;
-} *list = NULL;
-
-void gale_do_cleanup(void) {
-	pid_t pid = getpid();
-	while (list) {
-		if (pid == list->pid) list->func();
-		list = list->next;
-	}
-}
-
-static void sig(int sig) {
-	gale_do_cleanup();
-	exit(sig);
-}
-
-static void ignore_sig(int sig) {
-	struct sigaction act;
-	if (sigaction(sig,NULL,&act)) gale_alert(GALE_ERROR,"sigaction",errno);
-	act.sa_handler = SIG_IGN;
-	if (sigaction(sig,&act,NULL)) gale_alert(GALE_ERROR,"sigaction",errno);
-}
-
-static void trap_sig(int num) {
-	struct sigaction act;
-	if (sigaction(num,NULL,&act)) gale_alert(GALE_ERROR,"sigaction",errno);
-	if (act.sa_handler != SIG_DFL) return;
-	act.sa_handler = sig;
-	if (sigaction(num,&act,NULL)) gale_alert(GALE_ERROR,"sigaction",errno);
-}
+	struct gale_cleanup *next;
+};
 
 static void debug(int level,int idelta,const char *fmt,va_list ap) {
 	static int indent = 0;
@@ -70,40 +43,50 @@ void gale_diprintf(int level,int indent,const char *fmt,...) {
 	va_end(ap);
 }
 
-void gale_daemon(int keep_tty) {
+static void *on_ignore(oop_source *source,int sig,void *data) {
+	return OOP_CONTINUE;
+}
+
+void gale_daemon(oop_source *source,int keep_tty) {
 	if (!gale_global->debug_level) {
-		if (keep_tty) {
-			ignore_sig(SIGINT);
-			ignore_sig(SIGQUIT);
-			ignore_sig(SIGTTOU);
-		} else {
+		if (0 != fork()) exit(0);
+		setsid();
+		if (keep_tty)
+			source->on_signal(source,SIGTTOU,on_ignore,NULL);
+		else {
 			int fd;
 			gale_global->error_handler = gale_error_syslog;
-			setsid();
 			fd = open("/dev/null",O_RDWR);
 			if (fd >= 0) {
 				dup2(fd,0);
 				dup2(fd,1);
 				dup2(fd,2);
 				if (fd > 2) close(fd);
+			} else {
+				close(0);
+				close(1);
+				close(2);
 			}
 		}
-		if (fork()) exit(0);
 	}
 }
 
-void gale_cleanup(void (*func)(void)) {
-	struct link *l;
+void gale_do_cleanup(void) {
+	pid_t pid = getpid();
+	while (NULL != gale_global && NULL != gale_global->cleanup_list) {
+		struct gale_cleanup *link = gale_global->cleanup_list;
+		gale_global->cleanup_list = gale_global->cleanup_list->next;
+		if (pid == link->pid) link->func(link->data);
+	}
+}
+
+void gale_cleanup(void (*func)(void *),void *data) {
+	struct gale_cleanup *l;
 	gale_create(l);
 	l->func = func;
-	l->next = list;
+	l->data = data;
+	l->next = gale_global->cleanup_list;
 	l->pid = getpid();
-	list = l;
-	if (l->next == NULL) {
-		atexit(gale_do_cleanup);
-		trap_sig(SIGINT);
-		trap_sig(SIGQUIT);
-		trap_sig(SIGHUP);
-		trap_sig(SIGTERM);
-	}
+	gale_global->cleanup_list = l;
+	if (l->next == NULL) atexit(gale_do_cleanup);
 }

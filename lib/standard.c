@@ -1,5 +1,7 @@
 #include "gale/all.h"
 
+#include <unistd.h>
+
 void gale_add_id(struct gale_group *group,struct gale_text terminal) {
 	struct gale_fragment f;
 

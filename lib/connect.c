@@ -1,9 +1,11 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -19,6 +21,9 @@ struct attempt {
 };
 
 struct gale_connect {
+	oop_source *source;
+	void *(*call)(int fd,void *);
+	void *call_data;
 	struct attempt *array;
 	int len;
 };
@@ -30,12 +35,20 @@ extern int Rconnect(int,const struct sockaddr *,size_t);
 #define CONNECT_F connect
 #endif
 
-struct gale_connect *make_connect(struct gale_text serv) {
-	int alloc = 0;
+static oop_call_fd on_write;
+
+struct gale_connect *gale_make_connect(
+	oop_source *src,struct gale_text serv,
+	void *(*call)(int fd,void *),void *call_data)
+{
+	int i,alloc = 0;
 	struct gale_text spec = null_text;
 	struct gale_connect *conn;
 
 	gale_create(conn);
+	conn->source = src;
+	conn->call = call;
+	conn->call_data = call_data;
 	conn->len = 0;
 	conn->array = NULL;
 
@@ -92,62 +105,56 @@ struct gale_connect *make_connect(struct gale_text serv) {
 	}
 
 	if (!conn->len) {
-		abort_connect(conn);
+		gale_abort_connect(conn);
 		conn = NULL;
-	}
-
+	} else for (i = 0; i < conn->len; ++i)
+		src->on_fd(src,conn->array[i].sock,OOP_WRITE,on_write,conn);
 	return conn;
 }
 
-void connect_select(struct gale_connect *conn,fd_set *wfd) {
-	int i;
-	for (i = 0; i < conn->len; ++i) FD_SET(conn->array[i].sock,wfd);
-}
-
 static void delete(struct gale_connect *conn,int i) {
+	conn->source->cancel_fd(
+		conn->source,conn->array[i].sock,
+		OOP_WRITE,on_write,conn);
 	conn->array[i] = conn->array[--(conn->len)];
 }
 
-int select_connect(fd_set *wfd,struct gale_connect *conn) {
-	int fd,i = 0,one = 1;
-	while (i < conn->len) {
-		if (!FD_ISSET(conn->array[i].sock,wfd)) {
-			++i;
-			continue;
-		}
+static void *on_write(oop_source *src,int fd,oop_event event,void *user)
+{
+	struct sockaddr *sa;
+	int i,one = 1;
 
-		while (CONNECT_F(conn->array[i].sock,
-		            (struct sockaddr *) &conn->array[i].sin,
-		            sizeof(conn->array[i].sin))) {
-			if (errno == EISCONN) goto success;
-			if (errno != EINTR) goto failure;
-		}
-		goto success;
-failure:
-		close(conn->array[i].sock);
+	struct gale_connect *conn = (struct gale_connect *) user;
+	for (i = 0; fd != conn->array[i].sock; ++i) assert(i < conn->len);
+	if (conn->len == i) return OOP_CONTINUE;
+
+	sa = (struct sockaddr *) &conn->array[i].sin;
+	do errno = 0;
+	while (CONNECT_F(fd,sa,sizeof(struct sockaddr_in))
+	   &&  EINTR == errno);
+
+	if (EISCONN != errno && 0 != errno) {
+		close(fd);
 		delete(conn,i);
+		if (0 == conn->len) {
+			gale_abort_connect(conn);
+			return conn->call(-1,conn->call_data);
+		}
+	} else {
+		delete(conn,i);
+		gale_abort_connect(conn);
+		fcntl(fd,F_SETFL,0);
+		setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,
+		           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
+		return conn->call(fd,conn->call_data);
 	}
 
-success:
-	if (conn->len == 0) {
-		abort_connect(conn);
-		return -1;
-	}
-	if (i == conn->len) return 0;
-	fd = conn->array[i].sock;
-	delete(conn,i);
-	abort_connect(conn);
-	fcntl(fd,F_SETFL,0);
-	setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,
-	           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
-	return fd;
+	return OOP_CONTINUE;
 }
 
-void abort_connect(struct gale_connect *conn) {
+void gale_abort_connect(struct gale_connect *conn) {
 	while (conn->len) {
 		close(conn->array[0].sock);
 		delete(conn,0);
 	}
-	if (conn->array) gale_free(conn->array);
-	gale_free(conn);
 }

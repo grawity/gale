@@ -34,11 +34,14 @@ extern char **environ;
 struct gale_text rcprog = { NULL, 0 };	/* Filter program name. */
 gsubrc_t *dl_gsubrc = NULL;		/* Loaded gsubrc function. */
 gsubrc2_t *dl_gsubrc2 = NULL;		/* Extended gsubrc function. */
-struct gale_client *client;             /* Connection to server. */
+
+oop_source_sys *sys;			/* Event source. */
+oop_source *source;
+struct gale_link *conn;             	/* Physical link. */
+struct gale_server *server;		/* Logical connection. */
 struct auth_id *user_id;		/* The user. */
 struct gale_text presence;		/* Current presence state. */
 char *tty;                              /* TTY device */
-int sig_received = 0;			/* Signal received */
 
 int do_run_default = 0;			/* Flag to run default_gsubrc */
 int do_presence = 0;			/* Should we announce presence? */
@@ -46,21 +49,7 @@ int do_keys = 1;			/* Should we answer key requests? */
 int do_beep = 1;			/* Should we beep? */
 int do_termcap = 0;                     /* Should we highlight headers? */
 int sequence = 0;
-
-void get_signal(int sig) {
-	sig_received = sig;
-}
-
-void trap_signal(int num) {
-	struct sigaction act;
-	if (sigaction(num,NULL,&act)) gale_alert(GALE_ERROR,"sigaction",errno);
-	if (act.sa_handler != SIG_DFL) return;
-	act.sa_handler = get_signal;
-#ifdef SA_RESTART
-	act.sa_flags &= ~SA_RESTART;
-#endif
-	if (sigaction(num,&act,NULL)) gale_alert(GALE_ERROR,"sigaction",errno);
-}
+int is_done = 0;			/* Ready to terminate? */
 
 /* Generate a trivial little message with the given category.  Used for
    return receipts, login/logout notifications, and such. */
@@ -100,6 +89,45 @@ struct gale_message *slip(struct gale_text cat,
 	if (encrypt) msg = encrypt_message(1,&encrypt,msg);
 
 	return msg;
+}
+
+/* Register login/logout notices with the server. */
+void notify(int in,struct gale_text presence) {
+	struct gale_text cat;
+
+	if (in) {
+		cat = id_category(user_id,G_("notice"),G_("login"));
+		link_put(conn,slip(cat,presence,NULL,user_id,NULL));
+	} else {
+		cat = id_category(user_id,G_("notice"),G_("logout"));
+		link_will(conn,slip(cat,presence,NULL,user_id,NULL));
+	}
+}
+
+/* Halt the main event loop when we finish sending our notices. */
+void *on_empty(struct gale_link *link,void *data) {
+	is_done = 1;
+	return OOP_HALT;
+}
+
+/* When we receive a signal, send termination notices, and prepare to halt. */
+void *on_signal(oop_source *source,int sig,void *data) {
+	if (do_presence) switch (sig) {
+	case SIGHUP: notify(0,G_("out/logout")); break;
+	case SIGTERM: notify(0,G_("out/quit")); break;
+	case SIGINT: notify(0,G_("out/stopped")); break;
+	}
+
+	link_on_empty(conn,on_empty,NULL);
+	return OOP_CONTINUE; /* but real soon... */
+}
+
+void *on_disconnect(struct gale_server *server,void *data) {
+	if (do_presence) {
+		notify(1,G_("in/reconnected"));
+		notify(0,G_("out/disconnected"));
+	}
+	return OOP_CONTINUE;
 }
 
 /* Reply to an AKD request: post our key. */
@@ -153,21 +181,9 @@ void send_message(char *body,char *end,int fd) {
 	}
 }
 
-void notify(int in,struct gale_text presence) {
-	struct gale_text cat;
-
-	if (in) {
-		cat = id_category(user_id,G_("notice"),G_("login"));
-		link_put(client->link,slip(cat,presence,NULL,user_id,NULL));
-	} else {
-		cat = id_category(user_id,G_("notice"),G_("logout"));
-		link_will(client->link,slip(cat,presence,NULL,user_id,NULL));
-	}
-}
-
 /* Take the message passed as an argument and show it to the user, running
    their gsubrc if present, using the default formatter otherwise. */
-void present_message(struct gale_message *_msg) {
+void *on_message(struct gale_link *link,struct gale_message *_msg,void *data) {
 	int pfd[2];             /* Pipe file descriptors. */
 
 	/* Lots of crap.  Discussed below, where they're used. */
@@ -176,7 +192,7 @@ void present_message(struct gale_message *_msg) {
 	struct gale_text body = null_text;
 	struct auth_id *id_encrypted = NULL,*id_sign = NULL;
 	struct gale_message *rcpt = NULL,*akd = NULL,*msg = NULL;
-	int status;
+	int status = 0;
 	pid_t pid;
 	char *szbody = NULL;
 
@@ -187,7 +203,7 @@ void present_message(struct gale_message *_msg) {
 		sprintf(tmp,"cannot decrypt message on category \"%s\"",
 		        gale_text_to_local(_msg->cat));
 		gale_alert(GALE_WARNING,tmp,0);
-		return;
+		return OOP_CONTINUE;
 	}
 
 	/* Verify a signature, if possible. */
@@ -310,7 +326,7 @@ void present_message(struct gale_message *_msg) {
 
 	/* Give them our key, if they wanted it. */
 	if (akd) {
-		link_put(client->link,akd);
+		link_put(conn,akd);
 		rcpt = NULL;
 		status = 0;
 		goto done;
@@ -337,7 +353,7 @@ void present_message(struct gale_message *_msg) {
 		struct gale_text rc;
 
 		/* Close off file descriptors. */
-		close(client->socket);
+		gale_close(server);
 		close(pfd[1]);
 
 		/* Pipe goes to stdin. */
@@ -377,8 +393,9 @@ void present_message(struct gale_message *_msg) {
 
 done:
 	/* Put the receipt on the queue, if we have one. */
-	if (rcpt && !status) link_put(client->link,rcpt);
+	if (rcpt && !status) link_put(conn,rcpt);
 	gale_restore_environ(save);
+	return OOP_CONTINUE;
 }
 
 void usage(void) {
@@ -482,6 +499,7 @@ int main(int argc,char **argv) {
 
 	/* Initialize the gale libraries. */
 	gale_init("gsub",argc,argv);
+	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
 
 	/* Figure out who we are. */
 	user_id = gale_user();
@@ -562,16 +580,17 @@ int main(int argc,char **argv) {
 #endif
 
 	/* Open a connection to the server. */
-	client = gale_open(serv);
+	conn = new_link(source);
+	server = gale_open(source,conn,serv);
 
 	/* Fork ourselves into the background, unless we shouldn't. */
-	if (do_fork) gale_daemon(1);
-	trap_signal(SIGHUP);
-	trap_signal(SIGTERM);
-	trap_signal(SIGINT);
+	if (do_fork) gale_daemon(source,1);
+	source->on_signal(source,SIGHUP,on_signal,NULL);
+	source->on_signal(source,SIGTERM,on_signal,NULL);
+	source->on_signal(source,SIGINT,on_signal,NULL);
 	if (tty) {
 		gale_kill(gale_text_from_local(tty,-1),do_kill);
-		gale_watch_tty(1);
+		gale_watch_tty(source,1);
 	}
 
 	/* Send a login message, as needed. */
@@ -582,31 +601,9 @@ int main(int argc,char **argv) {
 		notify(0,G_("out/disconnected"));
 	}
 
-	for (;;) {
-		while (0 == sig_received && !gale_send(client) 
-		   &&  0 == sig_received && !gale_next(client)) {
-			struct gale_message *msg;
-			while ((msg = link_get(client->link)))
-				present_message(msg);
-		}
-
-		if (sig_received) {
-			if (do_presence) switch (sig_received) {
-			case SIGHUP: notify(0,G_("out/logout")); break;
-			case SIGTERM: notify(0,G_("out/quit")); break;
-			case SIGINT: notify(0,G_("out/stopped")); break;
-			}
-			gale_send(client);
-			break;
-		}
-
-		/* Retry the server connection. */
-		gale_retry(client);
-		if (do_presence) {
-			notify(1,G_("in/reconnected"));
-			notify(0,G_("out/disconnected"));
-		}
-	}
+	link_on_message(conn,on_message,NULL);
+	gale_on_disconnect(server,on_disconnect,NULL);
+	while (!is_done) oop_sys_run(sys);
 
 	return 0;
 }

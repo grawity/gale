@@ -5,6 +5,8 @@
 #include "gale/all.h"
 #include "gale/gsubrc.h"
 
+#include <ctype.h>
+
 /* The Wacky Quoting Proposal (WQP), as implemented:
    For any line of text, the Quote is /^([ >]*|\|[^>])/.  The Quote is repeated
    at the beginning of all wrap lines.  If the Quote is longer than the screen,
@@ -16,7 +18,7 @@ void default_gsubrc(int do_beep) {
 	struct gale_text presence = gale_var(G_("GALE_TEXT_NOTICE_PRESENCE"));
 	struct gale_text answer = gale_var(G_("GALE_TEXT_ANSWER_RECEIPT"));
 	struct gale_text from_comment = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
-	int len,buflen,bufloaded = 0,done = 0,termwid = gale_columns(stdout);
+	int len,buflen,bufloaded = 0,termwid = gale_columns(stdout);
 
 	if (termwid < 2) termwid = 80; /* Don't crash */
 
@@ -112,7 +114,7 @@ void default_gsubrc(int do_beep) {
 				goto end_quote;
 			}
 			curchar = buf[quotelen];
-			if ('\n' != curchar && isspace(curchar) || '>' == curchar) {
+			if (('\n' != curchar && isspace(curchar)) || '>' == curchar) {
 				quotecol = gale_column(quotecol, curchar); ++quotelen;
 			} else if ('|' == curchar) {
 				++quotecol; ++quotelen;
@@ -172,7 +174,6 @@ void default_gsubrc(int do_beep) {
 					}
 				}
 			}
-			end_first_word:
 
 			/* Process remaining words.*/
 			while (1) {

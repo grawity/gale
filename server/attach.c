@@ -1,92 +1,34 @@
 #include "attach.h"
 
+#include "gale/client.h"
 #include "gale/misc.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <unistd.h>
 
-struct attach *new_attach(void) {
+struct attach {
+	struct gale_server *server;
+	struct connect *connect;
+};
+
+struct attach *new_attach(
+	oop_source *source,
+	struct gale_text server,
+	struct gale_text in,struct gale_text out) 
+{
+	struct gale_link *link = new_link(source);
 	struct attach *att;
 	gale_create(att);
-	att->server = null_text;
-	att->in_subs = null_text;
-	att->out_subs = null_text;
-	att->next = NULL;
-	att->connect = NULL;
-	att->time.tv_sec = 0;
-	att->time.tv_usec = 0;
-	att->wait = 0;
+	att->connect = new_connect(source,link,out);
+	/* This overrides the default on_error ... */
+	att->server = gale_open(source,link,in,server);
 	return att;
 }
 
-void free_attach(struct attach *att) {
-	if (att->connect) abort_connect(att->connect);
-}
-
-static int tv_less(const struct timeval *a,const struct timeval *b) {
-	if (a->tv_sec < b->tv_sec) return 1;
-	if (a->tv_sec > b->tv_sec) return 0;
-	return (a->tv_usec < b->tv_usec);
-}
-
-static void tv_sub(struct timeval *a,const struct timeval *b) {
-	if (a->tv_usec < b->tv_usec) {
-		a->tv_usec += 1000000;
-		a->tv_sec -= 1;
-	}
-	a->tv_usec -= b->tv_usec;
-	a->tv_sec -= b->tv_sec;
-}
-
-static void delay_attach(struct attach *att,struct timeval *now) {
-	gale_dprintf(3,"... \"%s\": connection failed, waiting %d seconds\n",
-	        gale_text_to_local(att->server),att->wait);
-	att->time.tv_sec = now->tv_sec + att->wait;
-	att->time.tv_usec = now->tv_usec;
-	if (att->wait)
-		att->wait += lrand48() % att->wait + 1;
-	else
-		att->wait = 2;
-}
-
-void attach_select(struct attach *att,fd_set *wfd,
-                   struct timeval *now,struct timeval *timeo)
-{
-	do {
-		if (tv_less(now,&att->time)) {
-			struct timeval diff = att->time;
-			tv_sub(&diff,now);
-			gale_dprintf(4,
-			        "... \"%s\": setting timeout to %d.%06d\n",
-			        gale_text_to_local(att->server),
-				diff.tv_sec,diff.tv_usec);
-			if (tv_less(&diff,timeo)) *timeo = diff;
-			return;
-		}
-		if (!att->connect) {
-			gale_dprintf(3,"... \"%s\": attempting connection\n",
-			             gale_text_to_local(att->server));
-			att->connect = make_connect(att->server);
-			if (!att->connect) delay_attach(att,now);
-		}
-	} while (!att->connect);
-	connect_select(att->connect,wfd);
-}
-
-int select_attach(struct attach *att,fd_set *wfd,struct timeval *now) {
-	int fd;
-	if (!att->connect) return -1;
-	fd = select_connect(wfd,att->connect);
-	if (!fd) return -1;
-	att->connect = NULL;
-	if (fd > 0) {
-		gale_dprintf(3,"[%d] \"%s\": successful connection\n",
-		             fd,gale_text_to_local(att->server));
-		att->wait = 0;
-		return fd;
-	}
-	delay_attach(att,now);
-	return -1;
+void close_attach(struct attach *att) {
+	gale_close(att->server);
+	close_connect(att->connect);
 }

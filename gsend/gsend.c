@@ -150,9 +150,15 @@ void usage(void) {
 	exit(1);
 }
 
+/* Terminate the event loop when the message is sent. */
+void *on_empty(struct gale_link *link,void *user) {
+	return OOP_HALT;
+}
+
 /* I think you know what main does. */
 int main(int argc,char *argv[]) {
-	struct gale_client *client;		/* The client structure */
+	struct oop_source_sys *sys;		/* Event loop */
+	struct gale_link *link;			/* The physical connection */
 	int arg;				/* Command line flags */
 	int ttyin = isatty(0);	  		/* Input options */
 	char *line = NULL;			/* The current input line */
@@ -268,10 +274,9 @@ int main(int argc,char *argv[]) {
 	}
 
 	/* Open a connection to the server; don't subscribe to anything. */
-	client = gale_open(G_("-"));
-
-	/* Retry as long as necessary to get the connection open. */
-	while (gale_error(client)) gale_retry(client);
+	sys = oop_sys_new();
+	link = new_link(oop_sys_source(sys));
+	gale_open(oop_sys_source(sys),link,G_("-"));
 
 	/* If stdin is a TTY, prompt the user. */
 	if (ttyin) {
@@ -331,16 +336,11 @@ int main(int argc,char *argv[]) {
 	}
 
 	/* Add the message to the outgoing queue. */
-	link_put(client->link,msg);
-	while (1) {
-		/* Flush out the queue. */
-		if (!gale_send(client)) break;
-		/* Retry as necessary; put the message back on the queue
-		   if it went away during the failure. */
-		gale_retry(client);
-		if (link_queue_num(client->link) < 1)
-			link_put(client->link,msg);
-	}
+	link_put(link,msg);
+	link_on_empty(link,on_empty,NULL);
+
+	/* Wait for it to go! */
+	oop_sys_run(sys);
 
 	if (ttyin)
 		printf("Message transmitted.\n");   /* Ta-daa! */

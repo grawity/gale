@@ -93,7 +93,7 @@ void gale_print(FILE *fp,int attr,struct gale_text str) {
 				if (line.p[0] < 32 && line.p[0] >= 0)
 					fprintf(fp,"^%c",(char) line.p[0] + 64);
 				else
-					fprintf(fp,"[0x%04X]",line.p[0]);
+					fprintf(fp,"[0x%04lX]",line.p[0]);
 				tmode(fp,"me");
 				if (attr & gale_print_bold) tmode(fp,"md");
 				line = gale_text_right(line,-1);

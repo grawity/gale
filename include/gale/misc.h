@@ -6,7 +6,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
+
 #include "gale/types.h"
+#include "oop.h"
 
 /* -- terminal functions --------------------------------------------------- */
 
@@ -48,12 +50,12 @@ int gale_wait(pid_t pid);
 void gale_kill(struct gale_text class,int do_kill);
 /* Register a cleanup function.  This will get called, if at all possible, when
    the program exists, including most signals. */
-void gale_cleanup(void (*)(void));
+void gale_cleanup(void (*)(void *),void *);
 /* Perform all the cleanup functions "early". */
 void gale_do_cleanup();
-/* Watch the given file descriptor; if it stops returning 1 to isatty(),
-   raise SIGHUP. */
-void gale_watch_tty(int fd);
+
+/* Poll the given file descriptor periodically; if !isatty(), raise(SIGHUP). */
+void gale_watch_tty(oop_source *,int fd);
 
 /* -- memory management ---------------------------------------------------- */
 
@@ -263,35 +265,14 @@ void gale_diprintf(int level,int indent,const char *fmt,...);
 
 struct gale_connect;
 
-/* Create a connect object, which represents a connection in progress.  This
-   accepts a server specification (like GALE_SERVER), which contains a list
-   of host[:port] entries delimited by commas.  It will attempt a connection
-   to all such hosts simultaneously.  (The first one to connect "wins".)
-   This call will not block; it just starts the process rolling and creates
-   the object. */
-struct gale_connect *make_connect(struct gale_text serv);
+struct gale_connect *gale_make_connect(
+	oop_source *source,struct gale_text host,
+	void *(*)(int fd,void *),void *);
 
-/* Call this before calling select().  Pass in a pointer to an fd_set,
-   initialized with any other file descriptors you want to check for writing
-   (possibly none -- FD_ZERO it).  You could use several connect objects
-   with the same select loop. */
-void connect_select(struct gale_connect *,fd_set *wfd);
-
-/* Then call select(), passing that fd_set as the fourth argument. */
-
-/* Then (if it succeeds) call select_connect(), giving the same fd_set and
-   the connect object.  This call will return 0 if nothing has connected, but
-   you should keep trying (go through the loop again, back to connect_select),
-   -1 if no connection could be made (the object has been destroyed; do 
-   whatever you do to handle errors), or the file descriptor if a connection 
-   has succeeded (the object has been destroyed; you don't need now). */
-int select_connect(fd_set *wfd,struct gale_connect *);
-
-/* This destroys the connect object with any pending connections. */
-void abort_connect(struct gale_connect *);
+void gale_abort_connect(struct gale_connect *);
 
 /* Daemonize (go into the background).  If keep_tty is true (1), don't detach
    from the tty (gsub does this), otherwise do (like most daemons). */
-void gale_daemon(int keep_tty);
+void gale_daemon(oop_source *,int keep_tty);
 
 #endif

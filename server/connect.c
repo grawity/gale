@@ -1,71 +1,74 @@
+#include <assert.h>
 #include <syslog.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #include "gale/all.h"
 #include "connect.h"
 #include "subscr.h"
 
-struct connect *new_connect(int rfd,int wfd) {
+struct connect {
+	oop_source *source;
+	struct gale_link *link;
+	struct gale_text subscr;
+	struct gale_message *will;
+};
+
+static void *on_will(struct gale_link *l,struct gale_message *will,void *d) {
+	struct connect *conn = (struct connect *) d;
+	assert(l == conn->link);
+	conn->will = will;
+	return OOP_CONTINUE;
+}
+
+static void *on_message(struct gale_link *l,struct gale_message *msg,void *d) {
+	struct connect *conn = (struct connect *) d;
+	assert(l == conn->link);
+	subscr_transmit(msg,conn->link);
+	return OOP_CONTINUE;
+}
+
+static void *on_subscribe(struct gale_link *l,struct gale_text sub,void *d) {
+	struct connect *conn = (struct connect *) d;
+	assert(l == conn->link);
+	remove_subscr(conn->subscr,conn->link);
+	conn->subscr = sub;
+	add_subscr(conn->subscr,conn->link);
+	return OOP_CONTINUE;
+}
+
+static void *on_error(struct gale_link *l,int err,void *d) {
+	struct connect *conn = (struct connect *) d;
+	assert(l == conn->link);
+	if (0 != err && ECONNRESET != err && EPIPE != err)
+		gale_alert(GALE_WARNING,"I/O error",err);
+	close_connect(conn);
+	return OOP_CONTINUE;
+}
+
+struct connect *new_connect(
+	oop_source *source,
+	struct gale_link *link,
+	struct gale_text subscr)
+{
 	struct connect *conn;
 	gale_create(conn);
-	fcntl(wfd,F_SETFL,O_NONBLOCK);
-	fcntl(rfd,F_SETFD,1);
-	fcntl(wfd,F_SETFD,1);
-	conn->rfd = rfd;
-	conn->wfd = wfd;
-	conn->link = new_link();
-	conn->subscr.p = NULL;
-	conn->subscr.l = 0;
-	conn->next = NULL;
-	conn->retry = NULL;
+	conn->source = source;
+	conn->link = link;
+	conn->subscr = subscr;
+	conn->will = NULL;
+	add_subscr(conn->subscr,conn->link);
+
+	link_on_will(conn->link,on_will,conn);
+	link_on_message(conn->link,on_message,conn);
+	link_on_subscribe(conn->link,on_subscribe,conn);
+	link_on_error(conn->link,on_error,conn);
 	return conn;
 }
 
-void free_connect(struct connect *conn) {
-	close(conn->rfd);
-	if (conn->wfd != conn->rfd) close(conn->wfd);
-	if (conn->subscr.p) remove_subscr(conn);
-	if (conn->retry) free_attach(conn->retry);
-}
-
-void pre_select(struct connect *conn,fd_set *r,fd_set *w) {
-	if (link_receive_q(conn->link))
-		FD_SET(conn->rfd,r);
-	if (link_transmit_q(conn->link))
-		FD_SET(conn->wfd,w);
-}
-
-void process_will(struct connect *conn) {
-	struct gale_message *msg;
-	if ((msg = link_willed(conn->link)))
-		subscr_transmit(msg,conn);
-}
-
-int post_select(struct connect *conn,fd_set *r,fd_set *w) {
-	struct gale_message *msg;
-	struct gale_text sub;
-	if (FD_ISSET(conn->wfd,w)) {
-		gale_dprintf(3,"[%d] sending data\n",conn->wfd);
-		if (link_transmit(conn->link,conn->wfd)) {
-			process_will(conn);
-			return -1;
-		}
-	}
-	if (FD_ISSET(conn->rfd,r)) {
-		gale_dprintf(3,"[%d] receiving data\n",conn->rfd);
-		if (link_receive(conn->link,conn->rfd)) {
-			process_will(conn);
-			return -1;
-		}
-	}
-	sub = link_subscribed(conn->link);
-	if (0 != sub.l) subscribe_connect(conn,sub);
-	while ((msg = link_get(conn->link))) subscr_transmit(msg,conn);
-	return 0;
-}
-
-void subscribe_connect(struct connect *conn,struct gale_text sub) {
-	if (conn->subscr.p) remove_subscr(conn);
-	conn->subscr = sub;
-	add_subscr(conn);
+void close_connect(struct connect *conn) {
+	remove_subscr(conn->subscr,conn->link);
+	conn->subscr = G_("-");
+	link_set_fd(conn->link,-1);
+	if (NULL != conn->will) subscr_transmit(conn->will,conn->link);
 }

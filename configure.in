@@ -83,7 +83,7 @@ AC_CHECK_LIB(socks,SOCKSinit,[
   AC_DEFINE(HAVE_SOCKS) 
 ],[
   AC_MSG_ERROR(cannot find SOCKS library)
-])
+],-lresolv)
 fi
 
 if test x$build_gzgw = xtrue ; then
@@ -94,6 +94,20 @@ AC_CHECK_LIB(zephyr,ZInitialize,[
 ],[
   AC_MSG_ERROR(cannot find library to build gzgw as specified)
 ],-lcom_err)
+fi
+
+AC_MSG_CHECKING([for local copy of liboop])
+if test -f "${srcdir}/liboop/oop.h"; then
+  AC_MSG_RESULT(yes)
+  CPPFLAGS="-I\${top_srcdir}/liboop $CPPFLAGS"
+  GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop.a"
+  build_oop=true
+else
+  AC_MSG_RESULT(no)
+  AC_CHECK_LIB(oop,oop_sys_new,[:],[
+    AC_MSG_ERROR(cannot find liboop library, see INSTALL directions)
+  ])
+  GALE_LIBS="$GALE_LIBS -loop"
 fi
 
 AC_MSG_CHECKING([for local copy of Boehm GC])

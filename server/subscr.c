@@ -7,9 +7,15 @@
 #include <assert.h>
 #include <string.h>
 
+struct sub_connect {
+	int flag,priority,stamp;
+	struct sub_connect *next;
+	struct gale_link *link;
+};
+
 struct sub {
 	int flag,priority;
-	struct connect *connect;
+	struct sub_connect *connect;
 };
 
 struct node {
@@ -24,14 +30,15 @@ static int stamp = 0;
 static wch null = 0;
 static const struct gale_text empty = { &null,0 };
 static struct node root = { { &null,0 },NULL,NULL,0,0,NULL };
-static struct connect *list = NULL;
+static struct sub_connect *list = NULL;
 
 static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 	struct node *child,*node;
 	size_t i;
 
-	gale_dprintf(3,"[%d] subscribing to \"%s\"\n",
-		sub->connect->rfd,gale_text_to_local(spec));
+	gale_dprintf(3,"[%p] subscribing to \"%s\"\n",
+		sub->connect->link,
+		gale_text_to_local(spec));
 
 	if (spec.l == 0) {
 		gale_dprintf(4,"+++ adding connection to node\n");
@@ -50,7 +57,8 @@ static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 		child = child->next;
 
 	if (child == NULL) {
-		gale_dprintf(4,"+++ new node \"%s\"\n",gale_text_to_local(spec));
+		gale_dprintf(4,"+++ new node \"%s\"\n",
+			gale_text_to_local(spec));
 		gale_create(node);
 		node->spec = spec;
 		node->child = NULL;
@@ -90,15 +98,16 @@ static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 
 static int same_sub(const struct sub *a,const struct sub *b) {
 	return (a->priority == b->priority && a->flag == b->flag &&
-	        a->connect == b->connect);
+	        a->connect->link == b->connect->link);
 }
 
 static void do_remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 	struct node *parent = NULL,*prev = NULL;
 	int i;
 
-	gale_dprintf(3,"[%d] unsubscribing from \"%s\"\n",
-	             sub->connect->rfd,gale_text_to_local(spec));
+	gale_dprintf(3,"[%p] unsubscribing from \"%s\"\n",
+		sub->connect->link,
+		gale_text_to_local(spec));
 
 	while (spec.l != 0) {
 		parent = ptr;
@@ -171,19 +180,23 @@ static void do_remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 	ptr->child = prev->child;
 }
 
-static void subscr(struct connect *conn,
+static void subscr(struct gale_text spec,struct gale_link *link,
                    void (*func)(struct node *,struct gale_text,struct sub *))
 {
 	struct gale_text cat = null_text;
 	struct sub sub;
-	sub.connect = conn;
 	sub.priority = 0;
-	conn->stamp = stamp;
+	gale_create(sub.connect);
+	sub.connect->stamp = stamp;
+	sub.connect->link = link;
+
+	/* easy escape */
+	if (!gale_text_compare(spec,G_("-"))) return;
 
 	gale_dprintf(3,"--- subscribing to all of \"%s\"\n",
-		gale_text_to_local(conn->subscr));
+		gale_text_to_local(spec));
 
-	while (gale_text_token(conn->subscr,':',&cat)) {
+	while (gale_text_token(spec,':',&cat)) {
 		sub.flag = 1;
 		if (cat.l > 0 && cat.p[0] == '+')
 			cat = gale_text_right(cat,-1);
@@ -196,22 +209,22 @@ static void subscr(struct connect *conn,
 	}
 }
 
-void add_subscr(struct connect *conn) {
-	subscr(conn,add);
+void add_subscr(struct gale_text sub,struct gale_link *link) {
+	subscr(sub,link,add);
 }
 
-void remove_subscr(struct connect *conn) {
-	subscr(conn,do_remove);
+void remove_subscr(struct gale_text sub,struct gale_link *link) {
+	subscr(sub,link,do_remove);
 }
 
 static void transmit(struct node *ptr,struct gale_text spec,
-                     struct gale_message *msg,struct connect *avoid)
+                     struct gale_message *msg,struct gale_link *avoid)
 {
 	int i;
 	for (i = 0; i < ptr->num; ++i) {
-		if (ptr->array[i].connect == avoid) continue;
+		if (ptr->array[i].connect->link == avoid) continue;
 		if (ptr->array[i].connect->stamp != stamp) {
-			ptr->array[i].connect->sub_next = list;
+			ptr->array[i].connect->next = list;
 			list = ptr->array[i].connect;
 			ptr->array[i].connect->stamp = stamp;
 			ptr->array[i].connect->priority = -1;
@@ -233,24 +246,23 @@ static void transmit(struct node *ptr,struct gale_text spec,
 		}
 }
 
-void subscr_transmit(struct gale_message *msg,struct connect *avoid) {
+void subscr_transmit(struct gale_message *msg,struct gale_link *avoid) {
 	struct gale_text cat = null_text;
 	++stamp;
 
 	assert(list == NULL);
 
 	while (gale_text_token(msg->cat,':',&cat)) {
-		gale_dprintf(3,"*** transmitting \"%s\", avoiding [%d]\n",
-			gale_text_to_local(cat),
-			avoid ? avoid->rfd : -1);
+		gale_dprintf(3,"*** transmitting \"%s\"\n",
+		             gale_text_to_local(cat));
 		transmit(&root,cat,msg,avoid);
 	}
 
 	while (list != NULL) {
 		if (list->flag) {
-			gale_dprintf(4,"[%d] transmitting message\n",list->wfd);
+			gale_dprintf(4,"[%p] transmitting message\n",list->link);
 			link_put(list->link,msg);
 		}
-		list = list->sub_next;
+		list = list->next;
 	}
 }

@@ -5,29 +5,19 @@
 #include <string.h>
 #include <gc.h>
 
+/* #define CHEESY_ALLOC */
+
 struct gale_ptr { void *ptr; };
 
 /* -- allocator interface --------------------------------------------------- */
 
-void *gale_malloc(size_t len) {
-	return GC_malloc(len);
-}
+#ifndef CHEESY_ALLOC
 
-void *gale_malloc_atomic(size_t len) {
-	return GC_malloc_atomic(len);
-}
-
-void *gale_malloc_safe(size_t len) {
-	return GC_malloc_uncollectable(len);
-}
-
-void gale_free(void *ptr) {
-	GC_free(ptr);
-}
-
-void *gale_realloc(void *s,size_t len) {
-	return GC_realloc(s,len);
-}
+void *gale_malloc(size_t len) { return GC_malloc(len); }
+void *gale_malloc_atomic(size_t len) { return GC_malloc_atomic(len); }
+void *gale_malloc_safe(size_t len) { return GC_malloc_uncollectable(len); }
+void gale_free(void *ptr) { GC_free(ptr); }
+void *gale_realloc(void *s,size_t len) { return GC_realloc(s,len); }
 
 void gale_finalizer(void *obj,void (*f)(void *,void *),void *data) {
 	GC_register_finalizer(obj,f,data,0,0);
@@ -44,6 +34,29 @@ struct gale_ptr *gale_make_weak(void *ptr) {
 
 	return wptr;
 }
+
+#else /* CHEESY_ALLOC */
+
+void *gale_malloc(size_t len) { return malloc(len); }
+void *gale_malloc_atomic(size_t len) { return malloc(len); }
+void *gale_malloc_safe(size_t len) { return malloc(len); }
+void gale_free(void *ptr) { free(ptr); }
+void *gale_realloc(void *s,size_t len) { return realloc(s,len); }
+
+void gale_finalizer(void *obj,void (*f)(void *,void *),void *data) { }
+
+struct gale_ptr *gale_make_weak(void *ptr) {
+	struct gale_ptr *wptr = NULL;
+
+	if (ptr) {
+		wptr = malloc(sizeof(*wptr));
+		wptr->ptr = ptr;
+	}
+
+	return wptr;
+}
+
+#endif
 
 struct gale_ptr *gale_make_ptr(void *ptr) {
 	struct gale_ptr *wptr;

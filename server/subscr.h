@@ -4,8 +4,8 @@
 struct connect;
 struct gale_message;
 
-void add_subscr(struct connect *);
-void remove_subscr(struct connect *);
-void subscr_transmit(struct gale_message *,struct connect *avoid);
+void add_subscr(struct gale_text,struct gale_link *);
+void remove_subscr(struct gale_text,struct gale_link *);
+void subscr_transmit(struct gale_message *,struct gale_link *avoid);
 
 #endif

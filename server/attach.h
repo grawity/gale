@@ -1,29 +1,22 @@
 #ifndef ATTACH_H
 #define ATTACH_H
 
+#include "connect.h"
+
 #include "gale/core.h"
 #include "gale/misc.h"
+
+#include "oop.h"
 
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-struct attach {
-	struct gale_text server;
-	struct gale_text in_subs;
-	struct gale_text out_subs;
-	struct attach *next;
-
-	struct gale_connect *connect;
-	struct timeval time;
-	int wait;
-};
-
-struct attach *new_attach(void);
-void free_attach(struct attach *);
-
-void attach_select(struct attach *,fd_set *wfd,
-                   struct timeval *now,struct timeval *timeo);
-int select_attach(struct attach *,fd_set *,struct timeval *now);
+struct attach;
+struct attach *new_attach(
+	oop_source *source,
+	struct gale_text server,
+	struct gale_text in,struct gale_text out);
+void close_attach(struct attach *);
 
 #endif

@@ -195,7 +195,6 @@ int _ga_save_file(struct gale_text dir,
 {
 	struct gale_text name;
 	struct gale_text temp;
-	char *sztemp;
 	int fd,status;
 
 	name = dir_file(dir,fn);
