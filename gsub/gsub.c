@@ -736,9 +736,9 @@ int main(int argc,char **argv) {
 
 #ifndef NDEBUG
 	lookup_count += 2;
-	gale_find_location(source,G_("egnor@ofb.net"),
+	gale_find_exact_location(source,G_("egnor@ofb.net"),
 		on_static_loc,&restart_from_location);
-	gale_find_location(source,G_("debug.restart@gale.org"),
+	gale_find_exact_location(source,G_("debug.restart@gale.org"),
 		on_static_loc,&restart_to_location);
 #endif
 
