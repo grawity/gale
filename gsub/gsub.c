@@ -65,6 +65,8 @@ int do_keys = 1;			/* Should we answer key requests? */
 int do_termcap = 0;                     /* Should we highlight headers? */
 int do_fork = 0;			/* Run in the background? */
 int do_kill = 0;			/* Kill other gsub processes? */
+int do_chat = 0;			/* Report goings-on? */
+int do_verbose = 0;			/* Report everything? */
 int do_stop = 0;
 int sequence = 0;
 
@@ -124,12 +126,15 @@ static void notify(int in,struct gale_text presence) {
 		frag.type = frag_text;
 		frag.value.text = presence;
 		slip(notice_location,&frag,in ? on_put : on_will,NULL);
+		if (do_verbose && in)
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
+				G_("reporting presence \""),presence,G_("\"")),0);
 	}
 }
 
 /* Halt the main event loop when we finish sending our notices. */
 static void *on_empty(struct gale_link *link,void *data) {
-	gale_alert(GALE_NOTICE,G_("disconnecting and terminating"),0);
+	if (do_chat) gale_alert(GALE_NOTICE,G_("disconnecting and terminating"),0);
 	do_stop = 1;
 	return OOP_HALT;
 }
@@ -217,6 +222,10 @@ static void *on_receipt(struct gale_text n,struct gale_location *to,void *x) {
 		reply.type = frag_text;
 		reply.value.text = gale_location_name(user_location);
 		slip(to,&reply,on_put,NULL);
+		if (do_verbose)
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
+				G_("sending receipt to \""),
+				gale_location_name(to),G_("\"")),0);
 	}
 	return OOP_CONTINUE;
 }
@@ -291,6 +300,8 @@ static void *on_message(struct gale_message *msg,void *data) {
 				gale_location_key(user_location),
 				gale_time_now()));
 			slip(key_location,&frag,on_put,NULL);
+			if (do_verbose) gale_alert(GALE_NOTICE,
+				G_("answering key request"),0);
 			goto done;
 		}
 
@@ -376,7 +387,7 @@ static void *on_packet(struct gale_link *link,struct gale_packet *pkt,void *data
 static void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gsub [-haAekKnr] [-f rcprog] "
+	"usage: gsub [-haAekKnqrv] [-f rcprog] "
 #ifdef HAVE_DLOPEN
 	"[-l rclib] "
 #endif
@@ -388,6 +399,8 @@ static void usage(void) {
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
 	"       -n          Do not fork (default if stdout redirected)\n"
+	"       -q          Quiet mode\n"
+	"       -v          Verbose mode\n"
 	"       -r          Run the default internal gsubrc and exit\n"
 	"       -f rcprog   Use rcprog (default gsubrc, if found)\n"
 #ifdef HAVE_DLOPEN
@@ -470,7 +483,13 @@ static void *on_complete() {
 	int i,count;
 	if (0 != --lookup_count) return OOP_CONTINUE;
 
-	if (do_default) sub_location[add_sub()] = user_location;
+	if (do_default) {
+		if (do_verbose) gale_alert(GALE_NOTICE,gale_text_concat(3,
+			G_("subscription: \""),
+			gale_location_name(user_location),G_("\"")),0);
+		sub_location[add_sub()] = user_location;
+	}
+
 #ifndef NDEBUG
 	sub_location[add_sub()] = restart_to_location;
 #endif
@@ -552,13 +571,13 @@ static void *on_connected(
 	struct gale_server *server,
 	struct gale_text host,struct sockaddr_in addr,void *d) 
 {
-	gale_alert(GALE_NOTICE,gale_text_concat(2,
+	if (do_chat) gale_alert(GALE_NOTICE,gale_text_concat(2,
 		G_("connected to "),
 		gale_connect_text(host,addr)),0);
 	return on_complete();
 }
 
-static void argument(struct gale_text arg,int *positive) {
+static void argument(struct gale_text arg,int *positive,int chat) {
 	if (!gale_text_compare(arg,G_("-")))
 		*positive = !*positive;
 	else if (arg.l > 0 && gale_text_compare(arg,G_("+"))) {
@@ -566,6 +585,12 @@ static void argument(struct gale_text arg,int *positive) {
 		sub_positive[i] = *positive;
 		++lookup_count;
 		gale_find_location(source,arg,on_subscr_loc,(void *) i);
+
+		if (chat) gale_alert(GALE_NOTICE,gale_text_concat(3,
+			*positive ? G_("subscription: \"")
+			          : G_("filtering out: \""),
+			arg,G_("\"")),0);
+
 		*positive = 1;
 	}
 }
@@ -582,7 +607,7 @@ int main(int argc,char **argv) {
 	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
 
 	/* Default values. */
-	rcprog = G_("cheeserc");
+	rcprog = G_("gsubrc");
 
 	/* If we're actually on a TTY, we do things a bit differently. */
 	if ((tty = ttyname(1))) {
@@ -593,6 +618,8 @@ int main(int argc,char **argv) {
 		do_fork = do_kill = 1;
 		/* Announce ourselves. */
 		do_presence = 1;
+		/* Let the user know what's happenning. */
+		do_chat = 1;
 	}
 
 	/* Don't line buffer; we'll flush when we need to. */
@@ -603,34 +630,101 @@ int main(int argc,char **argv) {
 	if (!presence.l) presence = G_("in/present");
 
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"dDhaAenkKr:f:l:p:"))) {
+	while (EOF != (opt = getopt(argc,argv,"dDhaAenkKqvr:f:l:p:"))) {
 	struct gale_text str = !optarg ? null_text :
 		gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (opt) {
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
-	case 'a': do_presence = do_keys = 0; break;
-						/* Stay quiet */
-	case 'A': do_presence = do_keys = 1; break;
-						/* Don't */
-	case 'e': do_default = 0; break;        /* Do not include defaults */
-	case 'n': do_fork = do_kill = 0; break; /* Do not background */
-	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
-	case 'K': if (tty) gale_kill(gale_text_from(
+
+	case 'a': /* Anonymous */
+		if (do_chat) gale_alert(GALE_NOTICE,
+			G_("disabling presence and receipts"),0);
+		do_presence = do_keys = 0; 
+		break;
+
+	case 'A': /* Not */
+		if (do_chat) gale_alert(GALE_NOTICE,
+			G_("enabling presence and receipts"),0);
+		do_presence = do_keys = 1; 
+		break;
+
+	case 'e': /* Do not include defaults */
+		if (do_chat) gale_alert(GALE_NOTICE,
+			G_("skipping default subscriptions"),0);
+		do_default = 0; 
+		break;
+
+	case 'n': /* Do not background */
+		if (do_chat) gale_alert(GALE_NOTICE,
+			G_("running in foreground"),0);
+		do_fork = do_kill = 0; 
+		break; 
+
+	case 'k': /* Do not kill other gsubs */
+		do_kill = 0; break;           
+
+	case 'K': /* only kill other gsubs */
+		if (tty) gale_kill(gale_text_from(
 			gale_global->enc_filesys,tty,-1),1);
-	          return 0;			/* only kill other gsubs */
-	case 'r': do_run_default = 1; break;	/* only run default_gsubrc */
-	case 'f': rcprog = str;	break;          /* Use a wacky gsubrc */
-	case 'l': rclib = str; break;	        /* Use a wacky gsubrc.so */
-	case 'p': do_presence = 1; presence = str;
-	          break;			/* Presence */
-	case 'h':                               /* Usage message */
+		return 0;			
+
+	case 'r': /* only run default_gsubrc */
+		do_run_default = 1;
+		break;
+
+	case 'f': /* Use a wacky gsubrc */
+		rcprog = str;	                
+		if (do_chat) gale_alert(GALE_NOTICE,gale_text_concat(3,
+			G_("using gsubrc \""),rcprog,G_("\"")),0);
+		break;
+
+	case 'l': /* Use a wacky gsubrc.so */
+		rclib = str;
+		if (do_chat) gale_alert(GALE_NOTICE,gale_text_concat(3,
+			G_("using module \""),rclib,G_("\"")),0);
+		break;
+
+	case 'p': /* Presence */
+		do_presence = 1; presence = str;
+		if (do_chat) gale_alert(GALE_NOTICE,gale_text_concat(3,
+			G_("presence set to \""),presence,G_("\"")),0);
+		break;
+
+	case 'q': /* Quiet */
+		do_chat = 0;
+		break;
+
+	case 'v': /* Verbose */
+		do_chat = 0;
+		do_verbose = 1;
+		break;
+
+	case 'h': /* Usage message */
 	case '?': usage();
 	} }
 
 	if (do_run_default) {
+		if (do_verbose) gale_alert(GALE_NOTICE,G_("running gsubrc"),0);
 		default_gsubrc();
 		return 0;
+	}
+
+	if (do_verbose) {
+		if (!do_presence)
+			gale_alert(GALE_NOTICE,G_("presence is disabled"),0);
+
+		if (do_fork)
+			gale_alert(GALE_NOTICE,G_("running in background"),0);
+		else
+			gale_alert(GALE_NOTICE,G_("running in foreground"),0);
+
+		if (rclib.l > 0)
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
+				G_("using module \""),rclib,G_("\"")),0);
+		else if (rcprog.l > 0)
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
+				G_("using gsubrc \""),rcprog,G_("\"")),0);
 	}
 
 	subs = null_text;
@@ -644,7 +738,7 @@ int main(int argc,char **argv) {
 			while (gale_text_token(line,' ',&space)) {
 				struct gale_text tab = null_text;
 				while (gale_text_token(space,'\t',&tab))
-					argument(tab,&positive);
+					argument(tab,&positive,do_verbose);
 			}
 		}
 	}
@@ -657,7 +751,7 @@ int main(int argc,char **argv) {
 	while (argc != optind)
 		argument(gale_text_from(
 			gale_global->enc_cmdline,
-			argv[optind++],-1),&positive);
+			argv[optind++],-1),&positive,do_chat || do_verbose);
 
 	if (!positive)
 		gale_alert(GALE_WARNING,G_("trailing - in arguments"),0);
