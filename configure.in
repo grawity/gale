@@ -82,14 +82,18 @@ fi
 AC_CHECK_LIB(termcap,tgetent,[LIBS="$LIBS -ltermcap"],[
   AC_CHECK_LIB(ncurses,tgetent)])
 AC_CHECK_LIB(resolv,res_query)
-AC_CHECK_LIB(iconv,iconv)
 
 dnl Make sure 'iconv' supports multibyte UTF-8 conversion.
+libs_without_iconv="$LIBS"
+AC_CHECK_LIB(iconv,iconv)
 AC_MSG_CHECKING([for working iconv])
 AC_TRY_RUN([#include "iconvtest.c"],[
   AC_MSG_RESULT(yes)
   AC_DEFINE(HAVE_ICONV)
-],[AC_MSG_RESULT(no)],[AC_MSG_RESULT([unknown, assuming no])])
+],[
+  AC_MSG_RESULT(no)
+  LIBS="$libs_without_iconv"
+],[AC_MSG_RESULT([unknown, assuming no])])
 
 AC_CHECK_LIB(dl,dlopen,[
   DL_LIBS="-ldl"
