@@ -29,6 +29,8 @@ void reserve(int len) {
 
 void headers(void) {
 	struct passwd *pwd;
+	const char *id;
+	gale_id(&id);
 	if (!have_type) {
 		reserve(40);
 		sprintf(msg->data + msg->data_size,
@@ -40,10 +42,9 @@ void headers(void) {
 		reserve(20 + strlen(pwd->pw_name) + strlen(pwd->pw_gecos));
 		if (pwd->pw_gecos[0])
 			sprintf(msg->data + msg->data_size,"From: %s (%s)\r\n",
-				pwd->pw_name,pwd->pw_gecos);
+				id,pwd->pw_gecos);
 		else
-			sprintf(msg->data + msg->data_size,"From: %s\r\n",
-				pwd->pw_name);
+			sprintf(msg->data + msg->data_size,"From: %s\r\n",id);
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
 	if (!have_time) {
