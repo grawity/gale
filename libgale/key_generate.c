@@ -10,23 +10,24 @@
 struct generation {
 	struct gale_key *key;
 	struct gale_group data;
+	struct gale_time now;
 	gale_key_call *call;
 	void *user;
 };
 
 static void *finish(oop_source *oop,struct generation *gen,int do_public) {
-	gale_key_assert_group(gen->data,1);
-	if (do_public) gale_key_assert_group(gale_crypto_public(gen->data),1);
-	/* TODO: store the key somewhere? */
-
+	struct gale_group public = gale_crypto_public(gen->data);
+	if (gale_group_compare(public,gen->data))
+		gale_key_assert_group(gen->data,gen->now,1);
+	if (do_public) 
+		gale_key_assert_group(public,gen->now,1);
 	return gen->call(oop,gen->key,gen->user);
 }
 
 static void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 	struct generation *gen = (struct generation *) user;
-	const struct gale_time now = gale_time_now();
 	const struct gale_key_assertion * const priv = gale_key_private(key);
-	const struct gale_key_assertion * const pub = gale_key_public(key,now);
+	const struct gale_key_assertion * const pub = gale_key_public(key,gen->now);
 
 	if (NULL != priv) {
 		/* Attempt to sign the key ourselves. */
@@ -41,13 +42,13 @@ static void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 
 		frag.type = frag_time;
 		frag.name = G_("key.signed");
-		frag.value.time = now;
+		frag.value.time = gen->now;
 		gale_group_replace(&signee,frag);
 
 		if (gale_crypto_sign(1,&signer,&signee)) {
 			struct gale_key_assertion *ass =
-				gale_key_assert_group(signee,1);
-			if (ass == gale_key_public(gen->key,now)
+				gale_key_assert_group(signee,gen->now,1);
+			if (ass == gale_key_public(gen->key,gen->now)
 			&&  gale_key_owner(gale_key_signed(ass)) == key)
 				return finish(oop,gen,0);
 			gale_key_retract(ass,1);
@@ -84,8 +85,8 @@ static void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 			newbits = gale_read_from(out,0);
 			close(out);
 
-			ass = gale_key_assert(newbits,1);
-			if (ass == gale_key_public(gen->key,now)
+			ass = gale_key_assert(newbits,gen->now,1);
+			if (ass == gale_key_public(gen->key,gen->now)
 			&&  gale_key_owner(gale_key_signed(ass)) == key)
 				return finish(oop,gen,0);
 		}
@@ -103,22 +104,28 @@ static void *on_delay(oop_source *oop,struct timeval when,void *user) {
 /** Generate a new key.
  *  \param source Liboop event source to use.
  *  \param key Key handle from gale_key_handle().
- *  \param extra Fragments (like key.owner) to add to key data, if any.
+ *  \param data Key data to use, usually from gale_crypto_generate().
  *  \param call Callback to invoke when generation is complete.
  *  \param user User-specified opaque pointer to pass to the callback. */
 void gale_key_generate(oop_source *source,
-        struct gale_key *key,struct gale_group extra,
+        struct gale_key *key,struct gale_group data,
         gale_key_call *call,void *user)
 {
 	struct gale_key * const parent = gale_key_parent(key);
+	struct gale_fragment frag;
 	struct generation *gen;
 
 	gale_create(gen);
 	gen->key = key;
-	gen->data = gale_crypto_generate(gale_key_name(key));
+	gen->data = data;
+	gen->now = gale_time_now();
 	gen->call = call;
 	gen->user = user;
-	gale_group_append(&gen->data,extra);
+
+	frag.type = frag_text;
+	frag.name = G_("key.id");
+	frag.value.text = gale_key_name(key);
+	gale_group_replace(&gen->data,frag);
 
 	if (NULL != parent)
 		gale_key_search(source,parent,search_private,on_parent,gen);
