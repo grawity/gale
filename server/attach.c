@@ -23,8 +23,8 @@ void *on_connect(struct gale_server *server,struct gale_text name,void *data) {
 	att->name = name;
 	link_will(att->link,gale_error_message(
 		gale_text_concat(3,
-			G_("(will) galed warning: disconnected from \""),
-			name,G_("\""))));
+			G_("galed will: disconnected from \""),
+			name,G_("\"\n"))));
 	return OOP_CONTINUE;
 }
 
@@ -48,6 +48,7 @@ struct attach *new_attach(
 	att->connect = new_connect(source,link,out);
 	/* This overrides the default on_error ... */
 	att->server = gale_open(source,link,in,server);
+	gale_on_connect(att->server,on_connect,att);
 	gale_on_disconnect(att->server,on_disconnect,att);
 	return att;
 }

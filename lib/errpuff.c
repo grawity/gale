@@ -45,10 +45,7 @@ static void *on_error(gale_error severity,struct gale_text msg,void *data) {
 		c->source->on_time(c->source,OOP_TIME_NOW,on_collect,c);
 		c->active = 1;
 	}
-	if (0 == c->buffer.l)
-		c->buffer = msg;
-	else
-		c->buffer = gale_text_concat(3,c->buffer,G_("\n"),msg);
+	c->buffer = gale_text_concat(3,c->buffer,msg,G_("\n"));
 	return OOP_CONTINUE;
 }
 
