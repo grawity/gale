@@ -4,6 +4,7 @@
 #ifdef hpux
 void syslog(int priority, const char *message, ...);
 void openlog(char *ident, int option, int facility);
+char *strerror(int);
 #define HPINT (int*)
 #else
 #define HPINT
