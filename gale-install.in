@@ -92,7 +92,7 @@ No harm done if you stop this script now to set up such a user.
 
 EOM
 
-	/bin/echo "Enter the Gale username: \c"
+	printf "Enter the Gale username: "
 	read GALE_USER
 	if [ -z "$GALE_USER" ]; then
 		echo "Error: Invalid username or no home dir: \"$GALE_USER\"."
@@ -127,7 +127,7 @@ For most of the top-level domains, contact <mailto:egnor-gale@ofb.net>.
 
 EOM
 
-	/bin/echo "Enter your Gale domain: \c"
+	printf "Enter your Gale domain: "
 	read GALE_DOMAIN
 	case "$GALE_DOMAIN" in
 		*" "*) echo "Error: Invalid domain specification." ; exit 1 ;;
@@ -236,7 +236,7 @@ file mentioned above, and run this again.
 
 EOM
 
-	/bin/echo "Enter the signed key filename: \c"
+	printf "Enter the signed key filename: "
 	read skey
 
 	if [ ! -f "$skey" ]; then
@@ -290,7 +290,7 @@ caltech.edu has the description "California Institute of Technology".
 
 EOM
 
-/bin/echo "Enter the description: \c"
+printf "Enter the description: "
 read descr
 
 echo "We will generate the key now.  Have patience."
