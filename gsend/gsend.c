@@ -43,7 +43,8 @@ void headers(void) {
 		if (!*name) name = pwd->pw_name;
 		if (*name) {
 			reserve(20 + strlen(name));
-			sprintf(msg->data + msg->data_size,"From: %s\r\n",name);
+			sprintf(msg->data + msg->data_size,
+			        "From: %s <%s>\r\n",name,id);
 			msg->data_size += strlen(msg->data + msg->data_size);
 		}
 	}
