@@ -122,7 +122,8 @@ int select_connect(fd_set *wfd,struct gale_connect *conn) {
 	delete(conn,i);
 	abort_connect(conn);
 	fcntl(fd,F_SETFL,0);
-	setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,SUNSUCK &one,sizeof(one));
+	setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,
+	           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
 	return fd;
 }
 

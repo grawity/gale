@@ -32,12 +32,6 @@ typedef unsigned short u16;
 typedef unsigned char u8;
 typedef u8 byte;
 
-#ifndef HAVE_SYS_BITYPES_H
-typedef u32 u_int32_t;
-typedef u16 u_int16_t;
-typedef u8 u_int8_t;
-#endif
-
 /* handy data type for a counted buffer. */
 struct gale_data {
 	byte *p;

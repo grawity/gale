@@ -5,12 +5,12 @@
 #include <syslog.h>
 #include <string.h>
 #include <unistd.h>
-#include <limits.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/utsname.h>
+#include <limits.h> /* NetBSD (at least) requires this order. */
 
 #include "gale/all.h"
 #include "connect.h"
@@ -39,7 +39,8 @@ static void incoming(void) {
 		return;
 	}
 	gale_dprintf(2,"[%d] new connection\n",newfd);
-	setsockopt(newfd,SOL_SOCKET,SO_KEEPALIVE,SUNSUCK &one,sizeof(one));
+	setsockopt(newfd,SOL_SOCKET,SO_KEEPALIVE,
+	           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
 	add_connect(newfd);
 }
 
@@ -76,12 +77,16 @@ static void loop(void) {
 		if (timeo.tv_sec == LONG_MAX) {
 			gale_dprintf(4,"--> select: now = %d.%06d, no timeout\n",
 		                now.tv_sec,now.tv_usec);
-			ret = select(FD_SETSIZE,HPINT &rfd,HPINT &wfd,
+			ret = select(FD_SETSIZE,
+			             (SELECT_ARG_2_T) &rfd,
+			             (SELECT_ARG_2_T) &wfd,
 			             NULL,NULL);
 		} else {
 			gale_dprintf(4,"--> select: now = %d.%06d, to = %d.%06d\n",
 		        now.tv_sec,now.tv_usec,timeo.tv_sec,timeo.tv_usec);
-			ret = select(FD_SETSIZE,HPINT &rfd,HPINT &wfd,
+			ret = select(FD_SETSIZE,
+			             (SELECT_ARG_2_T) &rfd,
+			             (SELECT_ARG_2_T) &wfd,
 			             NULL,&timeo);
 		}
 		if (ret == 0) {
@@ -222,7 +227,7 @@ int main(int argc,char *argv[]) {
 	sin.sin_addr.s_addr = INADDR_ANY;
 	sin.sin_port = htons(port);
 	if (setsockopt(listener,SOL_SOCKET,SO_REUSEADDR,
-	               SUNSUCK &one,sizeof(one)))
+	               (SETSOCKOPT_ARG_4_T) &one,sizeof(one)))
 		gale_alert(GALE_ERROR,"setsockopt",errno);
 	if (bind(listener,(struct sockaddr *)&sin,sizeof(sin))) 
 		gale_alert(GALE_ERROR,"bind",errno);

@@ -153,7 +153,7 @@ int find_id(struct auth_id *id) {
 
 		FD_ZERO(&fds);
 		FD_SET(client->socket,&fds);
-		retval = select(FD_SETSIZE,HPINT &fds,NULL,NULL,&tv);
+		retval = select(FD_SETSIZE,(SELECT_ARG_2_T) &fds,NULL,NULL,&tv);
 		if (retval < 0) {
 			gale_alert(GALE_WARNING,"select",errno);
 			break;

@@ -22,7 +22,7 @@ static void do_connect(struct gale_client *client) {
 		fd_set fds;
 		FD_ZERO(&fds);
 		connect_select(conn,&fds);
-		select(FD_SETSIZE,NULL,HPINT &fds,NULL,NULL);
+		select(FD_SETSIZE,NULL,(SELECT_ARG_2_T) &fds,NULL,NULL);
 		client->socket = select_connect(&fds,conn);
 	} while (!client->socket);
 	if (client->socket > 0 && client->subscr)

@@ -124,7 +124,7 @@ struct gale_id *verify_message(struct gale_message *in) {
 	if (dptr < dend && *dptr == '\n') ++dptr;
 
 	if (end == dend) {
-		gale_alert(GALE_WARNING,"invalid header format",0);
+		id = NULL;
 	} else if (!strncasecmp(ptr,"Signature: RSA/MD5",18)) {
 		char *sig = gale_strndup(ptr + 11,end - ptr - 11);
 		id = verify_data(sig,dptr,dend);
@@ -159,7 +159,9 @@ struct gale_id *decrypt_message(struct gale_message *in,
 	dptr = end + 1;
 	if (dptr < dend && *dptr == '\n') ++dptr;
 
-	if (!strncasecmp(ptr,"Encryption: RSA/3DES",20)) {
+	if (end == dend)
+		*out = in;
+	else if (!strncasecmp(ptr,"Encryption: RSA/3DES",20)) {
 		char *plain,*pend,*hdr = gale_strndup(ptr + 12,end - ptr - 12);
 
 		*out = NULL;
@@ -187,14 +189,6 @@ struct gale_id *decrypt_message(struct gale_message *in,
 			(*out)->data = plain.p;
 			(*out)->data_size = plain.l;
 		}
-	}
-
-	if (!*out) {
-		char *tmp = gale_malloc(strlen(in->category) + 80);
-		sprintf(tmp,"cannot decrypt message on category \"%s\"",
-		        in->category);
-		gale_alert(GALE_WARNING,tmp,0);
-		gale_free(tmp);
 	}
 
 	if (*out) addref_message(*out);

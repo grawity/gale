@@ -28,6 +28,18 @@
    byte first (like Motorola and SPARC, unlike Intel and VAX).  */
 #undef WORDS_BIGENDIAN
 
+/* BSD-based operating systems */
+#undef OS_BSD
+
+/* Hewlett-Packard HPUX */
+#undef OS_HPUX
+
+/* SGI IRIX */
+#undef OS_IRIX
+
+/* Sun Solaris */
+#undef OS_SOLARIS
+
 /* The number of bytes in a int.  */
 #undef SIZEOF_INT
 
@@ -67,6 +79,9 @@
 /* Define if you have the <rsaref.h> header file.  */
 #undef HAVE_RSAREF_H
 
+/* Define if you have the <sys/bitypes.h> header file.  */
+#undef HAVE_SYS_BITYPES_H
+
 /* Define if you have the <sys/dir.h> header file.  */
 #undef HAVE_SYS_DIR_H
 
@@ -78,6 +93,9 @@
 
 /* Define if you have the <syslog.h> header file.  */
 #undef HAVE_SYSLOG_H
+
+/* Define if you have the <term.h> header file.  */
+#undef HAVE_TERM_H
 
 /* Define if you have the <unistd.h> header file.  */
 #undef HAVE_UNISTD_H

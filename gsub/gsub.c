@@ -20,7 +20,9 @@
 
 #ifdef HAVE_LIBTERMCAP
 #include <curses.h>
+#ifdef HAVE_TERM_H
 #include <term.h>
+#endif
 #endif
 
 extern char **environ;
@@ -94,7 +96,7 @@ void tmode(char id[2]) {
 #ifdef HAVE_LIBTERMCAP
 	char *cap;
 	if (do_termcap && (cap = tgetstr(id,NULL))) 
-		tputs(cap,1,TPUTS_CAST putchar);
+		tputs(cap,1,(TPUTS_ARG_3_T) putchar);
 #else
 	(void) id;
 #endif
@@ -248,7 +250,14 @@ void present_message(struct gale_message *_msg) {
 
 	/* Decrypt, if necessary. */
 	id_encrypted = decrypt_message(_msg,&msg);
-	if (!msg) goto error;
+	if (!msg) {
+		char *tmp = gale_malloc(strlen(_msg->category) + 80);
+		sprintf(tmp,"cannot decrypt message on category \"%s\"",
+		        _msg->category);
+		gale_alert(GALE_WARNING,tmp,0);
+		gale_free(tmp);
+		goto error;
+	}
 
 	if (id_encrypted) {
 		tmp = gale_malloc(strlen(auth_id_name(id_encrypted)) + 16);
@@ -449,6 +458,9 @@ int main(int argc,char **argv) {
 
 	/* If we're actually on a TTY, we do things slightly different. */
 	if ((tty = ttyname(1))) {
+#ifdef HAVE_LIBTERMCAP
+		char buf[1024];
+#endif
 		/* Find out the terminal type. */
 		char *term = getenv("TERM");
 		/* Truncate the tty name for convenience. */
@@ -458,7 +470,7 @@ int main(int argc,char **argv) {
 		do_fork = do_kill = 1;
 #ifdef HAVE_LIBTERMCAP
 		/* Do highlighting, if available. */
-		if (term && 1 == tgetent(NULL,term)) do_termcap = 1;
+		if (term && 1 == tgetent(buf,term)) do_termcap = 1;
 #endif
 	}
 

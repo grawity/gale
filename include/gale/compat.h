@@ -3,25 +3,32 @@
 #ifndef GALE_COMPAT_H
 #define GALE_COMPAT_H
 
-#ifdef hpux
+#include "gale/config.h"
+
+#if defined(OS_HPUX)
 void syslog(int priority, const char *message, ...);
 void openlog(char *ident, int option, int facility);
 char *strerror(int);
-#define HPINT (int*)
-#else
-#define HPINT
 #endif
 
-#if defined(__sun) && defined(__SVR4)
-#define SUNSUCK (char*)
+#if defined(OS_HPUX)
+#define SELECT_ARG_2_T int *
 #else
-#define SUNSUCK
+#define SELECT_ARG_2_T fd_set *
 #endif
 
-#if defined(hpux) || (defined(__sun) && defined(__SVR4))
-#define TPUTS_CAST (int(*)(char))
+#if defined(OS_SOLARIS)
+#define SETSOCKOPT_ARG_4_T char *
 #else
-#define TPUTS_CAST
+#define SETSOCKOPT_ARG_4_T int *
+#endif
+
+#if defined(OS_HPUX) || defined(OS_SOLARIS)
+#define TPUTS_ARG_3_T int(*)(char)
+#elif defined(OS_BSD)
+#define TPUTS_ARG_3_T void(*)(int)
+#else
+#define TPUTS_ARG_3_T int(*)(int)
 #endif
 
 #endif

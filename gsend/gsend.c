@@ -209,8 +209,13 @@ int main(int argc,char *argv[]) {
 
 	/* A silly little check for a common mistake. */
 	if (ttyin && getpwnam(msg->category))
-		gale_alert(GALE_WARNING,"Category name matches username!  "
-		                        "Did you forget the \"-e\" flag?",0);
+		gale_alert(GALE_WARNING,"*** DANGER! ***\a "
+		                        "Category is a username!  "
+		                        "Did you forget \"-e\"?",0);
+	if (ttyin && strchr(msg->category,'@'))
+		gale_alert(GALE_WARNING,"*** DANGER! ***\a "
+		                        "Category contains '@'!  "
+		                        "Did you forget \"-e\"?",0);
 
 	/* Open a connection to the server; don't subscribe to anything. */
 	client = gale_open(NULL);

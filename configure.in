@@ -18,8 +18,25 @@ case "$host" in
   *-sgi-irix6*)
     LDFLAGS="-Wl,-rpath,$LPATH $LDFLAGS"
     no_wacky_libs=yes
+    AC_DEFINE(OS_IRIX)
+    ;;
+  *-hp-hpux*)
+    AC_DEFINE(OS_HPUX)
+    ;;
+  *-*-solaris2*)
+    AC_DEFINE(OS_SOLARIS)
+    ;;
+  *-*-*bsd*)
+    AC_DEFINE(OS_BSD)
     ;;
 esac
+
+if test -d "$with_rsaref" ; then
+  case "$with_rsaref" in
+    /*) ;;
+    *) with_rsaref="`pwd`/$with_rsaref"
+  esac
+fi
 
 dnl Checks for libraries.
 if test -z "$no_wacky_libs" ; then
@@ -36,6 +53,11 @@ CPPFLAGS="$save_flags"
 AC_CHECK_LIB(db,db_open,[
   LIBS="-ldb $LIBS"
   build_list="$build_list glog"
+])
+
+AC_CHECK_LIB(pq,PQsetdb,[
+  LIBS="-lpq $LIBS"
+  build_list="$build_list glsql"
 ])
 
 AC_CHECK_LIB(zephyr,ZInitialize,[
@@ -55,7 +77,7 @@ dnl Checks for header files.
 AC_HEADER_DIRENT
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(fcntl.h sys/time.h syslog.h unistd.h sys/bitypes.h)
+AC_CHECK_HEADERS(fcntl.h sys/time.h syslog.h unistd.h sys/bitypes.h term.h)
 
 if test -r "$with_rsaref/../source/rsaref.h" ; then
   CPPFLAGS="$CPPFLAGS -I$with_rsaref/../source"

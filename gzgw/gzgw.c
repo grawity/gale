@@ -295,7 +295,8 @@ int main(int argc,char *argv[]) {
 		FD_SET(ZGetFD(),&fds);
 
 		gale_dprintf(2,"waiting for incoming messages ...\n");
-		retval = select(FD_SETSIZE,HPINT &fds,NULL,NULL,NULL);
+		retval = select(FD_SETSIZE,
+		                (SELECT_ARG_2_T) &fds,NULL,NULL,NULL);
 		if (retval < 0) {
 			com_err(myname,retval,"in select()");
 			exit(1);
