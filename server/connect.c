@@ -100,7 +100,7 @@ struct connect *new_connect(
 	conn->expire = OOP_TIME_NOW;
 	add_subscr(conn->source,conn->subscr,conn);
 
-	if (getpeername(fd,&conn->peer,&len) 
+	if (getpeername(fd,(struct sockaddr *) &conn->peer,&len) 
 	|| AF_INET != conn->peer.sin_family)
 		memset(&conn->peer,0,sizeof(conn->peer));
 

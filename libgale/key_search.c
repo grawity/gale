@@ -5,6 +5,7 @@
 
 struct key_callback {
 	gale_key_call *func;
+        struct gale_key *key;
 	void *user;
 	struct key_callback *next;
 };
@@ -34,6 +35,18 @@ static const int retry_interval = 5;
 static const int refresh_flag = 0x10000000;
 
 static struct key_hook **hook_list = NULL;
+
+static void *on_call(oop_source *oop,struct timeval when,void *x) {
+        struct key_callback *call = (struct key_callback *) x;
+        void *ret = OOP_CONTINUE;
+        while (NULL != call && OOP_CONTINUE == ret) {
+                ret = call->func(oop,call->key,call->user);
+                call = call->next;
+        }
+        if (NULL != call)
+                oop->on_time(oop,when,on_call,call);
+        return ret;
+}
 
 static void wakeup(oop_source *oop,struct gale_key *key) {
 	struct gale_time now;
@@ -93,19 +106,15 @@ static void wakeup(oop_source *oop,struct gale_key *key) {
 
 	key->search->in_wakeup = 0;
 	if (!is_active) {
-		struct key_callback *call = key->search->chain;
+                oop->on_time(oop,OOP_TIME_NOW,on_call,key->search->chain);
 		key->search->chain = NULL;
-		while (NULL != call) {
-			call->func(oop,key,call->user);
-			call = call->next;
-		}
 	}
 }
 
 static void *search_chain(oop_source *oop,struct gale_key *key,void *user) {
 	struct gale_key *search = (struct gale_key *) user;
 	wakeup(oop,search);
-	return OOP_CONTINUE;
+        return OOP_CONTINUE;
 }
 
 /** Search for key data.
@@ -134,6 +143,7 @@ void gale_key_search(oop_source *source,
 
 	gale_create(callback);
 	callback->func = call;
+        callback->key = key;
 	callback->user = user;
 	callback->next = key->search->chain;
 	key->search->chain = callback;

@@ -1,14 +1,19 @@
 #!/bin/sh
 
-cd "`dirname $0`" &&
-	libtoolize --copy --force &&
-	aclocal &&
-	automake --add-missing &&
-	autoheader &&
-	autoconf &&
+run() {
+        printf '>>> %s\n' "$*"
+        "$@"
+}
 
-cd liboop &&
-	libtoolize --copy --force &&
-	aclocal &&
-	automake --add-missing &&
-	autoconf
+run cd "`dirname $0`" &&
+	run libtoolize --copy --force &&
+	run aclocal &&
+        run autoheader &&
+	run automake --add-missing &&
+	run autoconf &&
+
+run cd liboop &&
+	run libtoolize --copy --force &&
+	run aclocal &&
+	run automake --add-missing &&
+	run autoconf

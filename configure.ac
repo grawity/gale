@@ -17,7 +17,7 @@ AC_ARG_ENABLE(adns,
   *) AC_MSG_ERROR(bad value ${enableval} for --enable-adns) ;;
 esac],[use_adns=true])
 if $use_adns ; then
-  AC_DEFINE(HAVE_ADNS)
+  AC_DEFINE(HAVE_ADNS, 1, [The ADNS resolver library is available.])
 fi
 
 AC_ARG_WITH(socks,
@@ -70,16 +70,16 @@ case "$host" in
       LDFLAGS="-Wl,-rpath,$LPATH $LDFLAGS"
     fi
     no_wacky_libs=yes
-    AC_DEFINE(OS_IRIX)
+    AC_DEFINE(OS_IRIX, 1, [This is SGI IRIX.])
     ;;
   *-hp-hpux*)
-    AC_DEFINE(OS_HPUX)
+    AC_DEFINE(OS_HPUX, 1, [This is Hewlett-Packard HP-UX.])
     ;;
   *-*-solaris2*)
-    AC_DEFINE(OS_SOLARIS)
+    AC_DEFINE(OS_SOLARIS, 1, [This is Sun Solaris.])
     ;;
   *-*-*bsd*)
-    AC_DEFINE(OS_BSD)
+    AC_DEFINE(OS_BSD, 1, [This is a BSD-based operating system.])
     ;;
 esac
 
@@ -107,14 +107,14 @@ save_flags="$CFLAGS"
 CFLAGS="$error_flags $save_flags -DICONV_CONST="
 AC_TRY_RUN([#include "${srcdir}/iconvtest.c"],[
   AC_MSG_RESULT([yes, no const])
-  AC_DEFINE(HAVE_ICONV)
-  AC_DEFINE(ICONV_CONST,[])
+  AC_DEFINE(HAVE_ICONV, 1, [iconv(3) is available and functional.])
+  AC_DEFINE(ICONV_CONST, [], [The second argument to iconv(3) is const.])
 ],[
   CFLAGS="$warning_flags $save_flags -DICONV_CONST=const"
   AC_TRY_RUN([#include "${srcdir}/iconvtest.c"],[
     AC_MSG_RESULT([yes, const])
-    AC_DEFINE(HAVE_ICONV)
-    AC_DEFINE(ICONV_CONST,const)
+    AC_DEFINE(HAVE_ICONV, 1, [iconv(3) is available and functional.])
+    AC_DEFINE(ICONV_CONST, const, [The second argument to iconv(3) is const.])
   ],[
     AC_MSG_RESULT(no)
     LIBS="$libs_without_iconv"
@@ -125,15 +125,16 @@ CFLAGS="$save_flags"
 
 AC_CHECK_LIB(dl,dlopen,[
   DL_LIBS="-ldl"
-  AC_DEFINE(HAVE_LIBDL)])
+  AC_DEFINE(HAVE_LIBDL, 1, [The dynamic loader library is available.])])
 AC_CHECK_LIB(readline,readline,[
   GALE_LIBS="$GALE_LIBS -lreadline"
-  AC_DEFINE(HAVE_LIBREADLINE)],[],$termcap_lib)
+  AC_DEFINE(HAVE_LIBREADLINE, 1, [The GNU readline library is available.])],
+  [],$termcap_lib)
 
 if test x$use_socks = xtrue ; then
 AC_CHECK_LIB(socks,SOCKSinit,[
   GALE_LIBS="$GALE_LIBS -lsocks"
-  AC_DEFINE(HAVE_SOCKS) 
+  AC_DEFINE(HAVE_SOCKS, 1, [The SOCKS firewall proxy is available.]) 
 ],[
   AC_MSG_ERROR(cannot find SOCKS library)
 ])

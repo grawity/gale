@@ -70,12 +70,12 @@ void print(const struct gale_key_assertion *ass) {
 void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 	print(gale_key_public(key,gale_time_now()));
 	print(gale_key_private(key));
-	return OOP_CONTINUE;
+	return OOP_HALT;
 }
 
 void *on_location(struct gale_text name,struct gale_location *loc,void *user) {
 	oop_source *oop = (oop_source *) user;
-	if (NULL == loc) return OOP_CONTINUE;
+	if (NULL == loc) return OOP_HALT;
 
 	if (do_members) {
 		const struct gale_map * const members =
@@ -94,7 +94,7 @@ void *on_location(struct gale_text name,struct gale_location *loc,void *user) {
 		}
 
 		is_found = 1;
-		return OOP_CONTINUE;
+		return OOP_HALT;
 	}
 
 	return on_key(oop,gale_location_key(loc),NULL);
@@ -102,9 +102,9 @@ void *on_location(struct gale_text name,struct gale_location *loc,void *user) {
 
 void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 	const struct gale_data * const data = (const struct gale_data *) user;
-	if (NULL == key) return OOP_CONTINUE;
+	if (NULL == key) return OOP_HALT;
 	print(gale_key_assert(*data,gale_time_forever(),0));
-	return OOP_CONTINUE;
+	return OOP_HALT;
 }
 
 void usage(void) {
@@ -166,7 +166,7 @@ int main(int argc,char *argv[]) {
 					on_key,NULL);
 		}
 		oop_sys_run(sys);
-		oop_sys_delete(sys);
+		/* oop_sys_delete(sys); */
 	} else {
 		struct gale_key_assertion *ass;
 		struct gale_data key;
@@ -195,7 +195,7 @@ int main(int argc,char *argv[]) {
 				parent,flags,
 				on_parent,&key);
 			oop_sys_run(sys);
-			oop_sys_delete(sys);
+			/* oop_sys_delete(sys); */
 		}
 	}
 
