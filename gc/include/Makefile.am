@@ -1,6 +1,5 @@
 ## Process this file with automake to generate Makefile.in
 
-include_HEADERS = gc.h
-
-dist-hook:
-	rm $(distdir)/gc.h
+install-data-local:
+	test -f "$(srcdir)/gc.h" && \
+	$(INSTALL_DATA) "$(srcdir)/gc.h" "$(DESTDIR)$(includedir)/gc.h"

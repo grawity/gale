@@ -1,6 +1,7 @@
 #include "gale/globals.h"
 #include "gale/misc.h"
 
+#include <errno.h>
 #include <assert.h>
 #include <netinet/in.h>
 
@@ -23,10 +24,11 @@ static iconv_t get_iconv(struct gale_text to,struct gale_text from) {
 #endif
 
 struct gale_encoding *gale_make_encoding(struct gale_text name) {
-	struct gale_text ienc = (4 == sizeof(wch)) ? G_("UCS-4") : G_("UCS-2");
 	struct gale_encoding *enc = NULL;
 
 #ifdef HAVE_ICONV
+	struct gale_text ienc = (4 == sizeof(wch)) ? G_("UCS-4") : G_("UCS-2");
+
 	if (0 != name.l) {
 		gale_create(enc);
 		enc->from = get_iconv(ienc,name);
@@ -96,16 +98,21 @@ static void from_ucs(wch *ch) {
 #endif
 
 struct gale_text gale_text_from(struct gale_encoding *e,const char *p,int l) {
+#ifdef HAVE_ICONV
 	wch *buf;
 	const char *inbuf;
 	char *outbuf;
 	size_t inbytes,outbytes,ret;
 	struct gale_text out;
 	struct gale_encoding *save = gale_global->enc_console;
+#endif
 
 	if (l < 0) l = (NULL == p) ? 0 : strlen(p);
 	if (NULL == e) return gale_text_from_ascii(p,l);
 
+#ifndef HAVE_ICONV
+	assert(0);
+#else
 	gale_global->enc_console = NULL;
 	gale_create_array(buf,l);
 
@@ -141,9 +148,11 @@ struct gale_text gale_text_from(struct gale_encoding *e,const char *p,int l) {
 	while (buf - out.p < out.l) from_ucs(buf++);
 	gale_global->enc_console = save;
 	return out;
+#endif
 }
 
 char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
+#ifdef HAVE_ICONV
 	wch *copy;
 	char *buf;
 	size_t alloc;
@@ -151,9 +160,13 @@ char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
 	char *outbuf;
 	size_t inbytes,outbytes;
 	struct gale_encoding *save = gale_global->enc_console;
+#endif
 
 	if (NULL == e) return gale_text_to_ascii(t);
 
+#ifndef HAVE_ICONV
+	assert(0);
+#else
 	gale_global->enc_console = NULL;
 	gale_create_array(copy,t.l);
 	gale_create_array(buf,(alloc = t.l));
@@ -212,4 +225,5 @@ char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
 			break;
 		}
 	}
+#endif
 }
