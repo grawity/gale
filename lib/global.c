@@ -79,9 +79,9 @@ void _gale_globals(struct passwd *pwd) {
 
 	G->dot_gale = gale_var(G_("GALE_DIR"));
 	if (0 != G->dot_gale.l) 
-		make_dir(G->dot_gale,0777);
+		make_dir(G->dot_gale,0700);
 	else
-		G->dot_gale = sub_dir(G->home_dir,G_(".gale"),0777);
+		G->dot_gale = sub_dir(G->home_dir,G_(".gale"),0700);
 
 	conf = gale_var(G_("GALE_CONF"));
 	if (0 != conf.l) read_conf(dir_file(G->dot_gale,conf));

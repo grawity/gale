@@ -13,9 +13,9 @@ which requires a certain amount of finicky setup -- including setuid binaries
 
  * RSAREF
 
-   Get the RSAREF library.  You can retrieve the source from ftp.rsa.com, if 
-   you live in the US or Canada.  It you don't, you might try using a workalike
-   such as RSAEURO.
+   Get the RSAREF library.  You can retrieve the source from 
+   http://gale.org/dist/rsaref20.tar.Z if you live in the US or Canada.  
+   If you don't, you might try using a workalike such as RSAEURO.
 
    Unpack the rsaref20.tar.Z file in the "gale/rsaref" directory.  The 
    configuration and build process will automatically detect its presence, 
@@ -27,9 +27,9 @@ which requires a certain amount of finicky setup -- including setuid binaries
 
  * The Boehm conservative garbage collector
 
-   You can get this from http://reality.sgi.com/boehm/gc.html.  ** Note --
-   Linux i386/glibc requires version 4.13alpha1 or later! **  Unpack the
-   tarball in the "gale" directory; it will expand its contents into "gale/gc".
+   You can get this from http://reality.sgi.com/boehm/gc.html.  
+   ** Note -- Linux i386/glibc requires version 4.13alpha1 or later! **  
+   Unpack the tarball in the "gale" directory; it will expand into "gale/gc".
 
    You may alternatively build and install it yourself elsewhere.  If so,
    make sure you know where to find libgc.a and gc.h.
