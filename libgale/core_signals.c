@@ -80,10 +80,8 @@ void gale_daemon(oop_source *source) {
 		/* Ignore these signals, or else we'll get killed as a
 		   side effect of other terminal activity. */
 		source->on_signal(source,SIGTTOU,on_cont,NULL);
-		source->on_signal(source,SIGHUP,on_cont,NULL);
 		source->on_signal(source,SIGINT,on_cont,NULL);
 		source->on_signal(source,SIGQUIT,on_cont,NULL);
-		source->cancel_signal(source,SIGHUP,on_halt,NULL);
 		source->cancel_signal(source,SIGINT,on_halt,NULL);
 		source->cancel_signal(source,SIGQUIT,on_halt,NULL);
 		if (0 != fork()) exit(0);
@@ -108,10 +106,8 @@ void gale_detach(oop_source *source) {
 		}
 
 		/* Now that we're detached, these signals are OK again. */
-		source->cancel_signal(source,SIGHUP,on_cont,NULL);
 		source->cancel_signal(source,SIGINT,on_cont,NULL);
 		source->cancel_signal(source,SIGQUIT,on_cont,NULL);
-		source->on_signal(source,SIGHUP,on_halt,NULL);
 		source->on_signal(source,SIGINT,on_halt,NULL);
 		source->on_signal(source,SIGQUIT,on_halt,NULL);
 	}
