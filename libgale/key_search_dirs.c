@@ -28,11 +28,20 @@ static const int poll_interval = 10;
 
 static void get_file(int trust,struct dir_filename *f) {
 	if (NULL == f->state || gale_file_changed(f->state)) {
+		struct gale_key *owner = gale_key_owner(f->ass);
 		struct gale_data d = gale_read_file(
 			f->name,size_limit,!trust,&f->state);
 		gale_key_retract(f->ass,trust);
-		f->ass = (0 == d.l) ? NULL
-		       : gale_key_assert(d,gale_get_file_time(f->state),trust);
+		if (0 == d.l)
+			f->ass = NULL;
+		else {
+			f->ass = gale_key_assert(d,
+				gale_get_file_time(f->state),trust);
+			if (NULL != owner && NULL == gale_key_owner(f->ass))
+				gale_alert(GALE_WARNING,gale_text_concat(3,
+					G_("someone replaced \""),f->name,
+					G_("\" with a bad key")),0);
+		}
 	}
 }
 
