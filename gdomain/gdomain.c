@@ -2,6 +2,9 @@
 
 #include <stdlib.h>
 
+/* HACK */
+struct gale_text key_i_swizzle(struct gale_text);
+
 static oop_source *source;
 static struct gale_link *line;
 static struct gale_text subscriptions;
@@ -33,29 +36,18 @@ static void *on_response(struct gale_packet *pk,void *x) {
 	return OOP_CONTINUE;
 }
 
-static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
-	struct gale_key *key = (struct gale_key *) x;
-	const struct gale_key_assertion *pub = 
+static struct gale_group response(struct gale_key *key) {
+	const struct gale_key_assertion * const pub = 
 		gale_key_public(key,gale_time_now());
+	struct gale_group data = gale_group_empty();
 	struct gale_fragment frag;
-	struct gale_message *msg;
 
-	gale_create(msg);
-	gale_create_array(msg->to,2);
-	msg->to[0] = loc;
-	msg->to[1] = NULL;
-
-	gale_create_array(msg->from,2);
-	msg->from[0] = domain_location;
-	msg->from[1] = NULL;
-
-	msg->data = gale_group_empty();
 	if (NULL != pub) {
 		frag.name = G_("answer/key");
 		frag.type = frag_data;
 		frag.value.data = gale_key_raw(pub);
 	} else if (NULL == domain_location) 
-		return OOP_CONTINUE;
+		return data;
 	else {
 		frag.name = G_("answer/key/error");
 		frag.type = frag_text;
@@ -66,7 +58,25 @@ static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
 			G_("\""));
 	}
 
-	gale_group_add(&msg->data,frag);
+	gale_group_add(&data,frag);
+	return data;
+}
+
+static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
+	struct gale_key *key = (struct gale_key *) x;
+	struct gale_message *msg;
+
+	gale_create(msg);
+	gale_create_array(msg->to,2);
+	msg->to[0] = loc;
+	msg->to[1] = NULL;
+
+	gale_create_array(msg->from,2);
+	msg->from[0] = domain_location;
+	msg->from[1] = NULL;
+	msg->data = response(key);
+
+	if (gale_group_null(msg->data)) return OOP_CONTINUE;
 	gale_pack_message(source,msg,on_response,NULL);
 	return OOP_CONTINUE;
 }
@@ -78,17 +88,52 @@ static void *on_key(oop_source *oop,struct gale_key *key,void *x) {
 	return OOP_CONTINUE;
 }
 
+static void *on_old_key(oop_source *oop,struct gale_key *key,void *x) {
+	struct gale_packet *pk;
+	const struct gale_group data = response(key);
+	const struct gale_text name = key_i_swizzle(gale_key_name(key));
+	struct gale_text local = null_text,domain = null_text;
+
+	if (!gale_text_token(name,'@',&local)) return OOP_CONTINUE;
+
+	domain = local;
+	if (!gale_text_token(name,'@',&domain)) return OOP_CONTINUE;
+
+	gale_create(pk);
+	pk->routing = gale_text_concat(5,G_("@"),
+		gale_text_replace(domain,G_(":"),G_("..")),
+		G_("/auth/key/"),
+		gale_text_replace(local,G_(":"),G_("..")),G_("/"));
+
+	pk->content.p = gale_malloc(gale_group_size(data));
+	pk->content.l = 0;
+	gale_pack_group(&pk->content,data);
+	return on_response(pk,x);
+}
+
 static void *on_message(struct gale_message *msg,void *x) {
 	struct gale_fragment frag;
+	if (NULL == msg) return OOP_CONTINUE;
 	if (gale_group_lookup(msg->data,G_("question.key"),frag_text,&frag))
 		gale_key_search(source,
 			gale_key_handle(frag.value.text),
 			search_all & ~search_private & ~search_slow,
 			on_key,x);
+	else
+	if (gale_group_lookup(msg->data,G_("question/key"),frag_text,&frag))
+		gale_key_search(source,
+			gale_key_handle(key_i_swizzle(frag.value.text)),
+			search_all & ~search_private & ~search_slow,
+			on_old_key,x);
 	return OOP_CONTINUE;
 }
 
 static void *on_request(struct gale_link *link,struct gale_packet *pk,void *x) {
+	/* HACK */
+	pk->routing = gale_text_concat(4,
+		G_("@"),gale_var(G_("GALE_DOMAIN")),
+		G_("/user/_gale/auth/:"),
+		pk->routing);
 	gale_unpack_message(source,pk,on_message,x);
 	return OOP_CONTINUE;
 }
@@ -121,7 +166,9 @@ static void *on_query_location(
 	struct gale_location *loc,void *x) 
 {
 	struct gale_location *list[2] = { loc, NULL };
-	subscriptions = gale_pack_subscriptions(list,NULL);
+	subscriptions = gale_text_concat(4,
+		gale_pack_subscriptions(list,NULL),
+		G_(":@"),gale_var(G_("GALE_DOMAIN")),G_("/auth/query/"));
 	link_subscribe(line,subscriptions);
 	return OOP_CONTINUE;
 }
