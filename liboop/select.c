@@ -98,12 +98,12 @@ void oop_select_set(
 		}
 
 		if (xfd_set && !w_xfd_set) {
-			s->source->on_fd(s->source,fd,OOP_EXCEPT,on_fd,s);
+			s->source->on_fd(s->source,fd,OOP_EXCEPTION,on_fd,s);
 			FD_SET(fd,&s->watch.xfd);
 		}
 
 		if (!xfd_set && w_xfd_set) {
-			s->source->cancel_fd(s->source,fd,OOP_EXCEPT);
+			s->source->cancel_fd(s->source,fd,OOP_EXCEPTION);
 			FD_CLR(fd,&s->watch.xfd);
 		}
 	}
@@ -155,7 +155,7 @@ static void *on_fd(oop_source *source,int fd,oop_event event,void *data) {
 		assert(FD_ISSET(fd,&s->watch.wfd));
 		set_fd(fd,&s->active.wfd,&s->num_fd_active);
 		break;
-	case OOP_EXCEPT:
+	case OOP_EXCEPTION:
 		assert(FD_ISSET(fd,&s->watch.xfd));
 		set_fd(fd,&s->active.xfd,&s->num_fd_active);
 		break;

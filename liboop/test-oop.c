@@ -167,7 +167,7 @@ static void add_readline(oop_source *src) {
 #include "adns.h"
 #include "oop-adns.h"
 
-#define ADNS_CANCEL
+#undef ADNS_CANCEL
 #define NUM_Q 6
 oop_adns_query *q[NUM_Q];
 oop_adapter_adns *adns;
@@ -443,7 +443,8 @@ int main(int argc,char *argv[]) {
 	int i;
 
 	if (argc < 3) usage();
-	puts("test-oop: use ^\\ (SIGQUIT) for clean shutdown");
+	puts("test-oop: use ^\\ (SIGQUIT) for clean shutdown or "
+	     "^C (SIGINT) to stop abruptly.");
 	source = create_source(argv[1]);
 	source->on_signal(source,SIGQUIT,stop_loop,NULL);
 	for (i = 2; i < argc; ++i)

@@ -19,7 +19,7 @@ typedef struct oop_source oop_source;
 typedef enum {
 	OOP_READ,
 	OOP_WRITE,
-	OOP_EXCEPT,
+	OOP_EXCEPTION,
 
 	OOP_NUM_EVENTS
 } oop_event;
