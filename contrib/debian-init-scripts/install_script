@@ -1,0 +1,77 @@
+#!/bin/sh
+# This script installs boot-time scripts (intended for a debian
+# system) which start up and shutdown the gale daemons.
+
+prog=`basename "$0"`
+
+usage() {
+    cat <<EOF
+usage: $prog {install|force-install|purge}
+EOF
+    exit 1
+}
+
+fatal_error() {
+    echo "Error: $@" 2>&1
+    exit 1
+}
+
+run() {
+    echo "--> $@"
+    "$@"
+}
+
+install=
+#remove=
+purge=
+force=
+case "$1" in
+    install)
+	install=1
+	;;
+    force-install)
+	install=1
+	force=1
+	;;
+#    remove)
+#	remove=1
+#	;;
+    purge)
+	purge=1
+	;;
+    *)
+	usage
+	;;
+esac
+
+[ -z "$install" -a -z "$purge" ] && \
+    fatal_error "Must specify a command. (try \"help\")"
+
+script="/etc/init.d/gale"
+def="/etc/default/gale"
+
+if [ -n "$install" ]; then
+    [ -f "$script" -a -z "$force" ] \
+	&& fatal_error "$script already exists.  Use force-install."
+
+    [ -f "$def" -a -z "$force" ] \
+	&& fatal_error "$def already exists.  Use force-install."
+
+    set -e
+
+    run cp gale_init_script "$script"
+    run cp gale_defaults "$def"
+    run update-rc.d gale defaults
+elif [ -n "$purge" ]; then
+    set -e
+
+    if [ -f "$script" ]; then
+	run rm -f "$script"
+    fi
+
+    run update-rc.d gale remove
+
+    if [ -f "$def" ]; then
+	run rm -f "$def"
+    fi
+fi

@@ -1,0 +1,13 @@
+# This file can, when copied to /etc/default/gale, control how
+# /etc/init.d/gale starts up the gale system.  Uncomment and edit any
+# line to make changes.
+
+# Controls if galed is started on boot.
+#RUN_GALED=true
+
+# Controls if gdomain is started on boot.
+#RUN_GDOMAIN=true
+
+# Set to the user who should run the gale daemons.
+#GALE_USER=gale
+

@@ -1,0 +1,16 @@
+debian-init-scripts
+-------------------
+
+These files contain scripts intended to allow a debian system to start
+and stop the gale daemons (galed and gdomain) on boot and shutdown.
+Also included is a script to install the scripts using debian tools.
+
+You can install the scripts by running "./install-script install" as
+root.  This will install the init script in /etc/init.d, register it
+with the system, and place the defaults file in /etc/default.  You can
+modify /etc/default/gale to configure which daemons get started and
+under which user id.
+
+If you installed to a non-default PREFIX (ie. not /usr/local) then you
+will need to edit the init script (gale_init_script or
+/etc/init.d/gale after installation) to change the PREFIX variable.

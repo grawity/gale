@@ -1,0 +1,129 @@
+#! /bin/sh
+#
+# gale		Start the gale instant messaging system daemons.
+#
+#		Written by Miquel van Smoorenburg <miquels@cistron.nl>.
+#		Modified for Debian GNU/Linux
+#		by Ian Murdock <imurdock@gnu.ai.mit.edu>.
+#		Modified from /etc/init.d/skeleton for gale by Chris
+#		Sloan <cds-gale@ofb.net>.
+#
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Change this is you have installed gale elsewhere.
+PREFIX=/usr/local
+
+# The name of the script.
+NAME=gale
+
+# The defaults file which configures the behavior of this script.
+# Make changes there in preference to here.
+DEFAULTS="/etc/default/$NAME"
+
+# Information about galed.
+GALED="$PREFIX/bin/galed"
+GALED_NAME=galed
+
+# Information about gdomain.
+GDOMAIN="$PREFIX/bin/gdomain"
+GDOMAIN_NAME=gdomain
+
+# The configuration file (created by gale-install).
+CONF="$PREFIX/etc/gale/conf"
+
+# A description of the service printed to the user.
+DESC="Gale instant messaging system"
+
+# Check that the executables are installed and that the configuration
+# file has been created.
+test -x "$GALED" || exit 0
+test -x "$GDOMAIN" || exit 0
+test -r "$CONF" || exit 0
+
+# Read the configuration defaults from a file.
+test -r "$DEFAULTS" && . "$DEFAULTS"
+
+#set -e
+
+# Set any unset configuration variables.
+: "${RUN_GALED:=true}"
+: "${RUN_GDOMAIN:=true}"
+: "${GALE_USER:=gale}"
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC:"
+
+	if [ "$RUN_GALED" = true ]; then
+	    echo -n " $GALED_NAME"
+	    #start-stop-daemon --start --quiet --chuid "$GALE_USER" \
+		#--exec "$GALED"
+	    su - gale -c "$GALED"
+	fi
+
+	if [ "$RUN_GDOMAIN" = true ]; then
+	    echo -n " $GDOMAIN_NAME"
+	    #start-stop-daemon --start --quiet --chuid "$GALE_USER" \
+		#--exec "$GDOMAIN"
+	    su - gale -c "$GDOMAIN"
+	fi
+
+	echo "."
+	;;
+  stop)
+	echo -n "Stopping $DESC:"
+
+	if [ "$RUN_GALED" = true ]; then
+	    echo -n " $GALED_NAME"
+	    start-stop-daemon --stop --quiet --user "$GALE_USER" \
+		--exec "$GALED" || echo -n "...failed"
+	fi
+
+	if [ "$RUN_GDOMAIN" = true ]; then
+	    echo -n " $GDOMAIN_NAME"
+	    start-stop-daemon --stop --quiet --user "$GALE_USER" \
+		--exec "$GDOMAIN" || echo -n "...failed"
+	fi
+
+	echo "."
+	;;
+  restart|force-reload)
+	echo -n "Restarting $DESC:"
+
+	if [ "$RUN_GDOMAIN" = true ]; then
+	    echo -n " $GDOMAIN_NAME"
+	    start-stop-daemon --stop --quiet --user "$GALE_USER" \
+		--exec "$GDOMAIN" || echo -n "...failed"
+	fi
+
+	if [ "$RUN_GALED" = true ]; then
+	    echo -n " $GALED_NAME"
+	    start-stop-daemon --stop --quiet --user "$GALE_USER" \
+		--exec "$GALED" || echo -n "...failed"
+	fi
+
+	sleep 1
+
+	if [ "$RUN_GALED" = true ]; then
+	    #start-stop-daemon --start --quiet --chuid "$GALE_USER" \
+		#--exec "$GALED"
+	    su - gale -c "$GALED"
+	fi
+
+	if [ "$RUN_GDOMAIN" = true ]; then
+	    #start-stop-daemon --start --quiet --chuid "$GALE_USER" \
+		#--exec "$GDOMAIN"
+	    su - gale -c "$GDOMAIN"
+	fi
+
+	echo "."
+	;;
+  *)
+	N="/etc/init.d/$NAME"
+	echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
