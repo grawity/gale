@@ -569,6 +569,8 @@ int gale_write_file(
 
 int gale_erase_file(const struct gale_file_state *state);
 int gale_file_changed(const struct gale_file_state *since);
+struct gale_time gale_get_file_time(const struct gale_file_state *state);
+void gale_set_file_time(struct gale_file_state *state,struct gale_time);
 
 /*@}*/
 
