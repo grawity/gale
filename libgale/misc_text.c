@@ -208,7 +208,7 @@ struct gale_text gale_text_replace(
 
 	if (0 == find.l) return original; /* yuck */
 
-	for (i = 0; i + find.l < original.l; ++i) {
+	for (i = 0; i + find.l <= original.l; ++i) {
 		for (j = 0; j < find.l; ++j)
 			if (original.p[i + j] != find.p[j]) 
 				break;
