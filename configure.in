@@ -36,6 +36,11 @@ AC_PROG_YACC
 PROG_LDCONFIG=:
 
 test yes = "$GCC" && CFLAGS="-Wall $CFLAGS"
+test NONE != "$exec_prefix" && LDFLAGS="$LDFLAGS -L${exec_prefix}/lib"
+if test NONE != "$prefix" ; then
+	CPPFLAGS="$CPPFLAGS -I${prefix}/include"
+	test NONE = "$exec_prefix" && LDFLAGS="$LDFLAGS -L${prefix}/lib"
+fi
 
 dnl System type checks.
 case "$host" in
