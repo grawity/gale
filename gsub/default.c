@@ -7,35 +7,57 @@
 #include <ctype.h>
 #include <stdlib.h> /* TODO */
 
-/* Print a user ID, with a default string (like "everyone") for NULL. */
-static void print_id(struct gale_text id,struct gale_text dfl) {
-	struct gale_text tok = null_text;
-	int first = 1;
+/* Print a string, shell-quoting any special characters. */
+static void print_string(int style,struct gale_text string) {
+	int i;
+	for (i = 0; i < string.l; ++i)
+		if (string.p[i] > 128 
+		|| (!isalnum(string.p[i])
+		&&  '.' != string.p[i]
+		&&  ',' != string.p[i]
+		&&  '-' != string.p[i]
+		&&  '_' != string.p[i]
+		&&  '/' != string.p[i]
+		&&  '@' != string.p[i])) break;
+	if (i < string.l) gale_print(stdout,0,G_("\""));
+	gale_print(stdout,style,string);
+	if (i < string.l) gale_print(stdout,0,G_("\""));
+}
 
-	if (0 == id.l) {
+/* Print a user ID, with a default string (like "everyone") for NULL. */
+static void print_id(struct gale_text var,struct gale_text dfl) {
+	struct gale_text value = gale_var(var);
+	int i = 1;
+
+	if (0 == value.l) {
 		gale_print(stdout,0,G_(" *"));
 		gale_print(stdout,gale_print_bold,dfl);
 		gale_print(stdout,0,G_("*"));
 		return;
 	}
 
-	while (gale_text_token(id,',',&tok)) {
+	do {
                 int at;
-		if (first) first = 0; else gale_print(stdout,0,G_(","));
-		gale_print(stdout,0,G_(" <"));
-                for (at = 0; at < tok.l && '@' != tok.p[at]; ++at) ;
-		gale_print(stdout,gale_print_bold,gale_text_left(tok,at));
-		gale_print(stdout,0,gale_text_right(tok,-at));
-		gale_print(stdout,0,G_(">"));
-	}
+		gale_print(stdout,0,G_(" "));
+                for (at = 0; at < value.l && '@' != value.p[at]; ++at) ;
+		print_string(gale_print_bold,gale_text_left(value,at));
+		print_string(0,gale_text_right(value,-at));
+
+		value = gale_var(gale_text_concat(3,var,G_("_"),
+			gale_text_from_number(++i,10,0)));
+	} while (0 != value.l);
 }
 
-static int id_width(struct gale_text id,struct gale_text dfl) {
-	struct gale_text tok = null_text;
-	int len = 0;
-	if (0 == id.l) return 3 + dfl.l;
-	while (gale_text_token(id,',',&tok))
-		if (0 == len) len += 3 + tok.l; else len += 4 + tok.l;
+static int id_width(struct gale_text var,struct gale_text dfl) {
+	struct gale_text value = gale_var(var);
+	int i = 1,len = 0;
+	if (0 == value.l) return 3 + dfl.l;
+
+	do {
+		len += 1 + value.l;
+		value = gale_var(gale_text_concat(3,var,G_("_"),
+			gale_text_from_number(++i,10,0)));
+	} while (0 != value.l);
 	return len;
 }
 
@@ -49,8 +71,7 @@ void default_gsubrc(void) {
 	struct gale_text presence = gale_var(G_("GALE_TEXT_NOTICE_PRESENCE"));
 	struct gale_text answer = gale_var(G_("GALE_TEXT_ANSWER_RECEIPT"));
 	struct gale_text from_name = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
-	struct gale_text subject = gale_var(G_("GALE_TEXT_MESSAGE_SUBJECT"));
-	int len,buflen,bufloaded = 0,termwid = gale_columns(stdout);
+	int i,len,buflen,bufloaded = 0,termwid = gale_columns(stdout);
 
 	if (termwid < 2) termwid = 80; /* Don't crash */
 
@@ -82,15 +103,10 @@ void default_gsubrc(void) {
 		if (answer.l) gale_print(stdout,0,G_(" received:"));
 		if (presence.l) {
 			gale_print(stdout,0,G_(" "));
-			gale_print(stdout,0,presence);
-		}
-		if (subject.l) {
-			gale_print(stdout,0,G_(" \""));
-			gale_print(stdout,0,subject);
-			gale_print(stdout,0,G_("\""));
+			print_string(0,presence);
 		}
 
-		print_id(gale_var(G_("GALE_FROM")),G_("unverified"));
+		print_id(G_("GALE_FROM"),G_("unverified"));
 		if (from_name.l) {
 			gale_print(stdout,0,G_(" ("));
 			gale_print(stdout,0,from_name);
@@ -109,26 +125,29 @@ void default_gsubrc(void) {
 
 	/* Print the header */
 
-	gale_print(stdout,0,G_("To"));
+	gale_print(stdout,0,G_("To:"));
+	print_id(G_("GALE_TO"),G_("unknown"));
 	text = gale_var(G_("GALE_TEXT_MESSAGE_RECIPIENT"));
 	if (text.l) {
-		gale_print(stdout,0,G_(" "));
+		gale_print(stdout,0,G_(" ("));
 		gale_print(stdout,0,text);
+		gale_print(stdout,0,G_(")"));
 	}
 
-	print_id(gale_var(G_("GALE_TO")),G_("unknown"));
-
-	if (subject.l) {
-		gale_print(stdout,0,G_(" re \""));
-		gale_print(stdout,gale_print_bold,subject);
-		gale_print(stdout,0,G_("\""));
+	i = 1;
+	text = gale_var(G_("GALE_TEXT_MESSAGE_KEYWORD"));
+	while (text.l) {
+		gale_print(stdout,0,G_(" /"));
+		print_string(gale_print_bold,text);
+		text = gale_var(gale_text_concat(2,
+			G_("GALE_TEXT_MESSAGE_KEYWORD_"),
+			gale_text_from_number(++i,10,0)));
 	}
 
-	if (gale_var(G_("GALE_TEXT_QUESTION_RECEIPT")).l) {
+	if (gale_var(G_("GALE_TEXT_QUESTION_RECEIPT")).l)
 		gale_print(stdout,gale_print_clobber_right,G_(" [rcpt]"));
-	}
 
-	gale_print(stdout,gale_print_clobber_right,G_(":\n"));
+	gale_print(stdout,gale_print_clobber_right,G_("\n"));
 
 	/* Print the message body. */
 	buflen = termwid; /* can't be longer than this */
@@ -284,24 +303,25 @@ void default_gsubrc(void) {
 
 	/* Print the signature information. */
 	{
-		struct gale_text from_id = gale_var(G_("GALE_FROM"));
 		struct gale_text from_name = 
 			gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
 		int len = 0;
 
 		if (0 == from_name.l)
-			len += id_width(from_id,G_("anonymous"));
+			len += id_width(G_("GALE_FROM"),G_("anonymous"));
 		else
-			len += id_width(from_id,G_("unverified")) + from_name.l + 1;
-		while (len++ < termwid - 24) gale_print(stdout,0,G_(" "));
+			len += id_width(G_("GALE_FROM"),G_("unverified")) 
+			    +  from_name.l + 3;
 
+		while (len++ < termwid - 24) gale_print(stdout,0,G_(" "));
 		gale_print(stdout,0,G_("--"));
 		if (0 == from_name.l)
-			print_id(from_id,G_("anonymous"));
+			print_id(G_("GALE_FROM"),G_("anonymous"));
 		else {
-			gale_print(stdout,0,G_(" "));
+			print_id(G_("GALE_FROM"),G_("unverified"));
+			gale_print(stdout,0,G_(" ("));
 			gale_print(stdout,0,from_name);
-			print_id(from_id,G_("unverified"));
+			gale_print(stdout,0,G_(")"));
 		}
 
 		gale_print(stdout,0,G_(" at "));

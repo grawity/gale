@@ -171,17 +171,16 @@ static void send_message(char *body,char *end,int fd) {
 	}
 }
 
-/* Create a comma-separated list of locations. */
-static struct gale_text comma_list(struct gale_location **loc) {
-	struct gale_text list = null_text;
-	if (NULL != loc && NULL != *loc) {
-		list = gale_location_name(*loc);
-		while (NULL != *++loc)
-			list = gale_text_concat(3,
-				list,G_(","),
-				gale_location_name(*loc));
+/* Define a set of environment variables. */
+static void set_list(struct gale_text base,struct gale_location **loc) {
+	int i;
+	for (i = 0; NULL != loc && NULL != loc[i]; ++i) {
+		struct gale_text name = base;
+		if (i > 0) name = gale_text_concat(3,
+			base,G_("_"),
+			gale_text_from_number(1 + i,10,0));
+		gale_set(name,gale_location_name(loc[i]));
 	}
-	return list;
 }
 
 static void *on_receipt(struct gale_text n,struct gale_location *to,void *x) {
@@ -273,15 +272,15 @@ static void *on_message(struct gale_message *msg,void *data) {
 	}
 
 	/* Set some variables for gsubrc. */
-	gale_set(G_("GALE_FROM"),comma_list(msg->from));
-	gale_set(G_("GALE_SENDER"),comma_list(msg->from));
-	gale_set(G_("GALE_TO"),comma_list(msg->to));
+	set_list(G_("GALE_FROM"),msg->from);
+	set_list(G_("GALE_SENDER"),msg->from);
+	set_list(G_("GALE_TO"),msg->to);
 
 	/* Go through the message fragments. */
 	group = msg->data;
 	while (!gale_group_null(group)) {
 		struct gale_fragment frag = gale_group_first(group);
-		struct gale_text name;
+		struct gale_text base,name,value;
 		wch *buf;
 		int i;
 
@@ -296,8 +295,10 @@ static void *on_message(struct gale_message *msg,void *data) {
 
 		/* Save the message body for later. */
 		if (frag.type == frag_text
-		&&  !gale_text_compare(frag.name,G_("message/body")))
+		&&  !gale_text_compare(frag.name,G_("message/body"))) {
 			body = frag.value.text;
+			continue;
+		}
 
 		/* Form the name used for environment variables. */
 		gale_create_array(buf,frag.name.l);
@@ -306,33 +307,53 @@ static void *on_message(struct gale_message *msg,void *data) {
 				buf[i] = toupper(frag.name.p[i]);
 			else
 				buf[i] = '_';
-		name.p = buf;
-		name.l = frag.name.l;
+		base.p = buf;
+		base.l = frag.name.l;
 
 		/* Create environment variables. */
-		if (frag_text == frag.type
-		&&  gale_text_compare(frag.name,G_("message/body")))
-			gale_set(gale_text_concat(2,G_("GALE_TEXT_"),name),
-			         frag.value.text);
+		switch (frag.type) {
+		case frag_text:
+			base = gale_text_concat(2,G_("GALE_TEXT_"),base);
+			value = frag.value.text;
+			break;
 
-		if (frag_time == frag.type) {
-			char buf[30];
-			struct timeval tv;
-			time_t when;
-			gale_time_to(&tv,frag.value.time);
-			when = tv.tv_sec;
-			strftime(buf,30,"%Y-%m-%d %H:%M:%S",localtime(&when));
-			gale_set(gale_text_concat(2,G_("GALE_TIME_"),name),
-			         gale_text_from(NULL,buf,-1));
+		case frag_time:
+			base = gale_text_concat(2,G_("GALE_TIME_"),base);
+			{
+				char buf[30];
+				struct timeval tv;
+				time_t when;
+				gale_time_to(&tv,frag.value.time);
+				when = tv.tv_sec;
+				strftime(buf,30,
+					"%Y-%m-%d %H:%M:%S",
+					localtime(&when));
+				value = gale_text_from(NULL,buf,-1);
+			}
+			break;
+
+		case frag_number:
+			base = gale_text_concat(2,G_("GALE_NUMBER_"),base);
+			value = gale_text_from_number(frag.value.number,10,0);
+			break;
+
+		case frag_data:
+			base = gale_text_concat(2,G_("GALE_DATA_"),base);
+			value = G_("(stuff)");
+			break;
+
+		default:
+			gale_alert(GALE_WARNING,G_("invalid fragment!"),0);
+			continue;
 		}
 
-		if (frag_number == frag.type)
-			gale_set(gale_text_concat(2,G_("GALE_NUMBER_"),name),
-				gale_text_from_number(frag.value.number,10,0));
+		i = 1;
+		name = base;
+		while (gale_var(name).l > 0)
+			name = gale_text_concat(3,base,G_("_"),
+				gale_text_from_number(++i,10,0));
 
-		if (frag_data == frag.type)
-			gale_set(gale_text_concat(2,G_("GALE_DATA_"),name),
-				G_("(stuff)"));
+		gale_set(name,value);
 	}
 
 	/* Convert the message body to local format. */
@@ -516,7 +537,13 @@ static void *on_complete() {
 			gale_text_from_number(getpid(),10,0)),0);
 
 	if (tty) {
-		gale_kill(gale_text_from(gale_global->enc_filesys,tty,-1),do_kill);
+		const struct gale_text terminal =
+			gale_text_from(gale_global->enc_filesys,tty,-1);
+		if (do_verbose)
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
+				G_("killing any other gsub on \""),
+				terminal,G_("\"")),0);
+		gale_kill(terminal,do_kill);
 		gale_watch_tty(source,1);
 	}
 
