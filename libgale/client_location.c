@@ -13,7 +13,7 @@ struct find {
 	void *user;
 	struct gale_map *map;
 	struct gale_time now;
-	int count,flags;
+	int count,flags,is_found;
 };
 
 static gale_key_call on_key;
@@ -23,7 +23,7 @@ static void find_key(oop_source *oop,struct find *find) {
 	int i;
 	++(find->count);
 	for (i = find->loc->at_part - 1; i >= 0; i -= 2) {
-		if (0 != find->count) ++(find->count);
+		++(find->count);
 		gale_key_search(oop,
 			gale_key_handle(gale_text_concat(3,
 				gale_text_concat_array(i,find->loc->parts),
@@ -46,7 +46,7 @@ static void follow_key(oop_source *oop,const struct find *find) {
 	struct gale_text name = gale_key_name(find->loc->key);
 	struct gale_data name_data = gale_text_as_data(name);
 
-	assert(NULL != find->func && 0 == find->count);
+	assert(NULL != find->func && find->is_found);
 
 	if (!gale_group_lookup(
 		gale_key_data(gale_key_public(find->loc->key,find->now)),
@@ -63,6 +63,8 @@ static void follow_key(oop_source *oop,const struct find *find) {
 
 	gale_create(next);
 	*next = *find;
+	next->count = 0;
+	next->is_found = 0;
 
 	if (NULL == next->map) next->map = gale_make_map(0);
 	gale_map_add(next->map,name_data,find->loc->key);
@@ -127,13 +129,20 @@ static void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 			find->loc->key = key;
 		}
 
-		if (find->loc->key == key && 0 != find->count) {
-			find->count = 0;
+		if (find->loc->key == key && !find->is_found) {
+			find->is_found = 1;
 			follow_key(oop,find);
+			if ((find->flags | search_slow) != find->flags) {
+				find->flags |= search_slow;
+				++(find->count);
+				gale_key_search(oop,
+					key,find->flags,
+					on_key,find);
+			}
 		}
 	}
 
-	if (0 == find->count || 0 != --(find->count))
+	if (0 != --(find->count) || find->is_found)
 		return OOP_CONTINUE;
 
 	if ((find->flags | search_slow) != find->flags) {
@@ -142,6 +151,7 @@ static void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 		return OOP_CONTINUE;
 	}
 
+	find->is_found = 1;
 	return find->func(gale_location_name(find->loc),NULL,find->user);
 }
 
@@ -166,6 +176,7 @@ void gale_find_exact_location(oop_source *oop,
 	find->flags = search_all & ~search_slow; /* ~search_private? */
 	find->now = gale_time_now();
 	find->count = 0;
+	find->is_found = 0;
 
 	if (NULL == gale_key_public(find->loc->key,find->now)) 
 		find->loc->key = NULL;
