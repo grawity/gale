@@ -167,20 +167,25 @@ static void sig_cancel_signal(oop_source *source,int sig,
 	}
 }
 
+static int fcntl_flag(int fd, int get_op, int set_op, int val) {
+	const int flags = fcntl(fd,get_op,0);
+	if (flags < 0) return -1;
+	return fcntl(fd,set_op,flags|val);
+}
+
 oop_adapter_signal *oop_signal_new(oop_source *source) {
 	int i;
 	oop_adapter_signal * const s = oop_malloc(sizeof(*s));
 	if (NULL == s) return NULL;
 	assert(NULL != source);
-	if (pipe(s->pipefd)) {
+	if (pipe(s->pipefd)
+	||  fcntl_flag(s->pipefd[0],F_GETFD,F_SETFD,FD_CLOEXEC)
+	||  fcntl_flag(s->pipefd[1],F_GETFD,F_SETFD,FD_CLOEXEC)
+	||  fcntl_flag(s->pipefd[0],F_GETFL,F_SETFL,O_NONBLOCK)
+	||  fcntl_flag(s->pipefd[1],F_GETFL,F_SETFL,O_NONBLOCK)) {
 		oop_free(s);
 		return NULL;
 	}
-
-        fcntl(s->pipefd[0],F_SETFD,FD_CLOEXEC);
-        fcntl(s->pipefd[1],F_SETFD,FD_CLOEXEC);
-        fcntl(s->pipefd[0],F_SETFL,O_NONBLOCK);
-        fcntl(s->pipefd[1],F_SETFL,O_NONBLOCK);
 
 	s->oop.on_fd = sig_on_fd;
 	s->oop.cancel_fd = sig_cancel_fd;
