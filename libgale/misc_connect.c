@@ -87,7 +87,7 @@ static void check_done(struct gale_connect *conn) {
 }
 
 static void del_address(struct gale_connect *conn,int i) {
-	gale_dprintf(6,"(connect) removing address %s\n",
+	gale_dprintf(6,"(connect %p) removing address %s\n", conn,
 	             inet_ntoa(conn->addresses[i]->sin.sin_addr),
 	             ntohs(conn->addresses[i]->sin.sin_port));
 	conn->source->cancel_fd(conn->source,
@@ -151,13 +151,10 @@ static void add_address(
 	if (0 != conn->avoid_local_port && conn->found_local
 	&&  ntohl(sin.sin_addr.s_addr) 
 	>=  ntohl(conn->least_local.s_addr)) {
-		gale_dprintf(5,"(connect) ignoring sucker address %s\n",
-		             inet_ntoa(sin.sin_addr));
+		gale_dprintf(5,"(connect %p) ignoring sucker address %s\n",
+		             conn, inet_ntoa(sin.sin_addr));
 		return;
 	}
-
-	gale_dprintf(5,"(connect) connecting to %s:%d\n",
-	             inet_ntoa(sin.sin_addr),ntohs(sin.sin_port));
 
 	gale_create(addr);
 	addr->sin = sin;
@@ -169,8 +166,8 @@ static void add_address(
 	if (conn->avoid_local_port == ntohs(sin.sin_port)
 	&&  is_local(addr->sock,&sin.sin_addr))
 	{
-		gale_dprintf(5,"(connect) address %s is local, skipping\n",
-		             inet_ntoa(sin.sin_addr));
+		gale_dprintf(5,"(connect %p) address %s is local, skipping\n",
+		             conn, inet_ntoa(sin.sin_addr));
 
 		if (!conn->found_local
 		||  ntohl(sin.sin_addr.s_addr) 
@@ -183,7 +180,7 @@ static void add_address(
 			while (i < conn->num_address)
 			    if (ntohl(conn->addresses[i]->sin.sin_addr.s_addr)
 			    >=  ntohl(sin.sin_addr.s_addr)) {
-				gale_dprintf(5,"(connect) killing sucker address %s\n", inet_ntoa(conn->addresses[i]->sin.sin_addr));
+				gale_dprintf(5,"(connect %p) killing sucker address %s\n", conn, inet_ntoa(conn->addresses[i]->sin.sin_addr));
 				close(conn->addresses[i]->sock);
 				del_address(conn,i);
 			    } else
@@ -194,6 +191,8 @@ static void add_address(
 		return;
 	}
 
+	gale_dprintf(5,"(connect %p) connecting to %s:%d\n", conn,
+	             inet_ntoa(sin.sin_addr),ntohs(sin.sin_port));
 	if (fcntl(addr->sock,F_SETFL,O_NONBLOCK)) {
 		close(addr->sock);
 		return;
@@ -202,8 +201,8 @@ static void add_address(
 	while (CONNECT_F(addr->sock,(struct sockaddr *) &sin,sizeof(sin))) {
 		if (errno == EINPROGRESS) break;
 		if (errno != EINTR) {
-			gale_dprintf(5,"(connect) error connecting to %s: %s\n",
-				     inet_ntoa(sin.sin_addr),strerror(errno));
+			gale_dprintf(5,"(connect %p) error connecting to %s: %s\n",
+				     conn,inet_ntoa(sin.sin_addr),strerror(errno));
 			close(addr->sock);
 			return;
 		}
@@ -227,8 +226,8 @@ static void add_name(struct gale_connect *conn,struct gale_text name,int port) {
 	int i;
 #endif
 
-	gale_dprintf(4,"(connect) looking for \"%s\"\n",
-	             gale_text_to(gale_global->enc_console,name));
+	gale_dprintf(4,"(connect %p) looking for \"%s\"\n",
+	             conn, gale_text_to(gale_global->enc_console,name));
 
 #ifdef HAVE_ADNS
 	if (conn->alloc_resolve == conn->num_resolve) {
@@ -352,8 +351,8 @@ static void *on_write(oop_source *src,int fd,oop_event event,void *user) {
 	   &&  EINTR == errno);
 
 	if (EISCONN != errno && 0 != errno) {
-		gale_dprintf(4,"(connect) connection to %s:%d failed: %s\n",
-		             inet_ntoa(conn->addresses[i]->sin.sin_addr),
+		gale_dprintf(4,"(connect %p) connection to %s:%d failed: %s\n",
+		             conn, inet_ntoa(conn->addresses[i]->sin.sin_addr),
 		             ntohs(conn->addresses[i]->sin.sin_port),
 		             strerror(errno));
 		close(fd);
@@ -366,8 +365,8 @@ static void *on_write(oop_source *src,int fd,oop_event event,void *user) {
 		struct gale_text name = conn->addresses[i]->name;
 		struct sockaddr_in addr = conn->addresses[i]->sin;
 
-		gale_dprintf(4,"(connect) established connection to %s:%d\n",
-		             inet_ntoa(addr.sin_addr),ntohs(addr.sin_port));
+		gale_dprintf(4,"(connect %p) established connection to %s:%d\n",
+		             conn,inet_ntoa(addr.sin_addr),ntohs(addr.sin_port));
 
 		del_address(conn,i);
 		gale_abort_connect(conn);

@@ -1,7 +1,5 @@
 ## Process this file with automake to generate Makefile.in
 
-INCLUDES += -I$(top_srcdir)/lib
-
 bin_PROGRAMS = gkinfo gkgen
 sbin_PROGRAMS = gksign
 
