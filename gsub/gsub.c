@@ -464,7 +464,7 @@ static void *on_complete() {
 			if (sub_positive[i]
 			&& !gale_location_receive_ok(sub_location[i]))
 				gale_alert(GALE_WARNING,gale_text_concat(3,
-					G_("no private key for \""),
+					G_("unauthorized location \""),
 					gale_location_name(sub_location[i]),
 					G_("\"")),0);
 
@@ -525,12 +525,12 @@ static void *on_static_loc(struct gale_text n,struct gale_location *l,void *x) {
 
 	if (NULL == l)
 		gale_alert(GALE_WARNING,gale_text_concat(3,
-			G_("could not find \""),n,G_("\"")),0);
+			G_("invalid location \""),n,G_("\"")),0);
 
 	if (target == &user_location) {
 		lookup_count += 3;
 		gale_find_exact_location(source,gale_text_concat(2,
-			G_("_notice."),gale_location_name(l)),
+			G_("_gale.notice."),gale_location_name(l)),
 			on_static_loc,&notice_location);
 		gale_find_exact_location(source,gale_text_concat(2,
 			G_("_gale.key."),gale_location_name(l)),
