@@ -4,26 +4,14 @@ AUTOMAKE_OPTIONS = foreign 1.2
 bin_SCRIPTS = gale-config gale-install
 EXTRA_DIST = gale.spec iconvtest.c acconfig.h bootstrap Doxyfile
 
-if BUILD_GC
-gc_dir = gc
-else
-gc_dir =
-endif
-
-if BUILD_GLXML
-glxml_dir = glxml
-else
-glxml_dir =
-endif
-
 if BUILD_LIBOOP
 liboop_dir = liboop
 else
 liboop_dir =
 endif
 
-SUBDIRS = ${gc_dir} ${liboop_dir} \
-	libgale server gsend gsub kutils gdomain ${glxml_dir} include
+SUBDIRS = ${liboop_dir} \
+	libgale server gsend gsub kutils gdomain include
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \
