@@ -7,12 +7,12 @@
 #include <time.h>
 #include <pwd.h>
 
-#include "gale/all.h"
-
 #if defined(HAVE_READLINE_READLINE_H) && defined(HAVE_LIBREADLINE)
 #define HAVE_READLINE 1
 #include "readline/readline.h"
 #endif
+
+#include "gale/all.h"
 
 void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }

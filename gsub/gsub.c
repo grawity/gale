@@ -10,7 +10,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -574,8 +573,10 @@ void add_subs(struct gale_text *subs,struct gale_text add) {
 	struct gale_text n;
 	if (add.p == NULL) return;
 	n = new_gale_text(subs->l + add.l + 1);
-	gale_text_append(&n,*subs);
-	gale_text_append(&n,_G(":"));
+	if (subs->l) {
+		gale_text_append(&n,*subs);
+		gale_text_append(&n,_G(":"));
+	}
 	gale_text_append(&n,add);
 	free_gale_text(*subs);
 	*subs = n;

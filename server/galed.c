@@ -116,23 +116,6 @@ static void loop(void) {
 		if (0 <= old_listener && FD_ISSET(old_listener,&rfd))
 			incoming(old_listener,1);
 
-		aprev = NULL; att = try;
-		while (att != NULL) {
-			int fd = select_attach(att,&wfd,&now);
-			if (fd == -1) {
-				aprev = att;
-				att = att->next;
-				continue;
-			}
-			add_connect(fd,0);
-			list->retry = att;
-			link_subscribe(list->link,att->subs);
-			subscribe_connect(list,att->subs);
-			if (aprev)
-				att = aprev->next = att->next;
-			else
-				att = try = att->next;
-		}
 		prev = NULL; ptr = list;
 		while (ptr != NULL)
 			if (post_select(ptr,&rfd,&wfd)) {
@@ -156,6 +139,25 @@ static void loop(void) {
 				prev = ptr;
 				ptr = ptr->next;
 			}
+
+		aprev = NULL; att = try;
+		while (att != NULL) {
+			int fd = select_attach(att,&wfd,&now);
+			if (fd == -1) {
+				aprev = att;
+				att = att->next;
+				continue;
+			}
+			add_connect(fd,0);
+			list->retry = att;
+			link_subscribe(list->link,att->subs);
+			subscribe_connect(list,att->subs);
+			if (aprev)
+				att = aprev->next = att->next;
+			else
+				att = try = att->next;
+		}
+
 	}
 }
 
@@ -171,14 +173,14 @@ static void add_links(void) {
 		gale_alert(GALE_WARNING,"extra connections in GALE_LINKS ignored",0);
 	}
 
-	at = strrchr(val,'@');
+	at = strrchr(str,'@');
 	att = new_attach();
 	if (at) {
-		att->subs = gale_text_from_local(val,at - val);
+		att->subs = gale_text_from_local(str,at - str);
 		att->server = gale_strdup(at + 1);
 	} else {
 		att->subs = gale_text_from_local("",-1);
-		att->server = gale_strdup(val);
+		att->server = gale_strdup(str);
 	}
 	att->next = try;
 	try = att;
