@@ -235,7 +235,7 @@ void copt(char *s) {
 }
 
 int main(int argc,char *argv[]) {
-	char *server;
+	char *server = NULL;
 	int retval,opt;
 	fd_set fds;
 
