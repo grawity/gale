@@ -28,6 +28,10 @@ static fd_set read_set,write_set,except_set;
 static int count;
 static void *ret = NULL;
 
+#if GLIB_MAJOR_VERSION >= 2
+static GPollFunc save_poll_func = NULL;
+#endif
+
 static void *on_select(
 	oop_adapter_select *s,int num,fd_set *r,fd_set *w,fd_set *x,
 	struct timeval now,void *unused) 
@@ -92,6 +96,7 @@ oop_source *oop_glib_new(void) {
 	sel = oop_select_new(oop_sys_source(sys),on_select,NULL);
 
 #if GLIB_MAJOR_VERSION >= 2
+	save_poll_func = g_main_context_get_poll_func(g_main_context_default());
         g_main_context_set_poll_func(g_main_context_default(), on_poll);
 #else
         g_main_set_poll_func(on_poll);
@@ -110,17 +115,22 @@ static gint real_poll(GPollFD *array,guint num,gint timeout) {
 	assert(sizeof(GPollFD) == sizeof(struct pollfd));
 	return poll((struct pollfd *) array,num,timeout);
 }
+#endif
 
 void oop_glib_delete(void) {
 	assert(use_count > 0 && "oop_glib_delete() called too much");
 	if (0 != --use_count) return;
 
+#if GLIB_MAJOR_VERSION >= 2
+	g_main_context_set_poll_func(g_main_context_default(), save_poll_func);
+#elif defined(HAVE_POLL_H)
+	g_main_set_poll_func(real_poll);
+#else
+	return;
+#endif
+
 	oop_select_delete(sel);
 	oop_sys_delete(sys);
-	g_main_set_poll_func(real_poll);
 }
-#else
-void oop_glib_delete(void) { /* sigh */ }
-#endif
 
 #endif
