@@ -237,7 +237,6 @@ static void usage(void) {
 int main(int argc,char *argv[]) {
 	struct oop_source_sys *sys;		/* Event loop */
 	int arg;				/* Command line flags */
-	struct gale_text subject = null_text;   /* Message subject */
 	struct gale_fragment frag;
 
 	/* Initialize the gale libraries. */
@@ -263,7 +262,7 @@ int main(int argc,char *argv[]) {
 	case 's': 
 		frag.name = G_("message/subject");
 		frag.type = frag_text;
-		frag.value.text = subject;
+		frag.value.text = str;
 		gale_group_add(&msg->data,frag);
 		break;
 
