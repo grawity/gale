@@ -83,6 +83,7 @@ static void *on_will(struct gale_packet *packet,void *user) {
 /* Generate a trivial little message with the given category.  Used for
    return receipts, login/logout notifications, and such. */
 static void slip(
+	struct gale_location *from,
 	struct gale_location *to,
 	struct gale_fragment *extra,
 	gale_call_packet *func,void *user) 
@@ -94,13 +95,13 @@ static void slip(
 	gale_create(msg);
 	msg->data = gale_group_empty();
 
+	gale_create_array(msg->from,2);
+	msg->from[0] = from;
+	msg->from[1] = NULL;
+
 	gale_create_array(msg->to,2);
 	msg->to[0] = to;
 	msg->to[1] = NULL;
-
-	gale_create_array(msg->from,2);
-	msg->from[0] = user_location;
-	msg->from[1] = NULL;
 
 	frag.name = G_("message/sender");
 	frag.type = frag_text;
@@ -124,7 +125,7 @@ static void notify(int in,struct gale_text presence) {
 		frag.name = G_("notice/presence");
 		frag.type = frag_text;
 		frag.value.text = presence;
-		slip(notice_location,&frag,in ? on_put : on_will,NULL);
+		slip(user_location,notice_location,&frag,in ? on_put : on_will,NULL);
 		if (do_verbose && in)
 			gale_alert(GALE_NOTICE,gale_text_concat(3,
 				G_("reporting presence \""),presence,G_("\"")),0);
@@ -189,7 +190,7 @@ static void *on_receipt(struct gale_text n,struct gale_location *to,void *x) {
 		reply.name = G_("answer.receipt");
 		reply.type = frag_text;
 		reply.value.text = gale_location_name(user_location);
-		slip(to,&reply,on_put,NULL);
+		slip(user_location,to,&reply,on_put,NULL);
 		if (do_verbose)
 			gale_alert(GALE_NOTICE,gale_text_concat(3,
 				G_("sending receipt to \""),
@@ -280,7 +281,7 @@ static void *on_message(struct gale_message *msg,void *data) {
 			frag.value.data = gale_key_raw(gale_key_public(
 				gale_location_key(user_location),
 				gale_time_now()));
-			slip(key_location,&frag,on_put,NULL);
+			slip(NULL,key_location,&frag,on_put,NULL);
 			if (do_verbose) gale_alert(GALE_NOTICE,
 				gale_text_concat(3,
 				G_("answering key request for \""),

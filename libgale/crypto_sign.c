@@ -28,6 +28,10 @@ int gale_crypto_sign(int key_count,
 	gale_create_array(source,key_count);
 	for (i = 0; i < key_count; ++i) {
 		struct gale_fragment frag;
+		if (gale_group_null(keys[i])) {
+			gale_alert(GALE_WARNING,G_("cannot sign without private key"),0);
+			return 0;
+		}
 		if (!gale_group_lookup(keys[i],G_("key.id"),frag_text,&frag)) {
 			gale_alert(GALE_WARNING,G_("key with no name"),0);
 			return 0;
