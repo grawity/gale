@@ -140,7 +140,7 @@ void send_message(char *body,char *end,int fd) {
 
 void present_message(struct gale_message *msg) {
 	int pfd[2];
-	char *next,**envp = NULL,*key,*data,*end,*decrypt = NULL;
+	char *next,**envp = NULL,*key,*data,*end,*tmp,*decrypt = NULL;
 	char *id_encrypted = NULL,*id_signed = NULL;
 	int envp_global,envp_alloc,envp_len,first = 1;
 	pid_t pid;
@@ -159,8 +159,6 @@ void present_message(struct gale_message *msg) {
 	next = msg->data;
 	end = msg->data + msg->data_size;
 	while (parse_header(&next,&key,&data,end)) {
-		char *tmp;
-
 		if (first) {
 			if (!decrypt && !strcasecmp(key,"Encryption")) {
 				decrypt = gale_malloc(end - next
@@ -218,10 +216,10 @@ void present_message(struct gale_message *msg) {
 	}
 
 	if (gflag) {
-		end = msg->category;
-		while ((end = strstr(end,"/ping"))) {
-			end += 5;
-			if (!*end || *end == ':') goto error;
+		tmp = msg->category;
+		while ((tmp = strstr(tmp,"/ping"))) {
+			tmp += 5;
+			if (!*tmp || *tmp == ':') goto error;
 		}
 	}
 
