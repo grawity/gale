@@ -54,6 +54,7 @@ extern struct gale_global_data {
 	struct gale_wt *cache_tree;
 	struct gale_cleanup *cleanup_list;
 	struct gale_errors *error;
+	struct in_addr *local_addrs; /* terminated by 0 */
 } *gale_global;
 
 #endif

@@ -9,6 +9,9 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <assert.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
 #include "oop.h"
 #include "gale/all.h"
@@ -30,6 +33,7 @@ static int find_id(struct auth_id *id) {
 
 static void init_vars(struct passwd *pwd) {
 	struct utsname un;
+	struct hostent *host;
 
 	if (!getenv("GALE_DOMAIN"))
 		gale_alert(GALE_ERROR,"GALE_DOMAIN not set",0);
@@ -38,6 +42,24 @@ static void init_vars(struct passwd *pwd) {
 
 	if (!gale_var(G_("HOST")).l)
 		gale_set(G_("HOST"),gale_text_from_local(un.nodename,-1));
+
+	host = gethostbyname(un.nodename);
+	if (NULL == host) {
+		gale_create(gale_global->local_addrs);
+		gale_global->local_addrs->s_addr = 0;
+	} else {
+		int num;
+		assert(AF_INET == host->h_addrtype);
+		assert(sizeof(gale_global->local_addrs[0]) == host->h_length);
+		for (num = 0; NULL != host->h_addr_list[num]; ++num) ;
+		gale_create_array(gale_global->local_addrs,1 + num);
+		for (num = 0; NULL != host->h_addr_list[num]; ++num)
+			memcpy(
+				&gale_global->local_addrs[num],
+				host->h_addr_list[num],
+				host->h_length);
+		gale_global->local_addrs[num].s_addr = 0;
+	}
 
 	if (!gale_var(G_("LOGNAME")).l)
 		gale_set(G_("LOGNAME"),gale_text_from_local(pwd->pw_name,-1));

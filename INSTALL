@@ -9,7 +9,7 @@ getting them in the right places.  The exception is the authentication system,
 which requires a certain amount of finicky setup -- including setuid binaries 
 -- to do its job correctly and securely.
 
-1. Make sure you have a couple libraries Gale depends on:
+1. Make sure you have some libraries Gale depends on:
 
  * RSAREF
 
@@ -43,6 +43,12 @@ which requires a certain amount of finicky setup -- including setuid binaries
 
    ** Make sure to use a version newer than 0.4! **
    Versions 0.4 and older have fatal bugs.
+
+ * GNU Autoconf
+
+   Actually, you don't need this.  Also, it's not a library.  But if you do 
+   have it, make sure you have version 2.13 or newer, or your old version will
+   mess up the build process!
 
 2. Prepare to run the provided "configure" script.  The typical "configure" 
    options (--prefix etc.) apply; run "sh configure --help" for usage 

@@ -12,8 +12,7 @@
 
 #include "gale/misc.h"
 #include "gale/compat.h"
-
-/* #undef HAVE_ADNS */ /* buggy for now! */
+#include "gale/globals.h"
 
 #ifdef HAVE_ADNS
 #include "adns.h"
@@ -73,7 +72,7 @@ static void *on_abort(oop_source *s,struct timeval tv,void *x) {
 	struct sockaddr_in addr;
 	gale_abort_connect(conn);
 	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = INADDR_NONE;
+	addr.sin_addr.s_addr = 0;
 	addr.sin_port = 0;
 	return conn->call(-1,null_text,addr,conn->found_local,conn->data);
 }
@@ -92,6 +91,20 @@ static void del_address(struct gale_connect *conn,int i) {
 	                        conn->addresses[i]->sock,OOP_WRITE);
 	conn->addresses[i] = conn->addresses[--(conn->num_address)];
 	check_done(conn);
+}
+
+static int is_local(int sock,struct in_addr *addr) {
+	struct sockaddr_in sin;
+	int i;
+	sin.sin_family = AF_INET;
+	sin.sin_addr = *addr;
+	sin.sin_port = 0;
+	if (0 == bind(sock,(struct sockaddr *) &sin,sizeof(sin))) 
+		return 1;
+	for (i = 0; 0 != gale_global->local_addrs[i].s_addr; ++i)
+		if (gale_global->local_addrs[i].s_addr == addr->s_addr)
+			return 1;
+	return 0;
 }
 
 static void add_address(
@@ -121,9 +134,8 @@ static void add_address(
 	addr->sock = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
 	if (addr->sock < 0) return;
 
-	sin.sin_port = 0;
-	if (conn->avoid_local_port == ntohs(addr->sin.sin_port)
-	&& 0 == bind(addr->sock,(struct sockaddr *) &sin,sizeof(sin)))
+	if (conn->avoid_local_port == ntohs(sin.sin_port)
+	&& is_local(addr->sock,&sin.sin_addr))
 	{
 		gale_dprintf(5,"(connect) address %s is local, skipping\n",
 		             inet_ntoa(sin.sin_addr));
@@ -152,7 +164,6 @@ static void add_address(
 		return;
 	}
 
-	sin.sin_port = addr->sin.sin_port;
 	while (CONNECT_F(addr->sock,(struct sockaddr *) &sin,sizeof(sin))) {
 		if (errno == EINPROGRESS) break;
 		if (errno != EINTR) {
