@@ -1,0 +1,14 @@
+#!/bin/sh
+
+cd "`dirname $0`" &&
+	libtoolize --copy --force &&
+	aclocal &&
+	automake --add-missing &&
+	autoheader &&
+	autoconf &&
+
+cd liboop &&
+	libtoolize --copy --force &&
+	aclocal &&
+	automake --add-missing &&
+	autoconf
