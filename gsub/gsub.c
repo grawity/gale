@@ -70,7 +70,7 @@ int do_verbose = 0;			/* Report everything? */
 int sequence = 0;
 
 /* Queue used to serialize message formatting. */
-struct queue { struct gale_message *msg; struct queue *next; } *queue = NULL;
+struct gsub_queue { struct gale_message *msg; struct gsub_queue *next; } *queue = NULL;
 int is_queueing = 0;
 
 /* Send a message once it's all packed. */
@@ -435,7 +435,7 @@ static void *show_message(struct gale_message *msg) {
 }
 
 static void *on_message(struct gale_message *msg,void *x) {
-	struct queue *entry;
+	struct gsub_queue *entry;
 	gale_create(entry);
 	entry->msg = msg;
 
