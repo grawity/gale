@@ -53,5 +53,4 @@ void gale_warn(char *s,int err) {
 		syslog(LOG_WARNING,"warning: %s\n",s);
 		gale_dprintf(0,"warning: %s\n",s);
 	}
-	exit(1);
 }
