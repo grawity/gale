@@ -226,6 +226,7 @@ static void *on_message(struct gale_message *msg,void *data) {
 	/* Lots of crap.  Discussed below, where they're used. */
 	struct gale_environ *save = gale_save_environ();
 	struct gale_group group;
+	struct gale_fragment f;
 	struct gale_text body = null_text;
 	int status = 0;
 	char *szbody = NULL;
@@ -244,6 +245,32 @@ static void *on_message(struct gale_message *msg,void *data) {
 		gale_restart();
 	}
 #endif
+
+	/* Handle AKD requests for us. */
+	if (do_keys 
+	&&  NULL != key_location
+	&&  NULL != user_location
+	&&  gale_group_lookup(group,G_("question.key"),frag_text,&f)
+	&& !gale_text_compare(f.value.text,gale_location_name(user_location))) {
+		f.name = G_("answer.key");
+		f.type = frag_data;
+		f.value.data = gale_key_raw(gale_key_public(
+			gale_location_key(user_location),
+			gale_time_now()));
+		slip(NULL,key_location,&f,on_put,NULL);
+		if (do_verbose) gale_alert(GALE_NOTICE,gale_text_concat(3,
+			G_("answering key request for \""),
+			gale_location_name(user_location),
+			G_("\"")),0);
+	} else 
+	if (do_verbose
+	&& (gale_group_lookup(group,G_("question.key"),frag_text,&f)
+	||  gale_group_lookup(group,G_("question/key"),frag_text,&f))) {
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("ignoring key request for \""),
+			f.value.text,
+			G_("\"")),0);
+	}
 
 	/* Set some variables for gsubrc. */
 	gale_set(G_("GALE_FROM"),comma_list(msg->from));
@@ -266,41 +293,6 @@ static void *on_message(struct gale_message *msg,void *data) {
 			gale_find_exact_location(source,
 				frag.value.text,
 				on_receipt,NULL);
-
-		/* Handle AKD requests for us. */
-		if (do_keys 
-		&&  NULL != key_location
-		&&  NULL != user_location
-		&&  frag.type == frag_text
-		&& !gale_text_compare(frag.name,G_("question.key"))
-		&& !gale_text_compare(frag.value.text,
-		                      gale_location_name(user_location))) {
-			struct gale_fragment frag;
-			frag.name = G_("answer.key");
-			frag.type = frag_data;
-			frag.value.data = gale_key_raw(gale_key_public(
-				gale_location_key(user_location),
-				gale_time_now()));
-			slip(NULL,key_location,&frag,on_put,NULL);
-			if (do_verbose) gale_alert(GALE_NOTICE,
-				gale_text_concat(3,
-				G_("answering key request for \""),
-				gale_location_name(user_location),
-				G_("\"")),0);
-			goto done;
-		}
-
-		/* Ignore any other AKD requests. */
-		if (frag.type == frag_text
-		&& (!gale_text_compare(frag.name,G_("question.key"))
-		||  !gale_text_compare(frag.name,G_("question/key")))) {
-			if (do_verbose) gale_alert(GALE_NOTICE,
-				gale_text_concat(3,
-				G_("ignoring key request for \""),
-				frag.value.text,
-				G_("\"")),0);
-			goto done;
-		}
 
 		/* Save the message body for later. */
 		if (frag.type == frag_text

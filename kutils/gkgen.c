@@ -59,6 +59,14 @@ static void *on_generate(oop_source *oop,struct gale_key *key,void *user) {
 		gale_key_search(
 			oop,key,search_all & ~search_slow,
 			on_ignore,NULL);
+	else {
+		if (0 == priv_file.l)
+			gale_alert(GALE_WARNING,
+				G_("*discarding* private key!"),0);
+		if (0 == pub_file.l)
+			gale_alert(GALE_WARNING,
+				G_("*discarding* public key!"),0);
+	}
 
 	return OOP_CONTINUE;
 }

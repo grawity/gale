@@ -2,7 +2,7 @@
 
 AUTOMAKE_OPTIONS = foreign 1.2
 bin_SCRIPTS = gale-config gale-install
-EXTRA_DIST = gale.spec iconvtest.c prepare acconfig.h
+EXTRA_DIST = gale.spec iconvtest.c acconfig.h autogen.sh Doxyfile
 
 if BUILD_GC
 gc_dir = gc
@@ -33,9 +33,6 @@ release: dist
 	ln -sf $(PACKAGE)-$(VERSION).tar.gz ../gdist/$(PACKAGE).tar.gz ; \
 	ln -sf $(PACKAGE)-$(VERSION).tar.bz2 ../gdist/$(PACKAGE).tar.bz2 ; fi
 	@echo '** NOW TAG THE CVS REPOSITORY! **'
-
-dist-hook:
-	test ! -f $(srcdir)/lib/.deps/alloc.P
 
 install-data-local:
 	mkdir -p "$(DESTDIR)$(sysconfdir)/gale/auth/trusted"

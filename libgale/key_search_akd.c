@@ -165,14 +165,14 @@ static void *on_query_location(
 	cache->query_message->data = gale_group_empty();
 
 	frag.type = frag_text;
-	frag.name = G_("question/key");
-	frag.value.text = gale_text_concat(3,
-		cache->local,G_("@"),cache->domain);
+	frag.name = G_("question.key");
+	frag.value.text = gale_key_name(cache->key);
 	gale_group_add(&cache->query_message->data,frag);
 
 	frag.type = frag_text;
-	frag.name = G_("question.key");
-	frag.value.text = gale_key_name(cache->key);
+	frag.name = G_("question/key");
+	frag.value.text = gale_text_concat(3,
+		cache->local,G_("@"),cache->domain);
 	gale_group_add(&cache->query_message->data,frag);
 
 	gale_create_array(cache->query_message->to,2);

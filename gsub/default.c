@@ -70,6 +70,9 @@ void default_gsubrc(void) {
 		return;
 	}
 
+	if (0 != (text = gale_var(G_("GALE_TEXT_QUESTION_KEY"))).l)
+		return; /* ignore AKD request */
+
 	/* Format return receipts and presence notices specially */
 	if (0 != answer.l || 0 != presence.l) {
 		gale_print(stdout,

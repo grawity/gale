@@ -80,16 +80,17 @@ static void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 			gale_alert(GALE_WARNING,G_("couldn't write key"),errno);
 		} else {
 			struct gale_data newbits;
-			struct gale_key_assertion *ass;
-
 			close(in);
 			newbits = gale_read_from(out,0);
 			close(out);
 
-			ass = gale_key_assert(newbits,gen->now,1);
-			if (ass == gale_key_public(gen->key,gen->now)
-			&&  gale_key_owner(gale_key_signed(ass)) == key)
-				return finish(oop,gen,0);
+			if (newbits.l > 0) {
+				struct gale_key_assertion *ass;
+				ass = gale_key_assert(newbits,gen->now,1);
+				if (ass == gale_key_public(gen->key,gen->now)
+				&&  gale_key_owner(gale_key_signed(ass)) == key)
+					return finish(oop,gen,0);
+			}
 		}
 	}
 
