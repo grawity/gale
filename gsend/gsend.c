@@ -14,6 +14,7 @@ struct gale_location *user = NULL;	/* The local user. */
 oop_source *oop;			/* Event source. */
 int lookup_count = 1;			/* Outstanding lookup requests. */
 int do_rrcpt = 0,do_identify = 1;       /* Various flags. */
+int do_body = 1;
 int from_count = 0,to_count = 0;
 
 /* Print a list of names. */
@@ -85,9 +86,6 @@ static void *on_pack(struct gale_packet *pack,void *user) {
 
 /* Get ready to send the message */
 static void prepare_message() {
-	struct gale_text_accumulator body;
-	struct gale_text line;
-	struct gale_fragment frag;
 	const int ttyin = isatty(0);	  		/* Input options */
 	const int from_specified = (0 != from_count);
 
@@ -104,68 +102,74 @@ static void prepare_message() {
 	if (NULL == msg->to[0])
 		gale_alert(GALE_ERROR,G_("No valid recipients."),0);
 
-	/* If stdin is a TTY, prompt the user. */
-	if (ttyin) {
-		struct gale_group tail;
+        if (do_body) {
+	        struct gale_text_accumulator body;
+	        struct gale_fragment frag;
+	        struct gale_text l;
 
-		if (from_specified || !do_identify) {
-			gale_print(stdout,0,G_("From:"));
-			if (NULL == msg->from || NULL == msg->from[0]) {
-				gale_print(stdout,0,G_(" *"));
-				gale_print(stdout,gale_print_bold,G_("anonymous"));
-				gale_print(stdout,0,G_("*"));
-			} else
-				print_list(msg->from);
-			gale_print(stdout,0,G_("\n"));
-		}
+	        /* If stdin is a TTY, prompt the user. */
+        	if (ttyin) {
+        		struct gale_group tail;
 
-		gale_print(stdout,0,G_("To:"));
-		print_list(msg->to);
-		gale_print(stdout,0,G_("\n"));
+        		if (from_specified || !do_identify) {
+        			gale_print(stdout,0,G_("From:"));
+        			if (NULL == msg->from || NULL == msg->from[0]) {
+        				gale_print(stdout,0,G_(" *"));
+        				gale_print(stdout,gale_print_bold,G_("anonymous"));
+        				gale_print(stdout,0,G_("*"));
+        			} else
+        				print_list(msg->from);
+        			gale_print(stdout,0,G_("\n"));
+        		}
 
-		tail = gale_group_find(
-			msg->data,
-			G_("message.keyword"),frag_text);
+        		gale_print(stdout,0,G_("To:"));
+        		print_list(msg->to);
+        		gale_print(stdout,0,G_("\n"));
 
-		if (!gale_group_null(tail)) {
-			gale_print(stdout,0,G_("Keywords:"));
-			do {
-				const struct gale_fragment frag = 
-					gale_group_first(tail);
-				gale_print(stdout,0,G_(" /"));
-				gale_print(stdout,gale_print_bold,frag.value.text);
-				tail = gale_group_find(
-					gale_group_rest(tail),
-					G_("message.keyword"),frag_text);
-			} while (!gale_group_null(tail));
-			gale_print(stdout,0,G_("\n"));
-		}
+        		tail = gale_group_find(
+        			msg->data,
+        			G_("message.keyword"),frag_text);
 
-		gale_print(stdout,0,G_("(End your message with EOF or a solitary dot.)\n"));
-	}
+        		if (!gale_group_null(tail)) {
+        			gale_print(stdout,0,G_("Keywords:"));
+        			do {
+        				const struct gale_fragment frag = 
+        					gale_group_first(tail);
+        				gale_print(stdout,0,G_(" /"));
+        				gale_print(stdout,gale_print_bold,frag.value.text);
+        				tail = gale_group_find(
+        					gale_group_rest(tail),
+        					G_("message.keyword"),frag_text);
+        			} while (!gale_group_null(tail));
+        			gale_print(stdout,0,G_("\n"));
+        		}
 
-	/* Get the message. */
-	body = null_accumulator;
-	while ((line = gale_read_line(stdin)).l > 0) {
-		if (!gale_text_compare(gale_text_right(line,1),G_("\n")))
-			line = gale_text_left(line,-1);
-		if (!gale_text_compare(gale_text_right(line,1),G_("\r")))
-			line = gale_text_left(line,-1);
+        		gale_print(stdout,0,G_("(End your message with EOF or a solitary dot.)\n"));
+        	}
 
-		/* Check for a solitary dot if input comes from a TTY. */
-		if (ttyin && !gale_text_compare(line,G_("."))) break;
+	        /* Get the message. */
+                body = null_accumulator;
+	        while ((l = gale_read_line(stdin)).l > 0) {
+		        if (!gale_text_compare(gale_text_right(l,1),G_("\n")))
+			        l = gale_text_left(l,-1);
+		        if (!gale_text_compare(gale_text_right(l,1),G_("\r")))
+			        l = gale_text_left(l,-1);
+        
+		        /* Check for a solitary dot if input comes from a TTY. */
+		        if (ttyin && !gale_text_compare(l,G_("."))) break;
+        
+		        gale_text_accumulate(&body,l);
+		        gale_text_accumulate(&body,G_("\r\n"));
+	        }
 
-		gale_text_accumulate(&body,line);
-		gale_text_accumulate(&body,G_("\r\n"));
-	}
+	        /* To avoid sending a partial message if the user logs out. */
+	        if (ttyin && !isatty(0)) return;
 
-	/* To avoid sending a partial message if the user logs out. */
-	if (ttyin && !isatty(0)) return;
-
-	frag.name = G_("message/body");
-	frag.type = frag_text;
-	frag.value.text = gale_text_collect(&body);
-	gale_group_add(&msg->data,frag);
+        	frag.name = G_("message/body");
+        	frag.type = frag_text;
+        	frag.value.text = gale_text_collect(&body);
+        	gale_group_add(&msg->data,frag);
+        }
 
 	if (do_identify) {
 		/* Add the default fragments to the message. */
@@ -202,9 +206,10 @@ static void find_location(struct gale_text name,struct gale_location **ptr) {
 static void usage(void) {
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-hap] [-f address] [-t nm=val] address [address ...] [/keyword]\n"
+		"usage: gsend [-habp] [-f address] [-t nm=val] address [address ...] [/keyword]\n"
 		"flags: -h          Display this message\n"
 		"       -a          Send message anonymously\n"
+                "       -b          Do not include a message body\n"
 		"       -p          Always request a return receipt\n"
 		"       -f address  Send message from a specific <address> (multiple ok)\n"
 		"       -t nm=val   Include text fragment 'nm' set to 'val' (multiple ok)\n"
@@ -244,13 +249,14 @@ int main(int argc,char *argv[]) {
 		msg->to[arg] = msg->from[arg] = NULL;
 
 	/* Parse command line options. */
-	while ((arg = getopt(argc,argv,"Ddhat:pf:")) != EOF) {
+	while ((arg = getopt(argc,argv,"Ddhabt:pf:")) != EOF) {
 		struct gale_text str = (NULL == optarg) ? null_text :
 			gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (arg) {
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
 	case 'a': do_identify = 0; break;	/* Anonymous */
+        case 'b': do_body = 0; break;
 
 	case 'f': 
 		find_location(str,&msg->from[from_count++]);
