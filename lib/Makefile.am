@@ -3,7 +3,7 @@
 lib_LTLIBRARIES = libgale.la
 
 # version:revision:age
-# as of 0.90c: has a new revision
+# needs a new revision for >0.90c
 libgale_la_LDFLAGS = -version-info 6:1:0
 
 libgale_la_SOURCES = \

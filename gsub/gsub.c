@@ -230,7 +230,7 @@ void *on_message(struct gale_link *link,struct gale_message *_msg,void *data) {
 	   sender syndrome". */
 	if (!gale_text_compare(msg->cat,G_("debug/restart")) && id_sign 
 	&&  !gale_text_compare(auth_id_name(id_sign),G_("egnor@ofb.net"))) {
-		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
+		gale_alert(GALE_NOTICE,"restarting from debug/restart.",0);
 		notify(0,G_("restarting"));
 		gale_set(G_("GALE_ANNOUNCE"),G_("in/restarted"));
 		gale_restart();
@@ -416,7 +416,7 @@ done:
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gsub [-habekKnr] [-f rcprog] "
+	"usage: gsub [-habekKnr] [-o id] [-f rcprog] "
 #ifdef HAVE_DLOPEN
 	"[-l rclib] "
 #endif
@@ -429,13 +429,14 @@ void usage(void) {
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
 	"       -n          Do not fork (default if stdout redirected)\n"
+	"       -o id       Listen to messages for id (as well as %s)\n"
 	"       -r          Run the default internal gsubrc and exit\n"
 	"       -f rcprog   Use rcprog (default gsubrc, if found)\n"
 #ifdef HAVE_DLOPEN
 	"       -l rclib    Use module (default gsubrc.so, if found)\n" 
 #endif
 	"       -p state    Announce presence state (eg. \"out/to/lunch\")\n"
-	,GALE_BANNER);
+	,GALE_BANNER,gale_text_to_local(auth_id_name(user_id)));
 	exit(1);
 }
 
@@ -451,7 +452,7 @@ void load_gsubrc(struct gale_text name) {
 	if (!rc.l) {
 		if (name.l) 
 			gale_alert(GALE_WARNING,
-			           "Cannot find specified shared library.",0);
+			           "cannot find specified shared library.",0);
 		return;
 	}
 
@@ -479,7 +480,7 @@ void load_gsubrc(struct gale_text name) {
 
 #else
 	if (name.l)
-		gale_alert(GALE_WARNING,"Dynamic loading not supported.",0);
+		gale_alert(GALE_WARNING,"dynamic loading not supported.",0);
 #endif
 }
 
@@ -493,10 +494,25 @@ void add_subs(struct gale_text *subs,struct gale_text add) {
 		*subs = add;
 }
 
+/* listen to another user category */
+
+void add_other(struct gale_text *subs,struct gale_text add) {
+	struct auth_id *id;
+	init_auth_id(&id,add);
+	if (!auth_id_private(id)) {
+		struct gale_text err = gale_text_concat(3,
+			G_("no private key for \""),
+			auth_id_name(id),
+			G_("\""));
+		gale_alert(GALE_ERROR,gale_text_to_local(err),0);
+	}
+	add_subs(subs,id_category(id,G_("user"),G_("")));
+}
+
 /* set presence information */
 
 void set_presence(char *arg) {
-	if (strchr(arg,'/'))
+	if (strchr(arg,'.') || strchr(arg,'/'))
 		presence = gale_text_from_latin1(arg,-1);
 	else
 		presence = gale_text_concat(2,G_("in/"),
@@ -522,6 +538,8 @@ int main(int argc,char **argv) {
 	/* Various flags. */
 	int opt,do_fork = 0,do_kill = 0;
 	struct gale_text rclib = null_text;
+	struct gale_text other = null_text;
+
 	/* Subscription list. */
 	struct gale_text serv = null_text;
 
@@ -557,8 +575,12 @@ int main(int argc,char **argv) {
 	add_subs(&serv,gale_var(G_("GALE_SUBS")));
 	add_subs(&serv,gale_var(G_("GALE_GSUB")));
 
+	/* Other IDs to listen to. */
+	while (gale_text_token(gale_var(G_("GALE_OTHERS")),',',&other))
+		if (0 != other.l) add_other(&serv,other);
+
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"haAbenkKrf:l:p:"))) 
+	while (EOF != (opt = getopt(argc,argv,"haAbenkKro:f:l:p:"))) 
 	switch (opt) {
 	case 'a': do_presence = do_keys = 0; break;
 						/* Stay quiet */
@@ -575,6 +597,8 @@ int main(int argc,char **argv) {
 						/* Use a wacky gsubrc */
 	case 'l': rclib = gale_text_from_local(optarg,-1); break;	
 						/* Use a wacky gsubrc.so */
+	case 'o': add_other(&serv,gale_text_from_local(optarg,-1)); break;
+						/* Listen to a different id */
 	case 'p': do_presence = 1; set_presence(optarg); 
 	          break;			/* Presence */
 	case 'h':                               /* Usage message */

@@ -144,7 +144,6 @@ int main(int argc,char *argv[]) {
 	gale_init("galed",argc,argv);
 	sys = oop_sys_new();
 	gale_init_signals(oop_sys_source(sys));
-	gale_on_error_message(oop_sys_source(sys),on_error_message,NULL);
 
 	srand48(time(NULL) ^ getpid());
 
@@ -168,6 +167,7 @@ int main(int argc,char *argv[]) {
 
 	gale_dprintf(1,"now listening, entering main loop\n");
 	gale_daemon(oop_sys_source(sys),0);
+	gale_on_error_message(oop_sys_source(sys),on_error_message,NULL);
 	oop_sys_run(sys);
 	return 0;
 }

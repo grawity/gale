@@ -17,7 +17,8 @@ void default_gsubrc(int do_beep) {
 	struct gale_text timecode,text,cat = gale_var(G_("GALE_CATEGORY"));
 	struct gale_text presence = gale_var(G_("GALE_TEXT_NOTICE_PRESENCE"));
 	struct gale_text answer = gale_var(G_("GALE_TEXT_ANSWER_RECEIPT"));
-	struct gale_text from_comment = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
+	struct gale_text from_name = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
+	struct gale_text subject = gale_var(G_("GALE_TEXT_MESSAGE_SUBJECT"));
 	int len,buflen,bufloaded = 0,termwid = gale_columns(stdout);
 
 	if (termwid < 2) termwid = 80; /* Don't crash */
@@ -49,10 +50,15 @@ void default_gsubrc(int do_beep) {
 			gale_print(stdout,0,G_(" "));
 			gale_print(stdout,0,presence);
 		}
+		if (subject.l) {
+			gale_print(stdout,0,G_(" ["));
+			gale_print(stdout,0,subject);
+			gale_print(stdout,0,G_("]"));
+		}
 		print_id(gale_var(G_("GALE_SIGNED")),G_("unverified"));
-		if (from_comment.l) {
+		if (from_name.l) {
 			gale_print(stdout,0,G_(" ("));
-			gale_print(stdout,0,from_comment);
+			gale_print(stdout,0,from_name);
 			gale_print(stdout,0,G_(")"));
 		}
 		gale_print(stdout,gale_print_clobber_right,G_(""));
@@ -76,6 +82,13 @@ void default_gsubrc(int do_beep) {
 		}
 		gale_print(stdout,0,G_("]"));
 		len += 2 + cat.l;
+	}
+
+	if (subject.l) {
+		gale_print(stdout,0,G_(" ["));
+		gale_print(stdout,gale_print_bold,subject);
+		gale_print(stdout,0,G_("]"));
+		len += 3 + subject.l;
 	}
 
 	text = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
@@ -256,12 +269,12 @@ void default_gsubrc(int do_beep) {
 	{
 		struct gale_text from_id = gale_var(G_("GALE_SIGNED"));
 		struct gale_text to_id = gale_var(G_("GALE_ENCRYPTED"));
-		struct gale_text from_comment = 
+		struct gale_text from_name = 
 			gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
 		int len = 0;
 
 		if (from_id.l) len += from_id.l;
-		else if (from_comment.l) len += G_("unverified").l;
+		else if (from_name.l) len += G_("unverified").l;
 		else len += G_("anonymous").l;
 
 		if (to_id.l) len += to_id.l;
@@ -270,7 +283,7 @@ void default_gsubrc(int do_beep) {
 		while (len++ < termwid - 34) gale_print(stdout,0,G_(" "));
 
 		gale_print(stdout,0,G_("--"));
-		if (from_comment.l)
+		if (from_name.l)
 			print_id(from_id,G_("unverified"));
 		else
 			print_id(null_text,G_("anonymous"));

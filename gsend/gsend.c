@@ -134,10 +134,11 @@ void usage(void) {
 	struct auth_id *id = lookup_id(G_("name@domain"));
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-hauUpP] [-S id] [-cC cat] [id [id ...]]\n"
+		"usage: gsend [-hapP] [-s subj] [-S id] [-cC cat] [id [id ...]]\n"
 		"flags: -h          Display this message\n"
 		"       -c cat      Add public category <cat> to recipients\n"
 		"       -C cat      Only use category <cat> for message\n"
+		"       -s subject  Set the message subject\n"
 		"       -S id       Sign message with a specific <id>\n"
 		"       -a          Do not sign message (anonymous)\n"
 		"       -p          Always request a return receipt\n"
@@ -165,6 +166,7 @@ int main(int argc,char *argv[]) {
 	char *line = NULL;			/* The current input line */
 	struct gale_text public = null_text;	/* Public cateogry */
 	struct gale_text body = null_text;	/* Message body */
+	struct gale_text subject = null_text;   /* Message subject */
 	struct gale_fragment frag;
 
 	/* Initialize the gale libraries. */
@@ -178,7 +180,7 @@ int main(int argc,char *argv[]) {
 	signer = gale_user();
 
 	/* Parse command line options. */
-	while ((arg = getopt(argc,argv,"Ddhac:C:t:PpS:uU")) != EOF) 
+	while ((arg = getopt(argc,argv,"Ddhac:C:t:Pps:S:uU")) != EOF) 
 	switch (arg) {
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
@@ -193,6 +195,9 @@ int main(int argc,char *argv[]) {
 	          break;
 	case 'C': msg->cat =			/* Select a category */
 	          gale_text_from_local(optarg,-1); 
+	          break;
+	case 's': subject =                     /* Set the subject */
+	          gale_text_from_local(optarg,-1);
 	          break;
 	case 'S': signer =      		/* Select an ID to sign with */
 	          lookup_id(gale_text_from_local(optarg,-1));
@@ -323,6 +328,13 @@ int main(int argc,char *argv[]) {
 	frag.type = frag_text;
 	frag.value.text = body;
 	gale_group_add(&msg->data,frag);
+
+	if (subject.l) {
+		frag.name = G_("message/subject");
+		frag.type = frag_text;
+		frag.value.text = subject;
+		gale_group_add(&msg->data,frag);
+	}
 
 	/* Sign the message, unless we shouldn't. */
 	if (signer) {

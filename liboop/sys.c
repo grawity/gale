@@ -198,7 +198,9 @@ static void sys_on_signal(oop_source *source,int sig,
 		sigaction(sig,NULL,&act);
 		sys->sig[sig].old = act;
 		act.sa_handler = sys_signal_handler;
+#ifdef SA_NODEFER /* BSD/OS doesn't have this, for one. */
 		act.sa_flags &= ~SA_NODEFER;
+#endif
 		sigaction(sig,&act,NULL);
 	}
 }

@@ -151,9 +151,10 @@ static void add_address(
 			/* Terminate other suckers. */
 			while (i < conn->num_address)
 			      if (ntohl(conn->addresses[i]->sin.sin_addr.s_addr)
-				>= ntohl(sin.sin_addr.s_addr))
+				>= ntohl(sin.sin_addr.s_addr)) {
+					close(conn->addresses[i]->sock);
 					del_address(conn,i);
-				else
+				} else
 					++i;
 		}
 

@@ -85,7 +85,7 @@ cat << EOM
 Hi.  You need to denote a user to own the Gale domain secret key.  You must
 trust this user with Gale authentication for your domain; the "gksign" program
 will run as this user.  I recommend using a special "gale" user; if you don't
-have administrative priveleges here, you'll probably have to use your own
+have administrative privileges here, you'll probably have to use your own
 account.  I do not recommend the use of "root".
 
 No harm done if you stop this script now to set up such a user.
