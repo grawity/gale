@@ -164,7 +164,7 @@ static void add_links(void) {
 	gale_text_token(str,';',&link);
 
 	att = new_attach();
-	att->subs = G_("");
+	att->subs = G_("+");
 	att->server = link;
 	att->next = try;
 	try = att;

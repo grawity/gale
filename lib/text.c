@@ -140,6 +140,13 @@ int gale_text_to_number(struct gale_text text) {
 	return atoi(gale_text_to_latin1(text));
 }
 
+struct gale_data gale_text_as_data(struct gale_text text) {
+	struct gale_data data;
+	data.p = (u8 *) text.p;
+	data.l = text.l * sizeof(wch);
+	return data;
+}
+
 struct gale_text gale_text_from_latin1(const char *pch,int len) {
 	struct gale_text text;
 	size_t i;

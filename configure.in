@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(gale,0.20)
+AM_INIT_AUTOMAKE(gale,0.20a)
 AM_CONFIG_HEADER(include/gale/config.h:config.h.in)
 AC_CANONICAL_HOST
 

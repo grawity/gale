@@ -4,26 +4,36 @@
 |proto vers.| (  |  opcode   |  length   | data ... || |  ) *
 +--+--+--+--+- \ +--+--+--+--+--+--+--+--+--+--+--+-||-+ /
   (0 or 1)                               |<- length  ->|
-
+                                            (in bytes)
 *** Notes ***
 
 Both ends should immediately transmit a version code.  Thereafter, both ends
 should use the minimum of the transmitted and received values as the protocol
 version to use.
 
+All text is UCS-2.
+All numbers appear in network byte order.
+
 -- opcodes supported in version 0 and above -----------------------------------
 
 Opcode 0x00000000: puff (transmit a message)
 Opcode 0x00000001: will (register a message to transmit upon disconnection)
-+--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+-
-| cat. len. | message category ... || | msg. typ. | 
-+--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+-
-            |<--- category length --->| (only 0)
++--+--+--+--+--+--+--+--+--+--+--+-||-+-
+| cat. len. | message category ... || |
++--+--+--+--+--+--+--+--+--+--+--+-||-+-
+            |<--- category length --->|
+                  (in characters)
+  ____________________________________________________________________________
+ /                                                                            \
 
- / +--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+ \
-(  |   type    |  length   | fragment data ... || |  ) *
- \ +--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+ /
-                           |<------ length ------>|
+                            |<------------ length (in bytes) ------------>|
+ / -+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+-||-+- \
+(   |   type    |  length   | F.N. len. | frag. name ... || | value... || |   )
+ \ -+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+-||-+- /
+                                        |<---- FN len. ---->|
+                                           (in characters)
+
+ \__ Repeated any number of times; this is called a "fragment list" ... ______/
 
 Opcode 0x00000002: gimme (subscribe to puffs)
 +--+--+--+--+--+--+--+--+-||-+
@@ -106,10 +116,27 @@ of categories it might have resources for.  The server will then send "watch",
 "forget", and "fetch" to the client as it needs to; the client should respond
 as described for the server above.
 
--- conventionally used message fragments --------------------------------------
+-- message fragments ----------------------------------------------------------
 
-security/signature	data	Signed
-security/encrypted	data	Encrypted
+Fragment data types
+-------------------
+0: UCS-2 text.
+1: Arbitrary binary data.
+2: 128-bit date/time stamp: 64-bit seconds since epoch, 64-bit second fraction.
+   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+   | sec. high | sec. low  | frac. hi. | frac. low |
+   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+3: 32-bit signed integer.
+4: Nested fragment list.
+
+Fragment Name           Type	Description
+-------------		----	-----------
+security/encrypted	data	An encapsulated, encrypted message.
+security/signature	data	An encapsulated, digitally signed message.
+   +--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+--+--+--+--+--+--+-||-+
+   | sig. len. | signature data ...   || | reserved* | fragment list ... || |
+   +--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+--+--+--+--+--+--+-||-+
+   * must equal zero
 
 message/subject		text	Subject
 message/keywords	text	--
@@ -129,9 +156,11 @@ answer/key		data	--
 notice/presence		text	--
 --				Content-Type
 
-All text is UCS-2.
-
 -- conventionally used categories ---------------------------------------------
 
-@domain/auth/query/username/ -- new request
-@domain/auth/key/username/ -- reply
+Category					Description
+--------					-----------
+@domain/auth/query/username/			Request for a key.
+@domain/auth/key/username/			Reply with the key (or not).
+@domain/user/username/				Personal messages.
+@domain/notice/username/{login,logout}		Login and logout notifications.

@@ -295,7 +295,7 @@ int cache_find_raw(struct gale_data id,struct gale_data *data) {
 
 	/* Look in memory. */
 	if (gale_global->cache_tree 
-	&& (pv = gale_wt_find(gale_global->cache_tree,name))) {
+	&& (pv = gale_wt_find(gale_global->cache_tree,gale_text_as_data(name)))) {
 		*data = * (struct gale_data *) pv;
 		return 1;
 	}
@@ -318,10 +318,10 @@ void cache_store_raw(struct gale_data id,struct gale_data data)  {
 	name = encode(cid);
 
 	/* Store in memory. */
-	if (!gale_global->cache_tree) gale_global->cache_tree = gale_make_wt();
+	if (!gale_global->cache_tree) gale_global->cache_tree = gale_make_wt(1);
 	gale_create(pdata);
 	*pdata = data;
-	gale_wt_add(gale_global->cache_tree,name,pdata);
+	gale_wt_add(gale_global->cache_tree,gale_text_as_data(name),pdata);
 
 	/* Store on disk. */
 	store(gale_global->system_cache,name,data) || 

@@ -246,16 +246,25 @@ int main(int argc,char *argv[]) {
 		                        "Category is a username!",0);
 	}
 	if (ttyin) {
-		char *at,*cat = gale_text_to_latin1(msg->cat);
-		for (at = cat; (at = strchr(at,'@')); ) {
-			if (at != cat && at[-1] != ':') {
-				gale_beep(stderr);
-				gale_alert(GALE_WARNING,"*** DANGER! *** "
-					"Category contains '@'!",0);
+		int found = 0;
+		struct gale_text cat = null_text;
+		while (!found && gale_text_token(msg->cat,':',&cat)) {
+			int i;
+			for (i = 0; i < cat.l; ++i) {
+				if ('/' == cat.p[i]) {
+					found = 0; 
+					break;
+				}
+				if ('@' == cat.p[i] && 0 < i) 
+					found = 1;
 			}
-			++at;
 		}
-		gale_free(cat);
+
+		if (found) {
+			gale_beep(stderr);
+			gale_alert(GALE_WARNING,"*** HEATH ALERT! *** "
+			           "Category looks like an ID!",0);
+		}
 	}
 
 	/* Open a connection to the server; don't subscribe to anything. */

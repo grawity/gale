@@ -3,25 +3,28 @@
 #include <assert.h>
 
 struct wt_node {
-	struct gale_text key;
-	void *data;
+	struct gale_data key;
+	struct gale_ptr *data;
 	struct wt_node *left,*right;
 };
 
 struct gale_wt {
 	struct wt_node *root;
+	int weak;
 };
 
-struct gale_wt *gale_make_wt() {
+struct gale_wt *gale_make_wt(int weak) {
 	struct gale_wt *wt;
 	gale_create(wt);
 	wt->root = NULL;
+	wt->weak = weak;
+	return wt;
 }
 
-static struct wt_node **find(struct gale_wt *wt,struct gale_text key) {
+static struct wt_node **find(struct gale_wt *wt,struct gale_data key) {
 	struct wt_node **p = &wt->root;
 	while (*p) {
-		int x = gale_text_compare(key,(*p)->key);
+		int x = gale_data_compare(key,(*p)->key);
 		if (x < 0) 
 			p = &(*p)->left;
 		else if (x > 0)
@@ -33,28 +36,70 @@ static struct wt_node **find(struct gale_wt *wt,struct gale_text key) {
 	return p;
 }
 
-void gale_wt_add(struct gale_wt *wt,struct gale_text key,void *data) {
-	struct wt_node *new,**p;
+void gale_wt_add(struct gale_wt *wt,struct gale_data key,void *data) {
+	struct wt_node *new = NULL,**p;
 
-	gale_create(new); /* This must happen first! */
+	if (NULL != data) gale_create(new); /* This must happen first! */
 	p = find(wt,key);
 
-	if (NULL != *p) {
-		new = *p;
-		assert(NULL == new->data); /* No duplicates allowed! */
-	} else {
+	if (NULL != *p) new = *p;
+	else if (NULL == data) return;
+	else {
 		*p = new;
 		new->key = key;
 		new->left = NULL;
 		new->right = NULL;
 	}
 
-	assert(NULL != data);
-	new->data = data;
-	gale_weak_ptr(&new->data);
+	if (NULL == data) new->data = NULL;
+	else if (wt->weak) new->data = gale_make_weak(data);
+	else new->data = gale_make_ptr(data);
 }
 
-void *gale_wt_find(struct gale_wt *wt,struct gale_text key) {
+void *gale_wt_find(struct gale_wt *wt,struct gale_data key) {
 	struct wt_node *n = *(find(wt,key));
-	return n ? n->data : NULL;
+	return n ? gale_get_ptr(n->data) : NULL;
+}
+
+static int empty(struct wt_node *node) {
+	return (NULL == node->data
+	    &&  NULL == node->right
+	    &&  NULL == node->left);
+}
+
+static int walk(struct wt_node *node,const struct gale_data *after,
+	        struct gale_data *key,void **data) 
+{
+	int x = after ? gale_data_compare(*after,node->key) : -1;
+
+	if (x < 0 && NULL != node->left) {
+		if (walk(node->left,after,key,data)) return 1;
+		if (empty(node->left)) node->left = NULL;
+	}
+
+	if (x < 0 && NULL != node->data) {
+		void *ptr = gale_get_ptr(node->data);
+		if (NULL != *data) *data = ptr;
+		if (NULL == ptr) node->data = NULL;
+		else {
+			if (NULL != key) *key = node->key;
+			return 1;
+		}
+	}
+
+	if (NULL != node->right) {
+		if (x <= 0) after = NULL;
+		if (walk(node->right,after,key,data)) return 1;
+		if (empty(node->right)) node->right = NULL;
+	}
+
+	return 0;
+}
+
+int gale_wt_walk(struct gale_wt *wt,const struct gale_data *after,
+                 struct gale_data *key,void **data) {
+	if (NULL == wt->root) return 0;
+	if (walk(wt->root,after,key,data)) return 1;
+	if (empty(wt->root)) wt->root = NULL;
+	return 0;
 }

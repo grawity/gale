@@ -5,6 +5,8 @@
 #include <string.h>
 #include <gc.h>
 
+struct gale_ptr { void *ptr; };
+
 /* -- allocator interface --------------------------------------------------- */
 
 void *gale_malloc(size_t len) {
@@ -31,8 +33,28 @@ void gale_finalizer(void *obj,void (*f)(void *,void *),void *data) {
 	GC_register_finalizer(obj,f,data,0,0);
 }
 
-void gale_weak_ptr(void **ptr) {
-	GC_general_register_disappearing_link(ptr,*ptr);
+struct gale_ptr *gale_make_weak(void *ptr) {
+	struct gale_ptr *wptr = NULL;
+
+	if (ptr) {
+		wptr = gale_malloc_atomic(sizeof(*wptr));
+		wptr->ptr = ptr;
+		GC_general_register_disappearing_link(&wptr->ptr,ptr);
+	}
+
+	return wptr;
+}
+
+struct gale_ptr *gale_make_ptr(void *ptr) {
+	struct gale_ptr *wptr;
+	gale_create(wptr);
+	wptr->ptr = ptr;
+	return wptr;
+}
+
+void *gale_get_ptr(struct gale_ptr *ptr) {
+	if (NULL == ptr) return NULL;
+	return ptr->ptr;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -58,6 +58,9 @@ static int okay(wch ch) {
 }
 
 int gale_column(int col,wch ch) {
+	/* Hack: Fix up the results of someone passing us a signed char... */
+	if (ch < 0) ch += 256;
+
 	switch (ch) {
 	case '\t':
 		return (1 + col / 8) * 8;

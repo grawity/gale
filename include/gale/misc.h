@@ -65,7 +65,11 @@ void *gale_malloc_atomic(size_t size);  /* memory cannot contain pointers */
 void *gale_malloc_safe(size_t size);    /* memory will not be collected */
 void gale_free(void *);
 void gale_finalizer(void *,void (*)(void *,void *),void *);
-void gale_weak_ptr(void **);
+
+struct gale_ptr;
+struct gale_ptr *gale_make_weak(void *);
+struct gale_ptr *gale_make_ptr(void *);
+void *gale_get_ptr(struct gale_ptr *);
 
 /* Handy macros. */
 #define gale_create(x) ((x) = gale_malloc(sizeof(*(x))))
@@ -96,20 +100,34 @@ int gale_text_compare(struct gale_text,struct gale_text);
 int gale_text_to_number(struct gale_text);
 struct gale_text gale_text_from_number(int n,int base,int pad);
 
+struct gale_data gale_text_as_data(struct gale_text);
+
 typedef struct gale_text gale_text_from(const char *,int len);
 typedef char *gale_text_to(struct gale_text);
 
 gale_text_from gale_text_from_local,gale_text_from_latin1,gale_text_from_utf8;
 gale_text_to gale_text_to_local,gale_text_to_latin1,gale_text_to_utf8;
 
-/* -- weak-reference binary trees ------------------------------------------ */
+/* -- binary trees --------------------------------------------------------- */
 
-/* Key-value lookup tree, using weak references to the values. */
+/* Key-value lookup tree. */
 struct gale_wt;
 
-struct gale_wt *gale_make_wt();
-void gale_wt_add(struct gale_wt *,struct gale_text key,void *);
-void *gale_wt_find(struct gale_wt *,struct gale_text key);
+/* Nonzero weak => use weak references for values. */
+struct gale_wt *gale_make_wt(int weak);
+
+/* Duplicates values replace each other.  NULL data deletes an entry. */
+void gale_wt_add(struct gale_wt *,struct gale_data key,void *data);
+
+/* NULL == not found. */
+void *gale_wt_find(struct gale_wt *,struct gale_data key);
+
+/* Find the first key/data pair with key > *after.
+   If NULL == after, find the first such pair, period.
+   Returns zero if and only if no such pair exists. 
+   Either or both of key and data may be NULL. */
+int gale_wt_walk(struct gale_wt *,const struct gale_data *after,
+                 struct gale_data *key,void **data);
 
 /* -- time functions ------------------------------------------------------- */
 
@@ -169,7 +187,7 @@ int gale_unpack_str(struct gale_data *,const char **);
 void gale_pack_str(struct gale_data *,const char *);
 #define gale_str_size(t) (strlen(t) + 1)
 
-int gale_unpack_text(struct gale_data *,/*owned*/ struct gale_text *);
+int gale_unpack_text(struct gale_data *,struct gale_text *);
 void gale_pack_text(struct gale_data *,struct gale_text);
 #define gale_text_size(t) (gale_text_len_size(t) + gale_u32_size())
 

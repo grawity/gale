@@ -72,6 +72,8 @@ int link_transmit_q(struct gale_link *);
    nonzero if there's a problem. */
 int link_transmit(struct gale_link *,int fd);
 
+  /* -- version 0 operations --------------------------------------------- */
+
 /* Set the link's subscription, which will be transmitted to the server at 
    the next opportunity. */
 void link_subscribe(struct gale_link *,struct gale_text spec);
@@ -95,6 +97,28 @@ struct gale_message *link_get(struct gale_link *);
 struct gale_message *link_willed(struct gale_link *);
 /* If the other end sent a subscription, get it.  (Otherwise NULL.) */
 struct gale_text link_subscribed(struct gale_link *);
+
+  /* -- version 1 operations --------------------------------------------- */
+
+void ltx_publish(struct gale_link *,struct gale_text spec);
+void ltx_watch(struct gale_link *,struct gale_text category);
+void ltx_forget(struct gale_link *,struct gale_text category);
+void ltx_complete(struct gale_link *,struct gale_text category);
+void ltx_assert(struct gale_link *,struct gale_text cat,struct gale_data cid);
+void ltx_retract(struct gale_link *,struct gale_text cat,struct gale_data cid);
+void ltx_fetch(struct gale_link *,struct gale_data cid);
+void ltx_miss(struct gale_link *,struct gale_data cid);
+void ltx_supply(struct gale_link *,struct gale_data cid,struct gale_data data);
+
+int lrx_publish(struct gale_link *,struct gale_text *spec);
+int lrx_watch(struct gale_link *,struct gale_text *category);
+int lrx_forget(struct gale_link *,struct gale_text *category);
+int lrx_complete(struct gale_link *,struct gale_text *category);
+int lrx_assert(struct gale_link *,struct gale_text *cat,struct gale_data *cid);
+int lrx_retract(struct gale_link *,struct gale_text *cat,struct gale_data *cid);
+int lrx_fetch(struct gale_link *,struct gale_data *cid);
+int lrx_miss(struct gale_link *,struct gale_data *cid);
+int lrx_supply(struct gale_link *,struct gale_data *cid,struct gale_data *data);
 
 /* -- cache management ----------------------------------------------------- */
 

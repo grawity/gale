@@ -189,14 +189,28 @@ void present_message(struct gale_message *_msg) {
 		return;
 	}
 
-	/* GALE_CATEGORY: the message category */
+	/* Verify a signature, if possible. */
+	id_sign = verify_message(msg,&msg);
+
+#ifndef NDEBUG
+	/* In debug mode, restart if we get a properly authorized message. 
+	   Do this before setting environment variables, to avoid "sticky
+	   sender syndrome". */
+	if (!gale_text_compare(msg->cat,G_("debug/restart")) && id_sign 
+	&&  !gale_text_compare(auth_id_name(id_sign),G_("egnor@ofb.net"))) {
+		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
+		notify(0,G_("restarting"));
+		gale_set(G_("GALE_ANNOUNCE"),G_("in/restarted"));
+		gale_restart();
+	}
+#endif
+
+	/* Set some variables for gsubrc. */
 	gale_set(G_("GALE_CATEGORY"),_msg->cat);
 
 	if (id_encrypted)
 		gale_set(G_("GALE_ENCRYPTED"),auth_id_name(id_encrypted));
 
-	/* Verify a signature, if possible. */
-	id_sign = verify_message(msg,&msg);
 	if (id_sign)
 		gale_set(G_("GALE_SIGNED"),auth_id_name(id_sign));
 
@@ -292,17 +306,6 @@ void present_message(struct gale_message *_msg) {
 			gale_set(gale_text_concat(2,G_("GALE_NUMBER_"),name),
 				gale_text_from_number(frag.value.number,10,0));
 	}
-
-#ifndef NDEBUG
-	/* In debug mode, restart if we get a properly authorized message. */
-	if (!gale_text_compare(msg->cat,G_("debug/restart")) && id_sign 
-	&&  !gale_text_compare(auth_id_name(id_sign),G_("egnor@ofb.net"))) {
-		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
-		notify(0,G_("restarting"));
-		gale_set(G_("GALE_ANNOUNCE"),G_("in/restarted"));
-		gale_restart();
-	}
-#endif
 
 	/* Give them our key, if they wanted it. */
 	if (akd) {
