@@ -244,12 +244,12 @@ EOM
 		exit 1
 	fi
 
-	if gkinfo -x < "$skey" 2>/dev/null | qgrep "public key: <$GALE_DOMAIN>" ; then
+	if gkinfo -tx < "$skey" | qgrep "^Public key: <$GALE_DOMAIN>"; then
 		echo "Good, it looks like your key..."
 	else
 		echo "Error: \"$skey\" not for \"$GALE_DOMAIN\"."
 		echo "Here's what it looks like to me:"
-		gkinfo < "$skey"
+		gkinfo -x < "$skey"
 		exit 1
 	fi
 
@@ -262,7 +262,8 @@ EOM
 		exit 1
 	fi
 
-	if cp "$skey" "$SYS_DIR/auth/local/$GALE_DOMAIN" ; then
+	if cp "$skey" "$SYS_DIR/auth/local/$GALE_DOMAIN.gpub" ; then
+		chmod a+r "$SYS_DIR/auth/local/$GALE_DOMAIN.gpub"
 		echo "Signed key successfully installed."
 	else
 		echo "Error: copying \"$skey\" to \"$SYS_DIR/auth/local/$GALE_DOMAIN\"."
