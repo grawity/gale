@@ -8,7 +8,7 @@
 
 AUTOMAKE_OPTIONS = foreign 1.2
 lib_LTLIBRARIES = liboop-adns.la liboop-glib.la liboop-tcl.la liboop-www.la liboop-rl.la liboop.la
-INCLUDES = $(GLIB_INCLUDES) $(WWW_INCLUDES)
+INCLUDES = $(GLIB_INCLUDES) $(TCL_INCLUDES) $(WWW_INCLUDES)
 
 # versions updated as of 0.7
 liboop_la_LDFLAGS = -version-info 3:0:0 # version:revision:age
