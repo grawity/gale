@@ -380,7 +380,7 @@ static void usage(void) {
 #ifdef HAVE_DLOPEN
 	"[-l rclib] "
 #endif
-	"[-p state] cat\n"
+	"[-p state] address [address ...]\n"
 	"flags: -h          Display this message\n"
 	"       -a          Never announce presence or send receipts\n"
 	"       -A          Always announce presence and send receipts\n"
