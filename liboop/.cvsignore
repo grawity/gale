@@ -4,3 +4,7 @@ aclocal.m4
 Makefile.in
 config.h.in
 configure
+ltconfig
+ltmain.sh
+config.guess
+config.sub
