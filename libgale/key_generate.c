@@ -62,9 +62,10 @@ static void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 
 	if (NULL != pub) {
 		/* Try to use gksign. */
-		const struct gale_text name = G_("gksign");
-		const struct gale_data bits = key_i_create(gen->data);
 		int in,out;
+		const struct gale_text name = G_("gksign");
+		const struct gale_data bits = 
+			key_i_create(gale_crypto_public(gen->data));
 
 		gale_alert(GALE_NOTICE,gale_text_concat(3,
 			G_("passing \""),
