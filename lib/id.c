@@ -7,10 +7,60 @@
 #include <assert.h>
 
 #include "gale/all.h"
+#include "key.h"
+#include "id.h"
+
+static const int seen = 0;
+static struct gale_text dirs[2];
+
+static struct gale_text alias(struct gale_text spec,struct gale_wt *seen) {
+	struct gale_text next,next_alias;
+	int i;
+
+	if (NULL != gale_wt_find(seen,gale_text_as_data(spec))) return spec;
+	gale_wt_add(seen,gale_text_as_data(spec),&seen);
+	for (i = 0; i < sizeof(dirs) / sizeof(dirs[0]); ++i) {
+		const char *fn = gale_text_to_local(dir_file(dirs[i],spec));
+		char buf[1024]; /* arbitrary limit! */
+		int num = readlink(fn,buf,sizeof(buf));
+		if (num > 0) return alias(gale_text_from_local(buf,num),seen);
+	}
+
+	next = _ga_signer(spec);
+	if (!gale_text_compare(next,G_("ROOT"))) return spec;
+
+	next_alias = alias(next,seen);
+	if (!gale_text_compare(next_alias,next)) return spec;
+	if (!gale_text_compare(next_alias,G_("ROOT"))) next_alias = null_text;
+
+	return alias(
+		gale_text_concat(2,gale_text_left(spec,-next.l),next_alias),
+		seen);
+}
+
+static void redirect(struct auth_id **id,struct gale_wt *seen) {
+	struct gale_fragment f;
+	struct gale_data name = gale_text_as_data(auth_id_name(*id));
+	if (NULL != gale_wt_find(seen,name)) {
+		_ga_warn_id(G_("\"%\": redirection loop"),*id);
+		return;
+	}
+	gale_wt_add(seen,name,&seen);
+
+	if (auth_id_public(*id)
+	&& gale_group_lookup((*id)->pub_data,G_("key.redirect"),frag_text,&f)) {
+		init_auth_id(id,f.value.text);
+		redirect(id,seen);
+	}
+}
 
 struct auth_id *lookup_id(struct gale_text spec) {
-	struct gale_text at = null_text,dot = null_text;
+	struct gale_text dot,at;
 	struct auth_id *id;
+
+	dirs[0] = dir_file(gale_global->dot_gale,G_("auth/aliases"));
+	dirs[1] = dir_file(gale_global->sys_dir,G_("auth/aliases"));
+	spec = alias(spec,gale_make_wt(0));
 
 	/* If we already have an '@' or a '.', leave as-is. */
 	if ((gale_text_token(spec,'.',&dot) && gale_text_token(spec,'\0',&dot))
@@ -18,8 +68,11 @@ struct auth_id *lookup_id(struct gale_text spec) {
 		init_auth_id(&id,spec);
 	else
 		init_auth_id(&id,gale_text_concat(3,
-			spec,G_("@"),gale_var(G_("GALE_DOMAIN"))));
+			spec,
+			G_("@"),
+			gale_var(G_("GALE_DOMAIN"))));
 
+	redirect(&id,gale_make_wt(0));
 	return id;
 }
 

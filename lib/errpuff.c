@@ -65,7 +65,7 @@ void gale_on_error_message(
 	}
 }
 
-static void *send_message(struct gale_message *msg,void *data) {
+static void *send_message(oop_source *oop,struct gale_message *msg,void *data) {
 	struct gale_link *l = (struct gale_link *) data;
 	link_put(l,msg);
 	return OOP_CONTINUE;

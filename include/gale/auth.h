@@ -20,22 +20,18 @@ int auth_id_public(struct auth_id *);
 int auth_id_private(struct auth_id *);
 
 void auth_id_gen(struct auth_id *,struct gale_text comment);
+void auth_id_redirect(struct auth_id *,struct gale_text comment,
+                      struct auth_id *dest);
 
 void export_auth_id(struct auth_id *,struct gale_data *data,int private);
 void import_auth_id(struct auth_id **,struct gale_data data,int private);
 
-void auth_sign(struct auth_id *,
-               struct gale_data data,struct gale_data *sig);
-void auth_verify(struct auth_id **,
-                 struct gale_data data,struct gale_data sig);
+#define AUTH_SIGN_NORMAL 0
+#define AUTH_SIGN_SELF 1
+int auth_sign(struct gale_group *,struct auth_id *,int flag);
+struct auth_id *auth_verify(struct gale_group *);
 
-/* Don't use this. */
-void _auth_sign(struct auth_id *,
-                struct gale_data data,struct gale_data *sig);
-
-void auth_encrypt(int num,struct auth_id **,
-                  struct gale_data plain,struct gale_data *cipher);
-void auth_decrypt(struct auth_id **,
-                  struct gale_data cipher,struct gale_data *plain);
+int auth_encrypt(struct gale_group *grp,int num,struct auth_id **ids);
+struct auth_id *auth_decrypt(struct gale_group *grp);
 
 #endif

@@ -7,7 +7,7 @@ lib_LTLIBRARIES = libgale.la
 libgale_la_LDFLAGS = -version-info 6:1:0
 
 libgale_la_SOURCES = \
-	authmsg.c client.c connect.c find.c id.c init.c global.c \
+	authgrp.c client.c connect.c find.c id.c init.c global.c \
 	input.c kill.c libgale.c link.c message.c output.c \
 	standard.c cache.c \
 	crypt.c customs.c file.c gen.c \

@@ -40,9 +40,9 @@ static void *on_message(struct gale_link *l,struct gale_message *msg,void *d) {
 	struct auth_id *encrypted,*signature;
 	struct gale_group group;
 
-	encrypted = decrypt_message(msg,&msg);
+	encrypted = auth_decrypt(&msg->data);
 	if (!msg) return OOP_CONTINUE;
-	signature = verify_message(msg,&msg);
+	signature = auth_verify(&msg->data);
 
 	group = gale_group_find(msg->data,G_("answer/key"));
 	if (!gale_group_null(group)) {
@@ -83,10 +83,9 @@ int _gale_find_id(struct auth_id *id) {
 
 	name = auth_id_name(id);
 	tok = null_text;
-	if (gale_text_token(name,'@',&tok) && gale_text_token(name,0,&tok))
-		init_auth_id(&domain,tok);
-	else
-		domain = id;
+	if (!gale_text_token(name,'@',&tok) 
+	||  !gale_text_token(name,0,&tok)) return 0;
+	init_auth_id(&domain,tok);
 
 	/* prevent re-entrancy */
 	if (inhibit) return 0;

@@ -165,6 +165,10 @@ struct gale_fragment gale_group_first(struct gale_group);
 struct gale_group gale_group_rest(struct gale_group);
 void gale_group_prefix(struct gale_group *,struct gale_group tail);
 
+int gale_group_lookup(
+	struct gale_group,struct gale_text name,enum gale_fragment_type,
+	struct gale_fragment *);
+
 /* -- data interchange conversion ------------------------------------------ */
 
 int gale_unpack_copy(struct gale_data *,void *,size_t);

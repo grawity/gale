@@ -35,6 +35,8 @@ AC_PROG_INSTALL
 AC_PROG_YACC
 PROG_LDCONFIG=:
 
+test yes = "$GCC" && CFLAGS="-Wall $CFLAGS"
+
 dnl System type checks.
 case "$host" in
   *-linux-*)

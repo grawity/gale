@@ -66,6 +66,24 @@ struct gale_group gale_group_find(struct gale_group g,struct gale_text name) {
 	return g;
 }
 
+int gale_group_lookup(struct gale_group group,struct gale_text name,
+                      enum gale_fragment_type type,struct gale_fragment *frag)
+{
+	struct gale_group g = gale_group_find(group,name);
+
+	while (!gale_group_null(g)) {
+		struct gale_fragment f = gale_group_first(g);
+		assert(0 == gale_text_compare(f.name,name));
+		if (f.type == type) {
+			*frag = f;
+			return 1;
+		}
+		g = gale_group_find(gale_group_rest(g),name);
+	}
+
+	return 0;
+}
+
 int gale_group_remove(struct gale_group *g,struct gale_text name) {
 	struct gale_group t,r = *g;
 	int c = 0;

@@ -337,16 +337,11 @@ int main(int argc,char *argv[]) {
 	}
 
 	/* Sign the message, unless we shouldn't. */
-	if (signer) {
-		struct gale_message *new = sign_message(signer,msg);
-		if (new) msg = new;
-	}
+	if (signer) auth_sign(&msg->data,signer,AUTH_SIGN_NORMAL);
 
 	/* Ounce is being completely psychotic right now. */
-	if (do_encrypt) {
-		msg = encrypt_message(num_rcpt,rcpt,msg);
-		if (msg == NULL) gale_alert(GALE_ERROR,"encryption failure",0);
-	}
+	if (do_encrypt && !auth_encrypt(&msg->data,num_rcpt,rcpt))
+		gale_alert(GALE_ERROR,"encryption failure",0);
 
 	/* Add the message to the outgoing queue. */
 	link_put(link,msg);

@@ -44,7 +44,7 @@ struct gale_message *failure(struct auth_id *id) {
 void request(struct gale_link *link,struct auth_id *id) {
 	struct gale_message *reply;
 	reply = auth_id_public(id) ? success(id) : failure(id);
-	reply = _sign_message(domain,reply);
+	auth_sign(&reply->data,domain,AUTH_SIGN_SELF);
 	if (reply) link_put(link,reply);
 }
 
@@ -61,9 +61,9 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 	struct gale_text user = null_text;
 	struct gale_group group;
 
-	encrypted = decrypt_message(msg,&msg);
+	encrypted = auth_decrypt(&msg->data);
 	if (!msg) return OOP_CONTINUE;
-	signature = verify_message(msg,&msg);
+	signature = auth_verify(&msg->data);
 
 	/* Figure out what we can from the headers. */
 

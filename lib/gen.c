@@ -46,36 +46,30 @@ static void stash(char * const * argv) {
 	}
 }
 
-void auth_id_gen(struct auth_id *id,struct gale_text comment) {
-	int err;
-	R_RSA_PROTO_KEY proto;
+static void clear(struct auth_id *id,struct gale_text comment) {
+	struct gale_fragment frag;
+
+	id->pub_time = gale_time_zero();
+	id->pub_data = gale_group_empty();
+	id->pub_orig = null_data;
+	id->pub_signer = NULL;
+	id->pub_inode = _ga_init_inode();
+	id->pub_trusted = 0;
+
+	id->priv_data = gale_group_empty();
+	id->priv_inode = _ga_init_inode();
+
+	frag.type = frag_text;
+	frag.name = G_("key.owner");
+	frag.value.text = comment;
+	gale_group_add(&id->pub_data,frag);
+	gale_group_add(&id->priv_data,frag);
+}
+
+static void write_priv(struct auth_id *id) {
 	struct gale_data key;
-	const char *bits;
-
-	id->comment = comment;
-	gale_create(id->public);
-	gale_create(id->private);
-
-	proto.bits = 0;
-	bits = getenv("GALE_AUTH_BITS");
-	if (bits) proto.bits = atoi(bits);
-	if (proto.bits == 0) proto.bits = 768;
-
-	if (proto.bits > MAX_RSA_MODULUS_BITS) {
-		gale_alert(GALE_WARNING,"key size too big; truncating",0);
-		proto.bits = MAX_RSA_MODULUS_BITS;
-	} else if (proto.bits < MIN_RSA_MODULUS_BITS) {
-		gale_alert(GALE_WARNING,"key size too small; expanding",0);
-		proto.bits = MIN_RSA_MODULUS_BITS;
-	}
-
-	proto.useFermat4 = 1;
-	gale_alert(GALE_NOTICE,"generating keys, please wait...",0);
-	err = R_GeneratePEMKeys(id->public,id->private,&proto,_ga_rrand());
-	assert(!err);
-
 	_ga_export_priv(id,&key);
-	if (!key.p) 
+	if (0 == key.l) 
 		_ga_warn_id(G_("could not export private key \"%\""),id);
 	else {
 		int fd;
@@ -91,18 +85,21 @@ void auth_id_gen(struct auth_id *id,struct gale_text comment) {
 		gale_free(key.p);
 		gale_free(argv[1]);
 	}
+}
 
+static void write_pub(struct auth_id *id) {
+	struct gale_data key;
 	_ga_sign_pub(id,gale_time_forever());
 	_ga_export_pub(id,&key,EXPORT_TRUSTED);
-	if (!key.p) {
+	if (0 == key.l) {
 		_ga_warn_id(G_("could not export public key \"%\""),id);
 		return;
 	}
 
-	if (!id->sig.id) {
+	if (NULL == id->pub_signer) {
 		struct gale_data sgn;
 		sign_key(key,&sgn);
-		if (sgn.p) {
+		if (0 != sgn.l) {
 			struct auth_id *nid;
 			_ga_import_pub(&nid,sgn,NULL,IMPORT_NORMAL);
 			if (nid == id) {
@@ -111,7 +108,6 @@ void auth_id_gen(struct auth_id *id,struct gale_text comment) {
 				sgn = tmp;
 			}
 		}
-		if (sgn.p) gale_free(sgn.p);
 	}
 
 	if (_ga_trust_pub(id)) {
@@ -126,6 +122,97 @@ void auth_id_gen(struct auth_id *id,struct gale_text comment) {
 		}
 		gale_free(key.p);
 	}
+}
 
+void auth_id_redirect(
+	struct auth_id *id,struct gale_text comment,
+	struct auth_id *dest)
+{
+	struct gale_fragment frag;
+
+	clear(id,comment);
+	id->priv_data = gale_group_empty();
+
+	frag.type = frag_text;
+	frag.name = G_("key.redirect");
+	frag.value.text = auth_id_name(dest);
+	gale_group_add(&id->pub_data,frag);
+
+	write_pub(id);
+}
+
+void auth_id_gen(struct auth_id *id,struct gale_text comment) {
+	int err;
+	R_RSA_PROTO_KEY proto;
+	R_RSA_PUBLIC_KEY *rsapub;
+	R_RSA_PRIVATE_KEY *rsapriv;
+	struct gale_fragment frag;
+	const char *bits;
+
+	clear(id,comment);
+
+	proto.bits = 0;
+	bits = getenv("GALE_AUTH_BITS");
+	if (NULL != bits) proto.bits = atoi(bits);
+	if (proto.bits == 0) proto.bits = 768; /* default */
+
+	if (proto.bits > MAX_RSA_MODULUS_BITS) {
+		gale_alert(GALE_WARNING,"key size too big; truncating",0);
+		proto.bits = MAX_RSA_MODULUS_BITS;
+	} else if (proto.bits < MIN_RSA_MODULUS_BITS) {
+		gale_alert(GALE_WARNING,"key size too small; expanding",0);
+		proto.bits = MIN_RSA_MODULUS_BITS;
+	}
+
+	gale_create(rsapub);
+	gale_create(rsapriv);
+	proto.useFermat4 = 1;
+	gale_alert(GALE_NOTICE,"generating keys, please wait...",0);
+	err = R_GeneratePEMKeys(rsapub,rsapriv,&proto,_ga_rrand());
+	assert(!err);
+
+	/* Fill in fields from structure. */
+
+	frag.type = frag_number;
+	frag.name = G_("rsa.bits");
+	frag.value.number = rsapub->bits;
+	gale_group_add(&id->pub_data,frag);
+	frag.value.number = rsapriv->bits;
+	gale_group_add(&id->priv_data,frag);
+
+	frag.type = frag_data;
+	frag.name = G_("rsa.modulus");
+	frag.value.data.l = MAX_RSA_MODULUS_LEN;
+	frag.value.data.p = rsapub->modulus;
+	gale_group_add(&id->pub_data,frag);
+	frag.value.data.p = rsapriv->modulus;
+	gale_group_add(&id->priv_data,frag);
+
+	frag.name = G_("rsa.exponent");
+	frag.value.data.p = rsapub->exponent;
+	gale_group_add(&id->pub_data,frag);
+	frag.value.data.p = rsapriv->publicExponent;
+	gale_group_add(&id->priv_data,frag);
+
+	frag.name = G_("rsa.private.exponent");
+	frag.value.data.p = rsapriv->exponent;
+	gale_group_add(&id->priv_data,frag);
+
+	frag.name = G_("rsa.private.prime");
+	frag.value.data.l = 2 * MAX_RSA_PRIME_LEN;
+	frag.value.data.p = rsapriv->prime[0];
+	gale_group_add(&id->priv_data,frag);
+
+	frag.name = G_("rsa.private.prime.exponent");
+	frag.value.data.p = rsapriv->primeExponent[0];
+	gale_group_add(&id->priv_data,frag);
+
+	frag.name = G_("rsa.private.coefficient");
+	frag.value.data.l = MAX_RSA_PRIME_LEN;
+	frag.value.data.p = rsapriv->coefficient;
+	gale_group_add(&id->priv_data,frag);
+
+	write_priv(id);
+	write_pub(id);
 	gale_alert(GALE_NOTICE,"done generating keys",0);
 }

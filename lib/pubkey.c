@@ -9,7 +9,7 @@
 #include <string.h>
 #include <sys/time.h>
 
-/* public key format:
+/* old public key format:
 
    magic: 0x6813 0x0000 (v2: 0x6813 0x0002)
    id: NUL-terminated (v2: counted Unicode)
@@ -21,12 +21,20 @@
    (v2: signed: time)
    (v2: expired: time)
    signature for everything above
+
+   new public key format:
+
+   magic: 0x4741 0x4C45 0x0001
+   id: counted Unicode
+   -- possibly truncated here: EXPORT_STUB --
+   data: fragment group
 */
 
 static const byte magic[] = { 0x68, 0x13, 0x00, 0x00 };
 static const byte magic2[] = { 0x68, 0x13, 0x00, 0x02 };
+static const byte magic3[] = { 0x47, 0x41, 0x4C, 0x45, 0x00, 0x01 };
 
-static struct gale_text must_sign(struct gale_text text) {
+struct gale_text _ga_signer(struct gale_text text) {
 	while (text.l > 0 && !strchr(".@:/",*text.p)) {
 		--text.l;
 		++text.p;
@@ -39,18 +47,75 @@ static struct gale_text must_sign(struct gale_text text) {
 	return G_("ROOT");
 }
 
+int _ga_pub_equal(struct gale_group a,struct gale_group b) {
+	struct gale_fragment mod[2],exp[2],bits[2];
+	if (!gale_group_lookup(a,G_("rsa.modulus"),frag_data,&mod[0])
+	||  !gale_group_lookup(a,G_("rsa.exponent"),frag_data,&exp[0])
+	||  !gale_group_lookup(a,G_("rsa.bits"),frag_number,&bits[0])
+	||  !gale_group_lookup(b,G_("rsa.modulus"),frag_data,&mod[1])
+	||  !gale_group_lookup(b,G_("rsa.exponent"),frag_data,&exp[1])
+	||  !gale_group_lookup(b,G_("rsa.bits"),frag_number,&bits[1])) return 0;
+
+	return (0 == gale_data_compare(mod[0].value.data,mod[1].value.data)
+	    &&  0 == gale_data_compare(exp[0].value.data,exp[1].value.data)
+	    &&  bits[0].value.number == bits[1].value.number);
+}
+
+int _ga_pub_older(struct gale_group a,struct gale_group b) {
+	struct gale_fragment s[2];
+	if (!gale_group_lookup(a,G_("key.signed"),frag_time,&s[0]))
+		return (gale_group_lookup(b,G_("key.signed"),frag_time,&s[1]));
+	if (!gale_group_lookup(b,G_("key.signed"),frag_time,&s[1]))
+		return 0;
+	return gale_time_compare(s[0].value.time,s[1].value.time) < 0;
+}
+
+int _ga_pub_rsa(struct gale_group group,R_RSA_PUBLIC_KEY *rsa) {
+	struct gale_fragment mod,exp,bits;
+
+	memset(rsa,0,sizeof(*rsa));
+	if (!gale_group_lookup(group,G_("rsa.modulus"),frag_data,&mod)
+	||  MAX_RSA_MODULUS_LEN != mod.value.data.l
+	||  !gale_group_lookup(group,G_("rsa.exponent"),frag_data,&exp)
+	||  MAX_RSA_MODULUS_LEN != exp.value.data.l
+	||  !gale_group_lookup(group,G_("rsa.bits"),frag_number,&bits)
+	||  bits.value.number < MIN_RSA_MODULUS_BITS
+	||  bits.value.number > MAX_RSA_MODULUS_BITS)
+		return 0;
+
+	rsa->bits = bits.value.number;
+	memcpy(rsa->modulus,mod.value.data.p,mod.value.data.l);
+	memcpy(rsa->exponent,exp.value.data.p,exp.value.data.l);
+	return 1;
+}
+
+static int pack_fragment(struct gale_data *data,struct gale_group group,
+                         struct gale_text name,enum gale_fragment_type type)
+{
+	struct gale_fragment frag;
+	if (!gale_group_lookup(group,name,type,&frag)) return 0;
+	assert(type == frag.type && 0 == gale_text_compare(name,frag.name));
+	switch (type) {
+	case frag_text:   gale_pack_text(data,frag.value.text);  break;
+	case frag_number: gale_pack_u32(data,frag.value.number); break;
+	case frag_data:   gale_pack_rle(data,
+				frag.value.data.p,
+				frag.value.data.l);              break;
+	case frag_time:   gale_pack_time(data,frag.value.time);  break;
+	default:          assert(0);
+	}
+	return 1;
+}
+
 void _ga_import_pub(struct auth_id **id,struct gale_data key,
                     struct inode *source,int trust) {
-	struct auth_id *imp = NULL;
-	struct gale_data save = key;
+	struct auth_id *try = NULL;
+	const struct gale_data save = key; /* to verify signature */
+	struct gale_group data = gale_group_empty();
+	struct gale_fragment frag;
 	struct signature sig;
-	struct gale_text comment = null_text;
-	R_RSA_PUBLIC_KEY k;
-	struct gale_time sign,expire;
-	u32 u,version;
+	u32 version;
 	int valid = 0;
-
-	/* --- find out what we're doing --- */
 
 	*id = NULL;
 	_ga_init_sig(&sig);
@@ -59,338 +124,265 @@ void _ga_import_pub(struct auth_id **id,struct gale_data key,
 		version = 1;
 	else if (gale_unpack_compare(&key,magic2,sizeof(magic2)))
 		version = 2;
-	else {
-		gale_alert(GALE_WARNING,"unknown public key format",0);
-		goto error;
-	}
+	else if (gale_unpack_compare(&key,magic3,sizeof(magic3)))
+		version = 3;
+	else 
+		goto invalid;
 
 	if (version > 1) {
 		struct gale_text name;
-
-		if (!gale_unpack_text(&key,&name)) {
-			gale_alert(GALE_WARNING,"truncated public key",0);
-			goto error;
-		}
-
-		init_auth_id(&imp,name);
+		if (!gale_unpack_text(&key,&name)) goto invalid;
+		init_auth_id(&try,name);
 	} else {
 		const char *sz;
-		struct gale_text text;
-
-		if (!gale_unpack_str(&key,&sz)) {
-			gale_alert(GALE_WARNING,"truncated public key",0);
-			goto error;
-		}
-
-		text = gale_text_from_latin1(sz,-1);
-		init_auth_id(&imp,text);
+		if (!gale_unpack_str(&key,&sz)) goto invalid;
+		init_auth_id(&try,gale_text_from_latin1(sz,-1));
 	}
 
-	/* --- now import the actual key bits and stuff --- */
+	/* stub key */
+	if (key.l == 0) goto success;
 
-	gale_diprintf(10,2,"(auth) \"%s\": importing public key\n",
-	              gale_text_to_local(imp->name));
-
-	if (key.l == 0) {
-		gale_dprintf(11,"(auth) \"%s\": stub key found\n",
-			     gale_text_to_local(imp->name));
-		goto success;
-	}
-
-	if (version > 1) {
-		if (!gale_unpack_text(&key,&comment)) {
-			_ga_warn_id(G_("\"%\": malformed public key"),imp);
-			goto error;
-		}
+	if (version > 2) {
+		if (!gale_unpack_group(&key,&data)) goto invalid;
+		sig.id = auth_verify(&data);
 	} else {
-		const char *sz;
-		if (!gale_unpack_str(&key,&sz)) {
-			_ga_warn_id(G_("\"%\": malformed public key"),imp);
-			goto error;
+		frag.type = frag_text;
+		frag.name = G_("key.owner");
+		if (version > 1) {
+			if (!gale_unpack_text(&key,&frag.value.text)) 
+				goto invalid;
+		} else {
+			const char *sz;
+			if (!gale_unpack_str(&key,&sz)) goto invalid;
+			frag.value.text = gale_text_from_latin1(sz,-1);
 		}
-		comment = gale_text_from_latin1(sz,-1);
-	}
+		gale_group_add(&data,frag);
 
-	gale_dprintf(11,"(auth) \"%s\": found comment \"%s\"\n",
-		     gale_text_to_local(imp->name),gale_text_to_local(comment));
+		frag.type = frag_number;
+		frag.name = G_("rsa.bits");
+		if (!gale_unpack_u32(&key,(u32 *) &frag.value.number)
+		||  frag.value.number < MIN_RSA_MODULUS_BITS
+		||  frag.value.number > MAX_RSA_MODULUS_BITS) goto invalid;
+		gale_group_add(&data,frag);
 
-	memset(&k,0,sizeof(k));
+		frag.type = frag_data;
+		frag.name = G_("rsa.modulus");
+		frag.value.data.l = MAX_RSA_MODULUS_LEN;
+		frag.value.data.p = gale_malloc(frag.value.data.l);
+		if (!gale_unpack_rle(&key,frag.value.data.p,frag.value.data.l))
+			goto invalid;
+		gale_group_add(&data,frag);
 
-	if (!gale_unpack_u32(&key,&u)
-	||  !gale_unpack_rle(&key,k.modulus,MAX_RSA_MODULUS_LEN)
-	||  !gale_unpack_rle(&key,k.exponent,MAX_RSA_MODULUS_LEN)) {
-		_ga_warn_id(G_("\"%\": malformed public key"),imp);
-		goto error;
-	}
+		frag.name = G_("rsa.exponent");
+		frag.value.data.p = gale_malloc(frag.value.data.l);
+		if (!gale_unpack_rle(&key,frag.value.data.p,frag.value.data.l))
+			goto invalid;
+		gale_group_add(&data,frag);
 
-	k.bits = u;
-	if (k.bits < MIN_RSA_MODULUS_BITS || k.bits > MAX_RSA_MODULUS_BITS) {
-		_ga_warn_id(G_("\"%\": invalid public key bit size"),imp);
-		goto error;
-	}
+		if (version > 1 && key.l > 0) {
+			frag.type = frag_time;
+			frag.name = G_("key.signed");
+			if (!gale_unpack_time(&key,&frag.value.time)) 
+				goto invalid;
+			gale_group_add(&data,frag);
 
-	if (version > 1 && key.l > 0) {
-		if (!gale_unpack_time(&key,&sign)
-		||  !gale_unpack_time(&key,&expire)) {
-			_ga_warn_id(G_("\"%\": malformed v2 public key"),imp);
-			goto error;
+			frag.name = G_("key.expires");
+			if (!gale_unpack_time(&key,&frag.value.time)) 
+				goto invalid;
+			gale_group_add(&data,frag);
 		}
-	} else {
-		sign = gale_time_zero();
-		expire = gale_time_forever();
 	}
 
-	/* --- We've retrieved actual key data; now decide its fate. --- */
+	if (try->pub_trusted && !trust) goto ignore;
 
-	if (imp->trusted && !trust) goto ignore;
-
-	if (!source) {
+	/* is the existing key valid? */
+	if (NULL == source) {
+		/* check any network import against the local filesystem */
 		auth_hook *hook_save = gale_global->find_public;
-		gale_dprintf(11,"(auth) \"%s\": looking around for it\n",
-			     gale_text_to_local(imp->name));
-		gale_global->find_public = NULL;
-		valid = auth_id_public(imp);
+		gale_global->find_public = NULL; /* no AKD */
+		valid = auth_id_public(try);
 		gale_global->find_public = hook_save;
 	} else
-		valid = _ga_trust_pub(imp);
+		valid = _ga_trust_pub(try);
 
-	if (valid && gale_time_compare(sign,imp->sign_time) <= 0) goto ignore;
+	if (valid && !_ga_pub_older(try->pub_data,data)) goto ignore;
 
-	/* Import and validate the signature, if there is one. */
-
-	if (key.l != 0) {
-		struct gale_data data;
-
-		data = save;
-		data.l = key.p - data.p;
-
-		gale_dprintf(11,"(auth) \"%s\": validating signature\n",
-			     gale_text_to_local(imp->name));
-
+	if (2 >= version && 0 != key.l) {
+		struct gale_data blob = save;
+		blob.l = key.p - blob.p;
 		_ga_import_sig(&sig,key);
-
-		if (sig.id && !sig.id->public) auth_id_public(sig.id);
-		if (!sig.id || !sig.id->public) {
-			_ga_warn_id(G_("\"%\": cannot find signing key"),imp);
+		if (!sig.id || !auth_id_public(sig.id)) {
+			_ga_warn_id(G_("\"%\": cannot find signing key"),try);
 			_ga_init_sig(&sig);
-		} else if (!_ga_verify(&sig,data))
+		} else if (!_ga_verify(&sig,blob))
 			_ga_init_sig(&sig);
-		else if (gale_text_compare(sig.id->name,must_sign(imp->name))) {
-			_ga_warn_id(G_("key \"%\" cannot certify \"%\""),
-			            sig.id,imp);
-			_ga_init_sig(&sig);
-		}
 	}
 
-	/* Valid signatures win over invalid ones. */
+	if (NULL != sig.id
+	&&  gale_text_compare(sig.id->name,_ga_signer(try->name))) {
+		_ga_warn_id(G_("key \"%\" cannot certify \"%\""),sig.id,key);
+		_ga_init_sig(&sig);
+	}
 
 	if (valid && !_ga_trust_pub(sig.id)) goto ignore;
 
-	/* --- OK, we've accepted the key.  Install it. --- */
+	/* OK... now install the key. */
+	if (!gale_group_null(try->pub_data) 
+	&&  !_ga_pub_equal(data,try->pub_data))
+		gale_alert(GALE_NOTICE,"replacing an old public key",0);
 
-	gale_dprintf(11,"(auth) \"%s\": valid key found; installing\n",
-		     gale_text_to_local(imp->name));
+	try->pub_data = data;
+	try->pub_orig = save;
+	try->pub_signer = sig.id;
+	try->pub_trusted = trust;
 
-	if (imp->public && memcmp(imp->public,&k,sizeof(k)))
-		gale_alert(GALE_NOTICE,
-		           "replacing an old public key with this one",0);
-
-	imp->version = version;
-	imp->sign_time = sign;
-	imp->expire_time = expire;
-	imp->trusted = trust;
-
-	imp->sig = sig;
-	_ga_init_sig(&sig);
-
-	imp->comment = comment; comment = null_text;
-	if (!imp->public) gale_create(imp->public);
-	*imp->public = k;
-
-	_ga_erase_inode(imp->source);
-
-	if (source) 
-		imp->source = *source;
-	else {
-		struct gale_data key;
-
-		gale_dprintf(11,"(auth) \"%s\": storing key in cache\n",
-			     gale_text_to_local(imp->name));
-
-		_ga_export_pub(imp,&key,EXPORT_NORMAL);
-		if (0 != key.l)
-		_ga_save_file(gale_global->sys_cache,imp->name,0644,
-		              key,&imp->source);
-	}
+#if !SAFE_KEY
+	_ga_erase_inode(try->pub_inode);
+#endif
+	if (NULL != source)
+		try->pub_inode = *source;
+	else
+		_ga_save_file(gale_global->sys_cache,try->name,0644,
+		              save,&try->pub_inode);
 
 	goto success;
 
+invalid:
+	assert(NULL == *id);
+	if (NULL == try) 
+		gale_alert(GALE_WARNING,"invalid public key",0);
+	else
+		_ga_warn_id(G_("\"%\": malformed public key"),try);
+	return;
+
 ignore:
-	if (!memcmp(imp->public,&k,sizeof(k))) goto success;
-	_ga_warn_id(G_("\"%\": ignoring obsolete public key"),imp);
-	goto error;
+	if (_ga_pub_equal(try->pub_data,data)) goto success;
+	_ga_warn_id(G_("\"%\": ignoring obsolete public key"),key);
+	return;
 
 success:
-	*id = imp;
+	if (0 == try->pub_orig.l) try->pub_orig = save;
+	*id = try;
+	return;
+}
 
-error:
-	if (imp != NULL)
-		gale_diprintf(10,-2,"(auth) \"%s\": done with import\n",
-		             gale_text_to_local(imp->name));
+static struct gale_data export(struct gale_text name,struct gale_group data) {
+	struct gale_data key;
+	if (gale_group_null(data)) return null_data;
+
+	key.l = gale_copy_size(sizeof(magic3))
+	      + gale_text_size(name)
+	      + gale_group_size(data);
+	key.p = gale_malloc(key.l);
+	key.l = 0;
+
+	gale_pack_copy(&key,magic3,sizeof(magic3));
+	gale_pack_text(&key,name);
+	gale_pack_group(&key,data);
+	return key;
 }
 
 void _ga_export_pub(struct auth_id *id,struct gale_data *key,int flag) {
-	size_t len;
-	struct gale_data sig;
-
-	if (id->version == 0) id->version = 2;
-
-	/* Make a stub key, if that's all we can do... */
-	if (flag == EXPORT_STUB || (!id->sig.id && flag == EXPORT_NORMAL)) {
-		if (id->version > 1) {
-			size_t len = gale_copy_size(sizeof(magic2))
-			           + gale_text_size(id->name);
-			key->p = gale_malloc(len);
-			key->l = 0;
-
-			gale_pack_copy(key,magic2,sizeof(magic2));
-			gale_pack_text(key,id->name);
-		} else {
-			char *name = gale_text_to_latin1(id->name);
-			size_t len = gale_copy_size(sizeof(magic)) 
-			           + gale_str_size(name);
-			key->p = gale_malloc(len);
-			key->l = 0;
-
-			gale_pack_copy(key,magic,sizeof(magic));
-			gale_pack_str(key,name);
-			gale_free(name);
-		}
-
-		return;
-	}
-
-	if (!id->public) {
-		key->p = NULL;
+	if (EXPORT_STUB == flag 
+	|| (NULL == id->pub_signer && EXPORT_NORMAL == flag)) {
+		/* Export a stub key.  Might as well keep it compatible. */
+		size_t len = gale_copy_size(sizeof(magic2))
+		           + gale_text_size(id->name);
+		key->p = gale_malloc(len);
 		key->l = 0;
-		return;
-	}
-
-	sig.p = NULL;
-	sig.l = 0;
-	if (id->sig.id) _ga_export_sig(&id->sig,&sig,EXPORT_NORMAL);
-
-	len = gale_copy_size(sizeof(magic))
-	    + gale_u32_size() + 2 * gale_rle_size(MAX_RSA_MODULUS_LEN)
-	    + gale_copy_size(sig.l);
-
-	if (id->version > 1)
-		len += gale_text_size(id->name) + gale_text_size(id->comment)
-		    +  2 * gale_time_size();
-	else
-		len += id->name.l + 1 + id->comment.l + 1;
-
-	key->p = gale_malloc(len);
-	key->l = 0;
-
-	if (id->version > 1) {
 		gale_pack_copy(key,magic2,sizeof(magic2));
 		gale_pack_text(key,id->name);
-		gale_pack_text(key,id->comment);
-	} else {
-		char *name = gale_text_to_latin1(id->name);
-		char *comment = gale_text_to_latin1(id->comment);
-		gale_pack_copy(key,magic,sizeof(magic));
-		gale_pack_str(key,name);
-		gale_pack_str(key,comment);
-		gale_free(name);
-		gale_free(comment);
+		return;
 	}
 
-	gale_pack_u32(key,id->public->bits);
-	gale_pack_rle(key,id->public->modulus,MAX_RSA_MODULUS_LEN);
-	gale_pack_rle(key,id->public->exponent,MAX_RSA_MODULUS_LEN);
-
-	if (id->version > 1 && (sig.p || flag == EXPORT_SIGN)) {
-		gale_pack_time(key,id->sign_time);
-		gale_pack_time(key,id->expire_time);
+	if (EXPORT_NORMAL == flag
+	|| (EXPORT_TRUSTED == flag && NULL != id->pub_signer)) {
+		/* We should already have the key serialized. */
+		assert(NULL != id->pub_signer && 0 != id->pub_orig.l);
+		*key = id->pub_orig;
+		return;
 	}
 
-	if (sig.p && flag != EXPORT_SIGN) {
-		gale_pack_copy(key,sig.p,sig.l);
-		gale_free(sig.p);
-	}
+	/* Export an unsigned key. */
+	assert(EXPORT_TRUSTED == flag && NULL == id->pub_signer);
+	*key = export(id->name,id->pub_data);
 }
 
 void _ga_sign_pub(struct auth_id *id,struct gale_time expire) {
-	struct gale_data blob;
 	struct auth_id *signer;
+	struct gale_fragment frag;
+	struct gale_group data;
 
 	if (!gale_text_compare(id->name,G_("ROOT"))) return;
 
-	init_auth_id(&signer,must_sign(id->name));
-	if (!signer 
+	init_auth_id(&signer,_ga_signer(id->name));
+	if (NULL == signer 
 	||  !auth_id_private(signer)
 	||  !auth_id_public(signer))
 		return;
 
-	id->sign_time = gale_time_now();
-	id->expire_time = expire;
+	frag.type = frag_time;
+	frag.name = G_("key.signed");
+	frag.value.time = gale_time_now();
+	gale_group_replace(&id->pub_data,frag);
 
-	_ga_init_sig(&id->sig);
-	_ga_export_pub(id,&blob,EXPORT_SIGN);
-	if (blob.p) {
-		_ga_sign(&id->sig,signer,blob);
-		gale_free(blob.p);
-	}
+	frag.name = G_("key.expires");
+	frag.value.time = expire;
+	gale_group_replace(&id->pub_data,frag);
+
+	data = id->pub_data;
+	if (!auth_sign(&data,signer,1)) return;
+	id->pub_orig = export(id->name,data);
+	id->pub_signer = signer;
 }
 
 static int bad_key(struct auth_id *id) {
-	R_RSA_PUBLIC_KEY *key = id->public;
-	if (key->bits != 768
-	||  key->modulus[32] != 0xCA
-	||  key->modulus[45] != 0x2B
-	||  key->modulus[55] != 0x76
-	||  key->modulus[67] != 0xC7
-	||  key->modulus[81] != 0xE9
-	||  key->modulus[82] != 0x01) return 0;
-	return 1;
+	R_RSA_PUBLIC_KEY key;
+	return (_ga_pub_rsa(id->pub_data,&key)
+	&&	768 == key.bits
+	&&	0xCA == key.modulus[32]
+	&&	0x2B == key.modulus[45]
+	&&	0x76 == key.modulus[55]
+	&&	0xC7 == key.modulus[67]
+	&&	0xE9 == key.modulus[81]
+	&&	0x01 == key.modulus[82]);
+}
+
+static int expired(struct auth_id *id,struct gale_time now) {
+	struct gale_fragment frag;
+	return gale_group_lookup(id->pub_data,G_("key.expires"),frag_time,&frag)
+	    && gale_time_compare(frag.value.time,now) < 0;
 }
 
 int _ga_trust_pub(struct auth_id *id) {
 	struct gale_time now;
 
-	if (!id) return 0;
-
+	if (NULL == id) return 0;
 	gale_diprintf(10,2,"(auth) \"%s\": verifying trust of key\n",
 	             gale_text_to_local(id->name));
 
-	if (!id->public) {
+	if (gale_group_null(id->pub_data)) {
 		gale_diprintf(10,-2,"(auth) \"%s\": no public key to trust!\n",
 		             gale_text_to_local(id->name));
 		return 0;
 	}
 
 	now = gale_time_now();
-
-	while (id && id->public) {
+	while (NULL != id && !gale_group_null(id->pub_data)) {
 		gale_dprintf(12,"(auth) checking component \"%s\"\n",
 			     gale_text_to_local(id->name));
 		if (bad_key(id)) {
-			_ga_warn_id(G_("\"%\": not trusting old, insecure key"),id);
+			_ga_warn_id(G_("\"%\": bad, old, insecure key"),id);
 			id = NULL;
-		} else if (id->trusted) {
+		} else if (id->pub_trusted) {
 			gale_dprintf(11,"(auth) found trusted parent\n");
 			break;
-		} else if (gale_time_compare(id->expire_time,now) < 0) {
-			_ga_warn_id(G_("\"%\": certificate expired"),id);
+		} else if (expired(id,now)) {
+			_ga_warn_id(G_("\"%\": key expired"),id);
 			id = NULL;
 		} else
-			id = id->sig.id;
+			id = id->pub_signer;
 	}
 
-	gale_diprintf(10,-2,"(auth) \"%s\" done checking key (%s)\n",
-	             id ? gale_text_to_local(id->name) : "(none)",
-	             (id && id->trusted) ? "trusted" : "not trusted");
-	return id && id->trusted;
+	return NULL != id && id->pub_trusted;
 }

@@ -21,11 +21,18 @@ const byte m_priv2[] = { 0x00, 0x03 };
 const byte m_sign[] = { 0x01, 0x00 };
 
 void pub_info(struct auth_id *id) {
-	printf("<%s> (%s), %d bits%s\n",
-	       gale_text_to_local(id->name),
-	       gale_text_to_local(id->comment),
-	       id->public->bits,
-	       id->trusted ? " [trusted]" : "");
+	struct gale_fragment frag;
+	printf("<%s>",gale_text_to_local(id->name));
+	if (gale_group_lookup(id->pub_data,G_("key.owner"),frag_text,&frag))
+		printf(" (%s)",gale_text_to_local(frag.value.text));
+	if (gale_group_lookup(id->pub_data,G_("rsa.bits"),frag_number,&frag))
+		printf(", %d bits",frag.value.number);
+	if (id->pub_trusted)
+		printf(" [trusted]");
+	printf("\n");
+	if (gale_group_lookup(id->pub_data,G_("key.redirect"),frag_text,&frag))
+		printf("Redirector to: <%s>\n",
+		       gale_text_to_local(frag.value.text));
 }
 
 void pub_date(struct gale_time time) {
@@ -51,33 +58,41 @@ void pub_key(struct auth_id *id) {
 	else
 		printf("UNTRUSTED");
 	printf(" public key: "); pub_info(id);
-	while (id->sig.id) {
+	while (NULL != id->pub_signer) {
+		struct gale_fragment frag;
 		int i;
 		indent += 2;
 		for (i = 0; i < indent; ++i) printf(" ");
 		printf("Signed");
-		if (gale_time_compare(gale_time_zero(),id->sign_time) < 0) {
+		if (gale_group_lookup(id->pub_data,G_("key.signed"),
+		                      frag_time,&frag)
+		&&  gale_time_compare(gale_time_zero(),frag.value.time) < 0) {
 			printf(" (");
-			pub_date(id->sign_time);
-			if (gale_time_compare(id->expire_time,gale_time_forever()) < 0) {
+			pub_date(frag.value.time);
+			if (gale_group_lookup(id->pub_data,G_("key.expires"),
+			                      frag_time,&frag)
+			&&  gale_time_compare(frag.value.time,
+			                      gale_time_forever()) < 0) {
 				printf(" - ");
-				pub_date(id->expire_time);
+				pub_date(frag.value.time);
 			}
 			printf(")");
 		}
-		id = id->sig.id;
+		id = id->pub_signer;
 		printf(": "); pub_info(id);
 	}
 }
 
 void priv_key(struct auth_id *id) {
+	struct gale_fragment frag;
 	if (iflag) {
 		printf("%s\n",gale_text_to_local(id->name));
 		return;
 	}
-	printf("Private key: <%s>, %d bits\n",
-	       gale_text_to_local(id->name),
-	       id->private->bits);
+	printf("Private key: <%s>",gale_text_to_local(id->name));
+	if (gale_group_lookup(id->priv_data,G_("rsa.bits"),frag_number,&frag))
+		printf(", %d bits",frag.value.number);
+	printf("\n");
 }
 
 void usage(void) {

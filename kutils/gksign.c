@@ -57,11 +57,11 @@ int main(int argc,char *argv[]) {
 
 	if (check.l && gale_text_compare(check,id->name))
 		gale_alert(GALE_ERROR,"permission denied to sign public key",0);
-	if (id->sig.id)
+	if (id->pub_signer)
 		_ga_warn_id(G_("key \"%\" already signed"),id);
 
 	_ga_sign_pub(id,gale_time_forever()); /* change me! */
-	if (!id->sig.id) gale_alert(GALE_ERROR,"cannot sign public key",0);
+	if (!id->pub_signer) gale_alert(GALE_ERROR,"cannot sign public key",0);
 
 	_ga_export_pub(id,&key,EXPORT_NORMAL);
 	if (!_ga_save(1,key))

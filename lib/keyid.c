@@ -38,18 +38,17 @@ void init_auth_id(struct auth_id **pid,struct gale_text name) {
 		gale_dprintf(11,"(auth) new key: \"%s\"\n",
 		             gale_text_to_local(name));
 		gale_create(ptr);
-		ptr->version = 0;
-		ptr->trusted = 0;
-		ptr->sign_time = gale_time_zero();
-		ptr->expire_time = gale_time_forever();
-		ptr->find_time = gale_time_zero();
 		ptr->name = name;
-		ptr->comment = G_("(uninitialized)");
-		ptr->source = _ga_init_inode();
-		ptr->public = NULL;
-		ptr->priv_source = _ga_init_inode();
-		ptr->private = NULL;
-		_ga_init_sig(&ptr->sig);
+		ptr->priv_data = gale_group_empty();
+		ptr->priv_inode = _ga_init_inode();
+
+		ptr->pub_time = gale_time_zero();
+		ptr->pub_data = gale_group_empty();
+		ptr->pub_orig = null_data;
+		ptr->pub_signer = NULL;
+		ptr->pub_inode = _ga_init_inode();
+		ptr->pub_trusted = 0;
+
 		gale_wt_add(gale_global->auth_tree,gale_text_as_data(name),ptr);
 	}
 
@@ -61,6 +60,10 @@ struct gale_text auth_id_name(struct auth_id *id) {
 }
 
 struct gale_text auth_id_comment(struct auth_id *id) {
+	struct gale_fragment frag;
+
 	auth_id_public(id);
-	return id->comment;
+	if (!gale_group_lookup(id->pub_data,G_("key.owner"),frag_text,&frag))
+		return null_text;
+	return frag.value.text;
 }

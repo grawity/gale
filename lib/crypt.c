@@ -23,8 +23,8 @@
 static const byte magic[] = { 0x68, 0x13, 0x02, 0x00 };
 static const byte magic2[] = { 0x68, 0x13, 0x02, 0x01 };
 
-void auth_encrypt(int num,struct auth_id **ids,
-                  struct gale_data plain,struct gale_data *cipher)
+void _ga_encrypt(int num,struct auth_id **ids,
+                 struct gale_data plain,struct gale_data *cipher)
 {
 	R_ENVELOPE_CTX ctx;
 	byte **ekey;
@@ -35,7 +35,7 @@ void auth_encrypt(int num,struct auth_id **ids,
 	struct gale_data tmp;
 	unsigned int u;
 	u32 n;
-	int i,version = 0;
+	int i;
 
 	gale_create_array(ekey,num);
 	gale_create_array(ekeylen,num);
@@ -48,57 +48,36 @@ void auth_encrypt(int num,struct auth_id **ids,
 	for (i = 0; i < num; ++i) ekey[i] = NULL;
 
 	for (i = 0; i < num; ++i) {
-		size_t j;
-		if (!auth_id_public(ids[i])) {
+		gale_create(key[i]);
+		if (!auth_id_public(ids[i])
+		||  !_ga_pub_rsa(ids[i]->pub_data,key[i])) {
 			_ga_warn_id(G_("\"%\": no public key, cannot encrypt"),
 			            ids[i]);
-			goto error;
+			return;
 		}
-		if (version == 0 && ids[i]->version < 2) version = 1;
-		for (j = 0; j < ids[i]->name.l; ++j)
-			if (ids[i]->name.p[j] >= 0x80)
-				version = 2;
-		key[i] = ids[i]->public;
 		ekey[i] = gale_malloc(MAX_ENCRYPTED_KEY_LEN);
 	}
 
-	if (version == 0) version = 2;
-
 	if (R_SealInit(&ctx,ekey,ekeylen,iv,num,key,EA_DES_EDE3_CBC,r)) {
 		gale_alert(GALE_WARNING,"failure in encryption operation",0);
-		goto error;
+		return;
 	}
 
-	if (version > 1)
-		n = gale_copy_size(sizeof(magic2));
-	else
-		n = gale_copy_size(sizeof(magic));
-	n += gale_copy_size(sizeof(iv)) + gale_u32_size() + plain.l + 8;
+	n = gale_copy_size(sizeof(magic2))
+	  + gale_copy_size(sizeof(iv)) + gale_u32_size() + plain.l + 8;
 	for (i = 0; i < num; ++i) {
-		if (version > 1)
-			n += gale_text_size(ids[i]->name);
-		else
-			n += ids[i]->name.l + 1;
-		n += ekeylen[i] + gale_u32_size();
+		n += gale_text_size(ids[i]->name)
+		  +  ekeylen[i] + gale_u32_size();
 	}
 	tmp.p = gale_malloc(n);
 	tmp.l = 0;
 
-	if (version > 1)
-		gale_pack_copy(&tmp,magic2,sizeof(magic2));
-	else
-		gale_pack_copy(&tmp,magic,sizeof(magic));
+	gale_pack_copy(&tmp,magic2,sizeof(magic2));
 	gale_pack_copy(&tmp,iv,sizeof(iv));
 	gale_pack_u32(&tmp,num);
 
 	for (i = 0; i < num; ++i) {
-		if (version > 1)
-			gale_pack_text(&tmp,ids[i]->name);
-		else {
-			char *sz = gale_text_to_latin1(ids[i]->name);
-			gale_pack_str(&tmp,sz);
-			gale_free(sz);
-		}
+		gale_pack_text(&tmp,ids[i]->name);
 		gale_pack_u32(&tmp,ekeylen[i]);
 		gale_pack_copy(&tmp,ekey[i],ekeylen[i]);
 	}
@@ -108,19 +87,13 @@ void auth_encrypt(int num,struct auth_id **ids,
 
 	*cipher = tmp;
 	tmp.p = NULL;
-
-error:
-	for (i = 0; i < num; ++i) if (ekey[i]) gale_free(ekey[i]);
-	gale_free(ekey);
-	gale_free(ekeylen);
-	gale_free(key);
-	if (tmp.p) gale_free(tmp.p);
 }
 
-void auth_decrypt(struct auth_id **id,
-                  struct gale_data cipher,struct gale_data *plain)
+void _ga_decrypt(struct auth_id **id,
+                 struct gale_data cipher,struct gale_data *plain)
 {
 	R_ENVELOPE_CTX ctx;
+	R_RSA_PRIVATE_KEY priv;
 	unsigned int u,ekeylen = 0;
 	byte iv[8],ekey[MAX_ENCRYPTED_KEY_LEN];
 	u32 num,i,version;
@@ -191,7 +164,8 @@ void auth_decrypt(struct auth_id **id,
 
 	if (!tmp) return;
 
-	if (R_OpenInit(&ctx,EA_DES_EDE3_CBC,ekey,ekeylen,iv,tmp->private)) {
+	_ga_priv_rsa(tmp->priv_data,&priv);
+	if (R_OpenInit(&ctx,EA_DES_EDE3_CBC,ekey,ekeylen,iv,&priv)) {
 		_ga_warn_id(G_("failure decrypting message to \"%\""),tmp);
 		return;
 	}

@@ -53,7 +53,7 @@ void watch_ping(struct gale_text cat,struct auth_id *id) {
 	frag.value.text = receipt;
 	gale_group_add(&msg->data,frag);
 
-	if (id) msg = encrypt_message(1,&id,msg);
+	if (id && !auth_encrypt(&msg->data,1,&id)) msg = NULL;
 
 	if (msg) {
 		pings = gale_realloc(pings,sizeof(*pings) * (count_pings + 1));
@@ -160,10 +160,10 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *d) {
 	struct gale_time when = gale_time_now();
 	struct gale_group group;
 
-	id_encrypt = decrypt_message(msg,&msg);
+	id_encrypt = auth_decrypt(&msg->data);
 	if (!msg) return OOP_CONTINUE;
 
-	id_sign = verify_message(msg,&msg);
+	id_sign = auth_verify(&msg->data);
 
 #ifndef NDEBUG
 	if (!gale_text_compare(msg->cat,G_("debug/restart")) && id_sign 

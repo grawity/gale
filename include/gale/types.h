@@ -66,9 +66,13 @@ struct gale_group {
 	const struct gale_group *next;
 };
 
+enum gale_fragment_type { 
+	frag_text, frag_data, frag_time, frag_number, frag_group 
+};
+
 struct gale_fragment {
 	struct gale_text name;
-	enum { frag_text, frag_data, frag_time, frag_number, frag_group } type;
+	enum gale_fragment_type type;
 	union {
 		struct gale_text text;
 		struct gale_data data;

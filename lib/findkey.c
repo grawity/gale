@@ -35,7 +35,9 @@ static int open_pub(struct auth_id *id,int fd,int flag,struct inode *inode) {
 	}
 
 	close(fd);
+#if !SAFE_KEY
 	if (inode && !status) _ga_erase_inode(*inode);
+#endif
 	return status;
 }
 
@@ -84,15 +86,16 @@ int _ga_find_pub(struct auth_id *id) {
 
 	if (gale_time_compare(
 		gale_time_diff(now,gale_time_seconds(RETRY_TIME)),
-		id->find_time) < 0)
+		id->pub_time) < 0)
 	{
 		gale_diprintf(10,-2,"(auth) \"%s\": we searched recently\n",
 		             gale_text_to_local(id->name));
 		return 0;
 	}
 
-	id->find_time = now;
-	if (gale_global->find_public && gale_global->find_public(id)) return 1;
+	id->pub_time = now;
+	if (NULL != gale_global->find_public 
+	&&  gale_global->find_public(id)) return 1;
 
 	argv[1] = gale_text_to_local(id->name);
 	pid = gale_exec("gkfind",argv,NULL,&fd,nop);
@@ -129,7 +132,8 @@ int auth_id_public(struct auth_id *id) {
 	             gale_text_to_local(id->name));
 	status = _ga_find_pub(id);
 	gale_diprintf(10,-2,"(auth) \"%s\": done looking (%s)\n",
-	             gale_text_to_local(id->name),status ? "found" : "not found");
+	             gale_text_to_local(id->name),
+	             status ? "found" : "not found");
 	return status;
 }
 
@@ -139,7 +143,7 @@ static int get_private(struct auth_id *id) {
 	char *argv[] = { "gkfetch", NULL, NULL };
 	struct inode in = _ga_init_inode();
 
-	if (id->private
+	if (!gale_group_null(id->priv_data)
 	||  open_priv(id,get(gale_global->dot_private,id->name,&in),&in)
 	||  open_priv(id,get(gale_global->sys_private,id->name,&in),&in))
 		return 1;

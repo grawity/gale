@@ -6,22 +6,19 @@
 #include "file.h"
 
 struct auth_id {
-	struct auth_id **ptr,*left,*right;	/* tree linkage */
-	int version;				/* key version */
-	struct gale_text name,comment;
+	struct gale_text name;
 
-	/* private key stuff */
-	R_RSA_PRIVATE_KEY *private;
-	struct inode priv_source;
+	/* private */
+	struct gale_group priv_data;		/* private data */
+	struct inode priv_inode;		/* where it came from */
 
-	/* public key stuff */
-	R_RSA_PUBLIC_KEY *public;
-	int trusted;				/* inherently trusted? */
-	struct gale_time sign_time;		/* when it was signed */
-	struct gale_time expire_time;		/* when it expires */
-	struct gale_time find_time;		/* when we last looked */
-	struct signature sig;			/* signature for public key */
-	struct inode source;			/* where it came from */
+	/* public */
+	struct gale_time pub_time;		/* time of last search */
+	struct gale_group pub_data;		/* public data */
+	struct gale_data pub_orig;		/* original bits */
+	struct auth_id *pub_signer;		/* signing key */
+	struct inode pub_inode;			/* where it came from */
+	int pub_trusted;			/* nonzero if trusted source */
 };
 
 void _ga_warn_id(struct gale_text,...);

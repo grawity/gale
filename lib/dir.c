@@ -26,6 +26,7 @@ struct gale_text dir_file(struct gale_text path,struct gale_text file) {
 			r = gale_text_concat(3,r,G_("__"),
 				gale_text_right(part,-2));
 		}
+		if ('/' == part.p[part.l - 1]) --part.l;
 	}
 
 	return gale_text_concat(3,path,G_("/"),r);

@@ -81,14 +81,11 @@ struct gale_message *slip(struct gale_text cat,
 	if (extra) gale_group_add(&msg->data,*extra);
 
 	/* Sign and encrypt the message, if appropriate. */
-	if (sign) {
-		struct gale_message *new = sign_message(sign,msg);
-		if (new) msg = new;
-	}
+	if (sign) auth_sign(&msg->data,sign,AUTH_SIGN_NORMAL);
 
 	/* For safety's sake, don't leave the old message in place if 
 	   encryption fails. */
-	if (encrypt) msg = encrypt_message(1,&encrypt,msg);
+	if (encrypt && !auth_encrypt(&msg->data,1,&encrypt)) msg = NULL;
 
 	return msg;
 }
@@ -198,7 +195,7 @@ void send_message(char *body,char *end,int fd) {
 
 /* Take the message passed as an argument and show it to the user, running
    their gsubrc if present, using the default formatter otherwise. */
-void *on_message(struct gale_link *link,struct gale_message *_msg,void *data) {
+void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 	int pfd[2];             /* Pipe file descriptors. */
 
 	/* Lots of crap.  Discussed below, where they're used. */
@@ -206,23 +203,16 @@ void *on_message(struct gale_link *link,struct gale_message *_msg,void *data) {
 	struct gale_group group;
 	struct gale_text body = null_text;
 	struct auth_id *id_encrypted = NULL,*id_sign = NULL;
-	struct gale_message *rcpt = NULL,*akd = NULL,*msg = NULL;
+	struct gale_message *rcpt = NULL,*akd = NULL;
 	int status = 0;
 	pid_t pid;
 	char *szbody = NULL;
 
 	/* Decrypt, if necessary. */
-	id_encrypted = decrypt_message(_msg,&msg);
-	if (!msg) {
-		char *tmp = gale_malloc(_msg->cat.l + 80);
-		sprintf(tmp,"cannot decrypt message on category \"%s\"",
-		        gale_text_to_local(_msg->cat));
-		gale_alert(GALE_WARNING,tmp,0);
-		return OOP_CONTINUE;
-	}
+	id_encrypted = auth_decrypt(&msg->data);
 
 	/* Verify a signature, if possible. */
-	id_sign = verify_message(msg,&msg);
+	id_sign = auth_verify(&msg->data);
 
 #ifndef NDEBUG
 	/* In debug mode, restart if we get a properly authorized message. 
@@ -238,7 +228,7 @@ void *on_message(struct gale_link *link,struct gale_message *_msg,void *data) {
 #endif
 
 	/* Set some variables for gsubrc. */
-	gale_set(G_("GALE_CATEGORY"),_msg->cat);
+	gale_set(G_("GALE_CATEGORY"),msg->cat);
 
 	if (id_encrypted)
 		gale_set(G_("GALE_ENCRYPTED"),auth_id_name(id_encrypted));

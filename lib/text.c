@@ -90,15 +90,10 @@ int gale_text_token(struct gale_text string,wch sep,struct gale_text *token) {
 }
 
 int gale_text_compare(struct gale_text a,struct gale_text b) {
-	size_t l = a.l;
-	int c;
-	if (b.l < l) l = b.l;
-	c = memcmp(a.p,b.p,l * sizeof(wch));
-	if (!c) {
-		if (a.l < b.l) return -1;
-		if (b.l < a.l) return 1;
-	}
-	return c;
+	size_t l = (a.l < b.l) ? a.l : b.l;
+	int c = (a.p == b.p) ? 0 : memcmp(a.p,b.p,l * sizeof(wch));
+	if (0 != c) return c;
+	return a.l - b.l;
 }
 
 struct gale_text gale_text_from_number(int n,int base,int pad) {
