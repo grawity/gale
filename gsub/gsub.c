@@ -250,7 +250,7 @@ static void *on_message(struct gale_message *msg,void *data) {
 	if (do_keys 
 	&&  NULL != key_location
 	&&  NULL != user_location
-	&&  gale_group_lookup(group,G_("question.key"),frag_text,&f)
+	&&  gale_group_lookup(msg->data,G_("question.key"),frag_text,&f)
 	&& !gale_text_compare(f.value.text,gale_location_name(user_location))) {
 		f.name = G_("answer.key");
 		f.type = frag_data;
@@ -264,8 +264,8 @@ static void *on_message(struct gale_message *msg,void *data) {
 			G_("\"")),0);
 	} else 
 	if (do_verbose
-	&& (gale_group_lookup(group,G_("question.key"),frag_text,&f)
-	||  gale_group_lookup(group,G_("question/key"),frag_text,&f))) {
+	&& (gale_group_lookup(msg->data,G_("question.key"),frag_text,&f)
+	||  gale_group_lookup(msg->data,G_("question/key"),frag_text,&f))) {
 		gale_alert(GALE_WARNING,gale_text_concat(3,
 			G_("ignoring key request for \""),
 			f.value.text,
