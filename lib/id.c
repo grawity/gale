@@ -110,7 +110,7 @@ int find_id(struct auth_id *id) {
 
 	timeout = time(NULL);
 	tmp = gale_malloc(strlen(getenv("HOST")) + 30);
-	sprintf(tmp,"%s.%d",getenv("HOST"),getpid());
+	sprintf(tmp,"%s.%d",getenv("HOST"),(int) getpid());
 	category = id_category(user_id,"receipt",tmp);
 	gale_free(tmp);
 	client = gale_open(category);
