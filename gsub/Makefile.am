@@ -2,5 +2,5 @@
 
 bin_PROGRAMS = gsub
 gsub_SOURCES = gsub.c default.c
-gsub_LDADD = $(GALE_LIBS) $(DL_LIBS)
+gsub_LDADD = $(GALE_LIBS)
 noinst_HEADERS = default.h

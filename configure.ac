@@ -126,7 +126,7 @@ LIBS="$save_libs"
 CFLAGS="$save_flags"
 
 AC_CHECK_LIB(dl,dlopen,[
-  DL_LIBS="-ldl"
+  GALE_LIBS="$GALE_LIBS -ldl"
   AC_DEFINE(HAVE_LIBDL, 1, [The dynamic loader library is available.])])
 AC_CHECK_LIB(readline,readline,[
   GALE_LIBS="$GALE_LIBS -lreadline"
@@ -206,7 +206,6 @@ CPPFLAGS="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $CPPFLAGS"
 
 AC_SUBST(CFLAGS_NOWARN)
 AC_SUBST(ZEPHYR_LIBS)
-AC_SUBST(DL_LIBS)
 AC_SUBST(GALE_LIBS)
 AC_SUBST(PROG_LDCONFIG)
 
