@@ -74,11 +74,11 @@ int gale_column(int col,wch ch) {
 		}
 		t.p = &ch;
 		t.l = 1;
-		return col + gale_width(t);
+		return col + gale_text_width(t);
 	}
 }
 
-int gale_width(struct gale_text str) {
+int gale_text_width(struct gale_text str) {
 	const char *cvt = gale_text_to(gale_global->enc_console,str);
 	struct gale_text out = gale_text_from(gale_global->enc_console,cvt,-1);
 	const wch *ptr = out.p,*end = out.l + out.p;
