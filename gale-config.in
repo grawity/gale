@@ -12,39 +12,42 @@ exec_prefix="@exec_prefix@"
 sysconfdir="@sysconfdir@"
 version="@VERSION@"
 
-top_builddir="IGNORE"
-top_srcdir="IGNORE"
+top_builddir='IGNORE'
+top_srcdir='IGNORE'
 
-linkflags="-lgale -lrsaref -lgc -loop-adns -loop"
-test "x${exec_prefix}" != "x/usr" && linkflags="-L${exec_prefix}/lib $linkflags"
+linkflags='-lgale -lgc -loop-adns -loop'
 for flag in @LDFLAGS@ @GALE_LIBS@ @LIBS@ ; do
-  case "$flag" in
-    -LIGNORE*) ;;
-    IGNORE*) ;;
-    -L${exec_prefix}/lib) ;;
-    -L*) linkflags="$flag $linkflags" ;;
-    *) linkflags="$linkflags $flag" ;;
+  case " $linkflags " in
+    *" $flag "*) ;; # remove duplicates
+    *) case "$flag" in
+         -LIGNORE*) ;; # remove references to the source directory
+           IGNORE*) ;;
+         -L/usr/lib) ;; # implied
+         -L*) linkflags="$flag $linkflags" ;;
+         *) linkflags="$linkflags $flag" ;;
+       esac ;;
   esac
 done
 
-compileflags=""
-test "x${prefix}" != "x/usr" && compileflags="-I${prefix}/include"
-test "x${exec_prefix}" != "x/usr" -a "x${exec_prefix}" != "x${prefix}" &&
-     compileflags="$compileflags -I${exec_prefix}/include"
+compileflags=''
 for flag in @CPPFLAGS@ @DEFS@ ; do
-  case "$flag" in
-    -IIGNORE*) ;;
-    -DHAVE_CONFIG_H) ;;
-    -DGALE_SYS_DIR=*) ;;
-    -DMD5*) ;;
-    -I${prefix}/include) ;;
-    *) compileflags="$compileflags $flag" ;;
+  case " $compileflags " in
+    *" $flag "*) ;; # remove duplicates
+    *) case "$flag" in
+         -IIGNORE*) ;; # remove references to the source directory
+         -I/usr/include) ;; # implied
+         -DHAVE_CONFIG_H) ;;
+         -DGALE_SYS_DIR=*) ;;
+         *) test -n "$compileflags" &&
+            compileflags="$compileflags $flag" ||
+            compileflags="$flag" ;;
+       esac
   esac
 done
 
 if test $# -eq 0; then
-      echo "$usage" 1>&2
-      exit 1
+  echo "$usage" 1>&2
+  exit 1
 fi
 
 while test $# -gt 0; do

@@ -63,28 +63,12 @@ int gale_columns(FILE *fp);
     started with.  This function is called automatically on SIGUSR1. */
 void gale_restart(void);
 
-/** Run a subprogram.
- *  Create a subprocess and execute the specified program.  If \a in or
- *  \a out is not NULL, a pipe will be established to the the process' 
- *  standard input or standard output, respectively.  If the program cannot
- *  be found or executed and a \a fallback function is supplied, it will
- *  be called instead with the argument list supplied.
- *  \param prog The name of the program to execute (will search $PATH).
- *  \param argv The arguments to use (including argv[0] and terminated by NULL).
- *  \param in If non-NULL, receives a pipe file descriptor open for writing.
- *  \param out If non-NULL, receives a pipe file descriptor open for reading.
- *  \param fallback If non-NULL, function to call if the program can't be found.
- *  \return The process ID of the subprogram.
- *  \sa Make sure to call gale_wait(), or you'll get zombies.
- *  \todo Change the argument types to gale_text. */
-pid_t gale_exec(const char *prog,char * const *argv,int *in,int *out,
-                void (*fallback)(char * const *));
-
-/** Wait for a subprogram to exit.
- *  Make sure to call this after using gale_exec(), or you'll get zombies. 
- *  \param pid The process to wait for.
- *  \return The process' return code. */
-int gale_wait(pid_t pid);
+void gale_exec(oop_source *,struct gale_text prog,
+	int count,const struct gale_text *,
+	int *in,int *out,
+	int (*)(int count,const struct gale_text *,void *user),
+	void *(*)(int status,void *user),
+	void *user);
 
 /** There can be only one.
  *  If do_kill is nonzero, look for other processes of the same type with

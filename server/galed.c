@@ -1,3 +1,4 @@
+#include <time.h>
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>

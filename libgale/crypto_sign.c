@@ -248,6 +248,8 @@ const struct gale_data *gale_crypto_bundled(struct gale_group signed_group) {
 struct gale_group gale_crypto_original(struct gale_group signed_group)
 {
 	struct gale_fragment frag;
+
+	if (gale_group_null(signed_group)) return signed_group;
 	frag = gale_group_first(signed_group);
 
 	if (frag_group == frag.type

@@ -34,14 +34,19 @@ struct gale_group gale_key_data(
 struct gale_data gale_key_raw(
 	const struct gale_key_assertion *);
 
-/** Callback for gale_key_search().
+/** Callback for gale_key_search() and gale_key_generate().
  *  \param key Key handle for which search was initiated.
  *  \param user User-specified opaque pointer.
  *  \return Liboop continuation code (usually OOP_CONTINUE). */
 typedef void *gale_key_call(oop_source *oop,struct gale_key *key,void *user);
+
 enum { search_private = 1, search_slow = 2, search_all = -1 };
 void gale_key_search(oop_source *source,
 	struct gale_key *,int flags,
+	gale_key_call *,void *user);
+
+void gale_key_generate(oop_source *source,
+	struct gale_key *,
 	gale_key_call *,void *user);
 
 /** Callback for key search strategy drivers.

@@ -13,7 +13,6 @@
 /** \def HAVE_GC_H Boehm GC header file \<gc.h\> is present. */
 /** \def HAVE_GETOPT_H System header file \<getopt.h\> is present. */
 /** \def HAVE_READLINE_READLINE_H Readline header file \<readline/readline.h\> is present. */
-/** \def HAVE_RSAREF_H RSAREF header file \<rsaref.h\> is present. */
 /** \def HAVE_SYS_BITYPES_H System header file \<sys/bitypes.h\> is present. */
 /** \def HAVE_SYS_SELECT_H System header file \<sys/select.h\> is present. */
 /** \def HAVE_TERM_H System header file \<term.h\> is present. */

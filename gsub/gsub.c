@@ -217,17 +217,23 @@ static void *on_receipt(struct gale_text n,struct gale_location *to,void *x) {
 	return OOP_CONTINUE;
 }
 
+static int on_gsubrc(int count,const struct gale_text *args,void *user) {
+	/* Use the loaded gsubrc, if we have one. */
+	if (NULL != dl_gsubrc) return dl_gsubrc();
+
+	/* If we can't find or can't run gsubrc, use default. */
+	default_gsubrc();
+	return 0;
+}
+
 /* Take the message passed as an argument and show it to the user, running
    their gsubrc if present, using the default formatter otherwise. */
 static void *on_message(struct gale_message *msg,void *data) {
-	int pfd[2];             /* Pipe file descriptors. */
-
 	/* Lots of crap.  Discussed below, where they're used. */
 	struct gale_environ *save = gale_save_environ();
 	struct gale_group group;
 	struct gale_text body = null_text;
 	int status = 0;
-	pid_t pid;
 	char *szbody = NULL;
 
 	if (NULL == msg) return OOP_CONTINUE;
@@ -333,55 +339,24 @@ static void *on_message(struct gale_message *msg,void *data) {
 		goto done;
 	}
 
-	/* Create a pipe to communicate with the gsubrc with. */
-	if (pipe(pfd)) {
-		gale_alert(GALE_WARNING,G_("pipe"),errno);
-		goto done;
-	}
+	/* Create the gsubrc process. */
+	{
+		struct gale_text rc = null_text;
+		int pfd;
 
-	/* Fork off a subprocess.  This should use gale_exec ... */
-	pid = fork();
-	if (!pid) {
-		struct gale_text rc;
+		if (NULL == dl_gsubrc) rc = dir_search(rcprog,1,
+			gale_global->dot_gale,
+			gale_global->sys_dir,
+			null_text);
 
-		/* Close off file descriptors. */
-		gale_close(server);
-		close(pfd[1]);
+		gale_exec(source,rc,1,&rc,&pfd,NULL,on_gsubrc,NULL,NULL);
 
-		/* Pipe goes to stdin. */
-		dup2(pfd[0],0);
-		if (pfd[0] != 0) close(pfd[0]);
-
-		/* Use the loaded gsubrc, if we have one. */
-		if (dl_gsubrc) exit(dl_gsubrc());
-
-		/* Look for the file. */
-		rc = dir_search(rcprog,1,
-		                gale_global->dot_gale,
-		                gale_global->sys_dir,
-		                null_text);
-		if (rc.l) {
-			execl(gale_text_to(gale_global->enc_cmdline,rc),
-			      gale_text_to(gale_global->enc_cmdline,rcprog),
-			      NULL);
-			gale_alert(GALE_WARNING,rc,errno);
-			exit(1);
+		/* Send the message to the gsubrc. */
+		if (-1 != pfd) {
+			send_message(szbody,szbody + strlen(szbody),pfd);
+			close(pfd);
 		}
-
-		/* If we can't find or can't run gsubrc, use default. */
-		default_gsubrc();
-		exit(0);
 	}
-
-	if (pid < 0) gale_alert(GALE_WARNING,G_("fork"),errno);
-
-	/* Send the message to the gsubrc. */
-	close(pfd[0]);
-	send_message(szbody,szbody + strlen(szbody),pfd[1]);
-	close(pfd[1]);
-
-	/* Wait for the gsubrc to terminate. */
-	status = gale_wait(pid);
 
 done:
 	gale_restore_environ(save);

@@ -159,6 +159,8 @@ void gale_key_search(oop_source *source,
 }
 
 /** Add a search strategy hook that will be called when looking for keys.
+ *  The hook function should call gale_key_hook_done() when it is finished
+ *  processing.
  *  \param hook Callback to invoke whenever the system is looking for a key.
  *  \param user User-specified opaque pointer to pass to the callback. */
 void gale_key_add_hook(gale_key_hook *hook,void *user) {
@@ -177,6 +179,7 @@ void gale_key_add_hook(gale_key_hook *hook,void *user) {
 }
 
 /** Notify the system that search is complete.
+ *  Called from a ::gale_key_hook function when the callback is done.
  *  \param source Liboop event source to use.
  *  \param key Key handle, as passed to gale_key_hook().
  *  \param handle Request handle, as passed to gale_key_hook(). */

@@ -4,12 +4,6 @@ AUTOMAKE_OPTIONS = foreign 1.2
 bin_SCRIPTS = gale-config gale-install
 EXTRA_DIST = gale.spec iconvtest.c prepare acconfig.h
 
-if BUILD_GZGW
-gzgw_dir = gzgw
-else
-gzgw_dir =
-endif
-
 if BUILD_GC
 gc_dir = gc
 else
@@ -29,8 +23,7 @@ liboop_dir =
 endif
 
 SUBDIRS = ${gc_dir} ${liboop_dir} \
-	libgale server gsend gsub gwatch kutils gdomain \
-	${gzgw_dir} ${glxml_dir} include
+	libgale server gsend gsub gwatch kutils gdomain ${glxml_dir} include
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

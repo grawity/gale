@@ -6,9 +6,9 @@
 #include <string.h>
 #include <sys/time.h>
 
-int do_show_trusted = 1;
 int do_name_only = 0;
 int do_verbose = 0;
+int do_trust_input = 0;
 int is_found = 0;
 
 void print(const struct gale_key_assertion *ass) {
@@ -39,13 +39,14 @@ void print(const struct gale_key_assertion *ass) {
 		gale_print(stdout,0,gale_key_name(owner));
 		gale_print(stdout,0,G_(">"));
 
-		if (gale_group_lookup(data,G_("key.owner"),frag_text,&frag)) {
+		if (gale_group_lookup(data,G_("key.owner"),frag_text,&frag)
+		&&  frag.value.text.l > 0) {
 			gale_print(stdout,0,G_(" ("));
 			gale_print(stdout,0,frag.value.text);
 			gale_print(stdout,0,G_(")"));
 		}
 
-		if (do_show_trusted && gale_key_trusted(ass))
+		if (gale_key_trusted(ass))
 			gale_print(stdout,0,G_(" [trusted]"));
 
 		gale_print(stdout,0,G_("\n"));
@@ -64,18 +65,26 @@ void print(const struct gale_key_assertion *ass) {
 	}
 }
 
-void *callback(oop_source *oop,struct gale_key *key,void *user) {
+void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 	print(gale_key_public(key,gale_time_now()));
 	print(gale_key_private(key));
+	return OOP_CONTINUE;
+}
+
+void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
+	const struct gale_data * const data = (const struct gale_data *) user;
+	if (NULL == key) return OOP_CONTINUE;
+	print(gale_key_assert(*data,0));
 	return OOP_CONTINUE;
 }
 
 void usage(void) {
         fprintf(stderr,
                 "%s\n"
-                "usage: gkinfo [-hvix] (id | < keyfile)\n"
+                "usage: gkinfo [-hivx] (id ... | [-t] < keyfile)\n"
 		"flags: -h          Display this message\n"
 		"       -i          Output key ID only\n"
+		"       -t          Trust keyfile contents\n"
 		"       -v          Verbose output\n"
 		"       -x          Disable remote key retrieval\n"
                 ,GALE_BANNER);
@@ -88,25 +97,28 @@ int main(int argc,char *argv[]) {
 
 	gale_init("gkinfo",argc,argv);
 
-	while ((arg = getopt(argc,argv,"ixvdD")) != EOF) switch (arg) {
+	while ((arg = getopt(argc,argv,"hitvxdD")) != EOF) switch (arg) {
 	case 'i': do_name_only = 1; break;
-	case 'x': flags &= ~search_slow; break;
+	case 't': do_trust_input = 1; break;
 	case 'v': do_verbose = 1; break;
+	case 'x': flags &= ~search_slow; break;
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
 	case 'h':
 	case '?': usage();
 	}
 
+	if (do_trust_input && argc > optind) usage();
+
 	if (argc > optind) {
-		oop_source_sys *sys = oop_sys_new(); 
+		oop_source_sys * const sys = oop_sys_new(); 
 		while (argc != optind) {
 			struct gale_key *handle = gale_key_handle(
 				gale_text_from(gale_global->enc_cmdline,
 					argv[optind++],-1));
 			gale_key_search(oop_sys_source(sys),
 				handle,flags,
-				callback,NULL);
+				on_key,NULL);
 		}
 		oop_sys_run(sys);
 		oop_sys_delete(sys);
@@ -119,9 +131,27 @@ int main(int argc,char *argv[]) {
 		if (0 == key.l)
 			gale_alert(GALE_ERROR,G_("could not read stdin"),0);
 
-		do_show_trusted = 0;
 		ass = gale_key_assert(key,1);
-		print(ass);
+		if (do_trust_input) 
+			print(ass);
+		else {
+			oop_source_sys * const sys = oop_sys_new();
+			struct gale_key * parent = gale_key_owner(ass);
+			if (NULL == parent)
+				gale_alert(GALE_ERROR,
+				           G_("could not decode key"),0);
+
+			parent = gale_key_parent(parent);
+			if (NULL == parent)
+				gale_alert(GALE_ERROR,G_("key is ROOT"),0);
+
+			gale_key_retract(ass);
+			gale_key_search(oop_sys_source(sys),
+				parent,flags,
+				on_parent,&key);
+			oop_sys_run(sys);
+			oop_sys_delete(sys);
+		}
 	}
 
 	if (!is_found)

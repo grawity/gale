@@ -2,6 +2,7 @@
 #include "gale/crypto.h" /* for hash */
 
 #include <assert.h>
+#include <time.h>
 
 #define fragment_text 0
 #define fragment_data 1
@@ -329,7 +330,7 @@ struct gale_text gale_print_fragment(struct gale_fragment frag,int indent) {
 		if (3*frag.value.data.l < 82 - indent)
 		{
 			int i;
-			struct gale_text r = gale_text_concat(2,r,G_("["));
+			struct gale_text r = G_("[");
 			for (i = 0; i < frag.value.data.l; ++i)
 				r = gale_text_concat(3,r,
 					i ? G_(" ") : G_(""),

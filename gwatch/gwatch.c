@@ -1,5 +1,6 @@
 #include "gale/all.h"
 
+#include <time.h>
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
