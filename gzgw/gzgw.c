@@ -255,8 +255,13 @@ int main(int argc,char *argv[]) {
 	if (optind < argc - 1) usage();
 
 	if (optind == argc - 1) {
-		if ((server = strrchr(argv[optind],'@'))) *server++ = '\0';
-		if (argv[optind][0]) category = argv[optind];
+		if ((server = strrchr(argv[optind],'@')))
+			*server = '%';
+		else
+			server = argv[optind] + strlen(argv[optind]);
+		if (server != argv[optind])
+			category = gale_strndup(argv[optind],
+			                        server - argv[optind]);
 	}
 
 	gale_dprintf(2,"subscribing to gale: \"%s\"\n",category);
