@@ -14,7 +14,7 @@ AC_ARG_ENABLE(adns,
 [case "${enableval}" in
   yes) use_adns=true ;;
   no)  use_adns=false ;;
-  *) AC_MSG_ERROR(bad value ${enableval} for --enable-adns) ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-adns]) ;;
 esac],[use_adns=true])
 if $use_adns ; then
   AC_DEFINE(HAVE_ADNS, 1, [The ADNS resolver library is available.])
@@ -25,7 +25,7 @@ AC_ARG_WITH(socks,
 [case "${withval}" in
   yes) use_socks=true ;;
   no)  use_socks=false ;;
-  *) AC_MSG_ERROR(bad value ${withval} for --with-socks) ;;
+  *) AC_MSG_ERROR([bad value ${withval} for --with-socks]) ;;
 esac],[use_socks=false])
 
 dnl Configure subpackages
@@ -94,9 +94,9 @@ AC_CHECK_LIB(termcap,tgetent,[termcap_lib="-ltermcap"],[
   AC_CHECK_LIB(ncurses,tgetent)])
 AC_CHECK_LIB(resolv,res_query)
 
-test -d /usr/local/ssl && LDFLAGS="$LDFLAGS -L/usr/local/ssl"
+test -d /usr/local/ssl/lib && LDFLAGS="$LDFLAGS -L/usr/local/ssl/lib"
 AC_CHECK_LIB(crypto,EVP_OpenInit,[GALE_LIBS="$GALE_LIBS -lcrypto"],[
-  AC_MSG_ERROR(cannot find OpenSSL crypto library)
+  AC_MSG_ERROR([cannot find OpenSSL crypto library])
 ])
 
 dnl Make sure 'iconv' supports multibyte UTF-8 conversion.
@@ -136,12 +136,12 @@ AC_CHECK_LIB(socks,SOCKSinit,[
   GALE_LIBS="$GALE_LIBS -lsocks"
   AC_DEFINE(HAVE_SOCKS, 1, [The SOCKS firewall proxy is available.]) 
 ],[
-  AC_MSG_ERROR(cannot find SOCKS library)
+  AC_MSG_ERROR([cannot find SOCKS library])
 ])
 fi
 
 AC_CHECK_LIB(gc,GC_malloc,[GALE_LIBS="$GALE_LIBS -lgc"],[
-  AC_MSG_ERROR(cannot find Boehm GC library, see INSTALL directions)
+  AC_MSG_ERROR([cannot find Boehm GC library, see INSTALL directions])
 ])
 
 AC_MSG_CHECKING([for local copy of liboop])
@@ -151,7 +151,7 @@ if test -f "${srcdir}/liboop/oop.h"; then
   build_liboop=true
   if $use_adns; then
     AC_CHECK_LIB(adns,adns_init,[:],[
-      AC_MSG_ERROR(cannot find adns library, try configure --without-adns)
+      AC_MSG_ERROR([cannot find adns library, try configure --disable-adns])
     ])
     GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop-adns.la"
   fi
@@ -159,14 +159,14 @@ if test -f "${srcdir}/liboop/oop.h"; then
 else
   AC_MSG_RESULT(no)
   AC_CHECK_LIB(oop,oop_sys_new,[:],[
-    AC_MSG_ERROR(cannot find liboop library, see INSTALL directions)
+    AC_MSG_ERROR([cannot find liboop library, see INSTALL directions])
   ])
   if $use_adns; then
     AC_CHECK_LIB(oop-adns,oop_adns_new,[:],[
-      AC_MSG_ERROR(cannot find liboop-adns library, was liboop built for adns?)
+      AC_MSG_ERROR([cannot find liboop-adns library, was liboop built for adns?])
     ],-loop)
     AC_CHECK_LIB(adns,adns_init,[:],[
-      AC_MSG_ERROR(cannot find adns library, try configure --without-adns)
+      AC_MSG_ERROR([cannot find adns library, try configure --disable-adns])
     ])
     GALE_LIBS="$GALE_LIBS -loop-adns -loop -ladns"
   else
@@ -180,12 +180,12 @@ dnl Checks for header files.
 AC_CHECK_HEADERS(sys/bitypes.h sys/select.h curses.h term.h dlfcn.h readline/readline.h getopt.h rune.h wchar.h)
 
 test -d /usr/local/ssl/include && CPPFLAGS="$CPPFLAGS -I/usr/local/ssl/include"
-AC_CHECK_HEADERS(openssl/evp.h,,[AC_MSG_ERROR(cannot find OpenSSL headers)])
+AC_CHECK_HEADERS(openssl/evp.h,,[AC_MSG_ERROR([cannot find OpenSSL headers])])
 
 test -d /usr/include/gc && CPPFLAGS="$CPPFLAGS -I/usr/include/gc"
 AC_CHECK_HEADERS(gc_backptr.h)
 AC_CHECK_HEADERS(gc.h,,[
-  AC_MSG_ERROR(cannot find Boehm GC headers, see INSTALL directions)
+  AC_MSG_ERROR([cannot find Boehm GC headers, see INSTALL directions])
 ])
 
 dnl Checks for typedefs, structures, and compiler characteristics.

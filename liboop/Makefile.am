@@ -48,7 +48,7 @@ release: dist
 	cd /ofb/www/download/liboop && \
 	mv "$(shell pwd)/$(PACKAGE)-$(VERSION)".* . && \
 	ln -sf $(PACKAGE)-$(VERSION).tar.gz $(PACKAGE).tar.gz && \
-	ln -sf $(PACKAGE)-$(VERSION).tar.bz2 $(PACKAGE).tar.bz2 && \
+	ln -sf $(PACKAGE)-$(VERSION).tar.bz2 $(PACKAGE).tar.bz2 ; \
 	fi
 	@echo '** NOW TAG THE CVS REPOSITORY! **'
 
