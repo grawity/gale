@@ -135,6 +135,37 @@ static void *on_target_key(oop_source *oop,struct gale_key *key,void *x) {
 	return on_unsealed(oop,OOP_TIME_NOW,ctx);
 }
 
+static struct gale_text decode_name(struct gale_text cat) {
+	struct gale_text_accumulator ret = null_accumulator;
+	struct gale_text local,domain,part;
+	int slash = 1;
+
+	if (0 == cat.l || '@' != cat.p[0]) 
+		return null_text;
+
+	for (slash = 1; slash < cat.l && cat.p[slash] != '/'; ++slash) ;
+	domain = gale_text_left(cat,slash);
+	local = gale_text_right(cat,-slash);
+
+	if (gale_text_compare(gale_text_left(local,6),G_("/user/")))
+		return null_text;
+	local = gale_text_right(local,-6);
+	if ('/' == local.p[local.l - 1]) --local.l;
+
+	part = null_text;
+	while (gale_text_token(local,'/',&part)) {
+		if (!gale_text_accumulator_empty(&ret))
+			gale_text_accumulate(&ret,G_("."));
+		gale_text_accumulate(&ret,
+			gale_text_replace(gale_text_replace(part,
+				G_(".."),G_(":")),
+				G_(".|"),G_("/")));
+	}
+
+	gale_text_accumulate(&ret,domain);
+	return gale_text_collect(&ret);
+}
+
 /** Unpack a Gale message from a raw "packet".
  *  Unpacking may require location lookups, so this function starts
  *  the process in the background, using liboop to invoke a callback
@@ -183,31 +214,15 @@ void gale_unpack_message(oop_source *oop,
 
 		cat = null_text;
 		while (gale_text_token(pack->routing,':',&cat)) {
-			int slash = 1;
 			struct unpack_key *key;
-			struct gale_text local,domain,name,part;
-			if (0 == cat.l || '@' != cat.p[0]) 
-				continue;
-
-			for (; slash < cat.l && cat.p[slash] != '/'; ++slash) ;
-			domain = gale_text_left(cat,slash);
-			local = gale_text_right(cat,-slash);
-			if (gale_text_compare(gale_text_left(local,6),G_("/user/")))
-				continue;
-
-			name = part = null_text;
-			local = gale_text_right(local,-6);
-			if ('/' == local.p[local.l - 1]) --local.l;
-			while (gale_text_token(local,'/',&part))
-				name = (0 == name.l) ? part
-				     : gale_text_concat(3,name,G_("."),part);
-
-			++(ctx->count);
-			gale_create(key);
-			key->unpack = ctx;
-			key->store = &ctx->message->to[ctx->to_count++];
-			gale_find_exact_location(oop,
-				gale_text_concat(2,name,domain),on_loc,key);
+			const struct gale_text name = decode_name(cat);
+			if (0 != name.l) {
+				++(ctx->count);
+				gale_create(key);
+				key->unpack = ctx;
+				key->store = &ctx->message->to[ctx->to_count++];
+				gale_find_exact_location(oop,name,on_loc,key);
+			}
 		}
 
 		ctx->message->to[ctx->to_count] = NULL;

@@ -8,13 +8,18 @@
 
 static struct gale_text routing(const struct gale_location *loc) {
 	int i;
-	struct gale_text ret = gale_text_concat(3,G_("@"),
-		gale_text_concat_array(
-			loc->part_count - loc->at_part - 1,
-			loc->parts + loc->at_part + 1),G_("/user/"));
-	for (i = 0; i < loc->at_part; i += 2)
-		ret = gale_text_concat(3,ret,loc->parts[i],G_("/"));
-	return ret;
+	struct gale_text_accumulator ret = null_accumulator;
+	for (i = loc->at_part; i < loc->part_count; ++i)
+		gale_text_accumulate(&ret,loc->parts[i]);
+	gale_text_accumulate(&ret,G_("/user/"));
+	for (i = 0; i < loc->at_part; i += 2) {
+		gale_text_accumulate(&ret,gale_text_replace(gale_text_replace(
+			loc->parts[i],
+			G_(":"),G_("..")),
+			G_("/"),G_(".|")));
+		gale_text_accumulate(&ret,G_("/"));
+	}
+	return gale_text_collect(&ret);
 }
 
 /** Pack a Gale message into a raw "packet".
@@ -109,11 +114,18 @@ struct gale_text gale_pack_subscriptions(
         struct gale_location **list,
         int *positive)
 {
-	struct gale_text ret = null_text;
-	while (NULL != list && NULL != *list)
-		ret = gale_text_concat(4,ret,
-			(ret.l > 0 ? G_(":") : null_text),
-			((!positive || *positive++) ? null_text : G_("-")),
-			routing(*list++));
-	return ret;
+	struct gale_text_accumulator accum = null_accumulator;
+	while (NULL != list && NULL != *list) {
+		const int pos = (NULL == positive) || *positive++;
+		const struct gale_text cat = routing(*list++);
+		if (0 == cat.l) continue;
+
+		if (!gale_text_accumulator_empty(&accum))
+			gale_text_accumulate(&accum,G_(":"));
+		if (!pos)
+			gale_text_accumulate(&accum,G_("-"));
+		gale_text_accumulate(&accum,cat);
+	}
+
+	return gale_text_collect(&accum);
 }
