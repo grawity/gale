@@ -707,7 +707,7 @@ static void argument(struct gale_text arg,int *positive,int chat) {
 /* main */
 int main(int argc,char **argv) {
 	/* Various flags. */
-	int opt,positive;
+	int opt,positive = 1;
 	struct gale_text rclib = null_text;
 	struct gale_text subs,line;
 
@@ -826,7 +826,6 @@ int main(int argc,char **argv) {
 	if (0 != subs.l) {
 		do_default = 0;
 		line = null_text;
-		positive = 1;
 		while (gale_text_token(subs,'\n',&line)) {
 			struct gale_text space = null_text;
 			while (gale_text_token(line,' ',&space)) {
