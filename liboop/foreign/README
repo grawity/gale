@@ -1,0 +1,23 @@
+This directory contains public header files for those foreign components for
+which liboop includes "adapters".  By including them here, we can build the
+adapters without requiring the presence of the foreign components in question.
+
+An adapter will still not function without the code it adapts, of course, but
+at least this way we eliminate pesky build ordering issues.
+
+Many of these are licensed under specific agreements:
+
+adns.h
+
+    adns is Ian Jackson's asynchronous DNS access package.
+    <URL:http://www.chiark.greenend.org.uk/~ian/adns/>
+
+    While adns is licensed under the GPL, Ian has graciously consented to the
+    distribution of its public header file (adns.h) under the LGPL:
+
+        I hereby relicence adns.h - and only adns.h - to you (and all third
+        parties) under the GNU Library General Public Licence.  This
+        statement applies to all versions of adns.h I have released so far,
+        and to any files adns.h with similar contents and function I might
+        release during the remainder of this calendar year (1999).
+

@@ -80,7 +80,18 @@ int _ga_find_pub(struct auth_id *id) {
 	char *argv[] = { "gkfind", NULL, NULL };
 	pid_t pid;
 	int fd,status;
+	struct gale_time now = gale_time_now();
 
+	if (gale_time_compare(
+		gale_time_diff(now,gale_time_seconds(RETRY_TIME)),
+		id->find_time) < 0)
+	{
+		gale_diprintf(10,-2,"(auth) \"%s\": we searched recently\n",
+		             gale_text_to_local(id->name));
+		return 0;
+	}
+
+	id->find_time = now;
 	if (gale_global->find_public && gale_global->find_public(id)) return 1;
 
 	argv[1] = gale_text_to_local(id->name);
@@ -92,7 +103,6 @@ int _ga_find_pub(struct auth_id *id) {
 
 int auth_id_public(struct auth_id *id) {
 	int status;
-	struct gale_time now;
 	struct inode in;
 	struct gale_global_data * const G = gale_global;
 
@@ -105,17 +115,6 @@ int auth_id_public(struct auth_id *id) {
 		return 1;
 	}
 
-	now = gale_time_now();
-	if (gale_time_compare(
-		gale_time_diff(now,gale_time_seconds(RETRY_TIME)),
-		id->find_time) < 0)
-	{
-		gale_diprintf(10,-2,"(auth) \"%s\": we searched recently\n",
-		             gale_text_to_local(id->name));
-		return 0;
-	}
-
-	id->find_time = now;
 	in = _ga_init_inode();
 
 	if (open_pub(id,get(G->dot_trusted,id->name,&in),IMPORT_TRUSTED,&in)

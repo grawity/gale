@@ -42,7 +42,6 @@ oop_call_fd on_data;
 void *on_data(oop_source *source,int fd,oop_event event,void *data) {
 	char buf[BUFSIZ];
 	int r = read(fd,buf,sizeof(buf));
-	if (r <= 0) return OOP_HALT;
 	write(1,buf,r);
 	return OOP_CONTINUE;
 }

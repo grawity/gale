@@ -157,7 +157,8 @@ notice/presence		text	--
 
 Category					Description
 --------					-----------
-@domain/auth/query/username/			Request for a key.
-@domain/auth/key/username/			Reply with the key (or not).
+@domain/auth/query/username			Request for a key.
+@domain/auth/key/username			Reply with the key (or not).
 @domain/user/username/				Personal messages.
+@domain/user/username/receipt			Receipts for messages.
 @domain/notice/username/{login,logout}		Login and logout notifications.

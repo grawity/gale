@@ -70,18 +70,18 @@ which requires a certain amount of finicky setup -- including setuid binaries
    "make install" from the top-level Gale directory; this should install 
    the Gale binaries, libraries, and header files.
 
-   This may ask questions if it can't find a previous configuration.
-   Follow the directions; feel free to interrupt it at any prompt if you
-   need to change something and make "install" again.
-
    Make sure the installed binaries are on the PATH for future steps!
 
-5. If you have not already set up your domain, you need to do so.
-   Become the "gale user" you selected for step 4 and run "make domain".
+5. When this is done, run the "gale-install" script that was installed by
+   "make install".  This may ask questions if it can't find a previous 
+   configuration.  Feel free to interrupt and re-start it at any point.
+
+6. If you have not already set up your domain, you need to do so.
+   Become the "gale user" selected in step 5 and run "gale-install" again.
    Follow the directions; these will involve sending your key to the proper 
    authority to get it signed.  I manage ROOT and most "top-level" domains
    (.edu, .com, .org, .nu, .ml.org, etc.) for now.  When in doubt, ask me.
 
-6. Happy puffing!
+7. Happy puffing!
 
 -- Dan <egnor@gale.org>

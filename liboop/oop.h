@@ -9,6 +9,7 @@
 
 #include <sys/time.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 /* ------------------------------------------------------------------------- */
 
@@ -70,5 +71,25 @@ void oop_sys_delete(oop_source_sys *);
 
 /* Get the event registration interface for a system event source. */
 oop_source *oop_sys_source(oop_source_sys *);
+
+/* ------------------------------------------------------------------------- */
+
+/* Helper for select-style asynchronous interfaces. */
+typedef struct oop_adapter_select oop_adapter_select;
+typedef void *oop_call_select(
+	oop_adapter_select *,
+	int num,fd_set *r,fd_set *w,
+	struct timeval now,void *);
+
+oop_adapter_select *oop_select_new(
+	oop_source *,
+	oop_call_select *,
+	void *);
+
+void oop_select_set(
+	oop_adapter_select *,int num_fd,
+	fd_set *rfd,fd_set *wfd,struct timeval *timeout);
+
+void oop_select_delete(oop_adapter_select *);
 
 #endif

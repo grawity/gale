@@ -269,12 +269,13 @@ static void *sys_time_run(oop_source_sys *sys) {
 }
 
 void *oop_sys_run(oop_source_sys *sys) {
-	void *ret = NULL;
+	void * volatile ret = NULL;
 	assert(!sys->in_run && "oop_sys_run is not reentrant");
 	sys->in_run = 1;
 
 	while (0 != sys->num_events && NULL == ret) {
-		struct timeval tv,*ptv = NULL;
+		struct timeval * volatile ptv = NULL;
+		struct timeval tv;
 		fd_set rfd,wfd;
 		int i,rv;
 

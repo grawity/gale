@@ -8,9 +8,13 @@ sbindir=@sbindir@
 bindir=@bindir@
 srcdir=@srcdir@
 
-run() {
+copy() {
 	echo "$*"
-	"$@" || exit 1
+	"$@"
+}
+
+run() {
+	copy "$@" || exit 1
 }
 
 qgrep() {
@@ -50,21 +54,19 @@ if [ -f "$CONF" ]; then
 	exec 3<&-
 fi
 
-# -----------------------------------------------------------------------------
-# make directory structure
-
-run mkdir -p "$SYS_DIR"
-if [ ! -d "$SYS_DIR" ]; then
-	echo "Error: Invalid or unauthorized SYS_DIR: \"$SYS_DIR\"."
+USER="`whoami`"
+if [ -z "$USER" ]; then
+	echo "Error: cannot determine your username."
 	exit 1
 fi
 
-run mkdir -p "$SYS_DIR/auth/trusted"
-run mkdir -p "$SYS_DIR/auth/private"
-run mkdir -p "$SYS_DIR/auth/local"
-run mkdir -p "$SYS_DIR/auth/cache"
-run chmod 1777 "$SYS_DIR/auth/local"
-run chmod 777 "$SYS_DIR/auth/cache"
+# -----------------------------------------------------------------------------
+# check directory structure
+
+if [ ! -d "$SYS_DIR" ]; then
+	echo "Error: Invalid SYS_DIR: \"$SYS_DIR\"."
+	exit 1
+fi
 
 # -----------------------------------------------------------------------------
 # get settings for important variables: user, domain, server
@@ -94,13 +96,6 @@ EOM
 	fi
 else
 	echo "Using \"$GALE_USER\" as the Gale owner."
-fi
-
-run chown $GALE_USER "$sbindir/gksign"
-run chmod 4755 "$sbindir/gksign"
-if [ "x$bindir" != "x$sbindir" ]; then
-	run ln -s "$sbindir/gksign" "$bindir/gksign.tmp.$$"
-	run mv "$bindir/gksign.tmp.$$" "$bindir/gksign"
 fi
 
 if [ -z "$GALE_DOMAIN" ] ; then
@@ -198,15 +193,36 @@ EOM
 GALE_SERVER $GALE_SERVER
 EOM
 
+# -----------------------------------------------------------------------------
+# make gksign setuid
+
 echo ""
+if copy chown "$GALE_USER" "$sbindir/gksign" ; then
+	:
+else
+	echo "*** We need to chown $GALE_USER '$sbindir/gksign'."
+	echo "    Please run this script as a user that can do so,"
+	echo "    or do so yourself and re-run this script."
+	exit 1
+fi
+run chmod 4755 "$sbindir/gksign"
 
 # -----------------------------------------------------------------------------
 # create a domain, if necessary
 
+echo ""
+if test -u "$sbindir/gksign" || copy chmod u+s "$sbindir/gksign" ; then
+	:
+else
+	echo "*** We need to chmod u+s '$sbindir/gksign'."
+	echo "    Please run this script as a user that can do so,"
+	echo "    or do so yourself and re-run this script."
+	exit 1
+fi
+
 testkey "$GALE_DOMAIN" && exit 0
 echo "*** You lack a signed key for your domain, \"$GALE_DOMAIN\"."
 
-USER="`whoami`"
 if [ "x$GALE_USER" != "x$USER" ]; then
 cat <<EOM
 Become user "$GALE_USER" (you are now "$USER") and run this script again

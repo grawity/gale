@@ -35,12 +35,23 @@ release: dist
 	ln -sf $(PACKAGE)-$(VERSION).tar.gz ../gdist/$(PACKAGE).tar.gz ; \
 	ln -sf $(PACKAGE)-$(VERSION).tar.bz2 ../gdist/$(PACKAGE).tar.bz2 ; fi
 
+dist-hook:
+	test ! -f $(srcdir)/lib/.deps/alloc.P
+
 install-data-local:
 	mkdir -p "$(sysconfdir)/gale/auth/trusted"
-	cp "$(srcdir)/kutils/ROOT" "$(sysconfdir)/gale/auth/trusted"
+	mkdir -p "$(sysconfdir)/gale/auth/private"
+	mkdir -p "$(sysconfdir)/gale/auth/local"
+	mkdir -p "$(sysconfdir)/gale/auth/cache"
+	chmod 1777 "$(sysconfdir)/gale/auth/local"
+	chmod 777 "$(sysconfdir)/gale/auth/cache"
+	$(INSTALL_DATA) "$(srcdir)/kutils/ROOT" "$(sysconfdir)/gale/auth/trusted/ROOT"
 	$(INSTALL_DATA) "$(srcdir)/COPYING" "$(sysconfdir)/gale/COPYING"
 	@echo ""
 	@echo "*** run $(bindir)/gale-install to complete installation ***"
 
 install-exec-local:
 	$(PROG_LDCONFIG) || true
+	test "x$(bindir)" != "x$(sbindir)" && \
+	ln -s "$(sbindir)/gksign" "$(bindir)/gksign.tmp.$$$$" && \
+	mv "$(bindir)/gksign.tmp.$$$$" "$(bindir)/gksign"

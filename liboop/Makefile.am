@@ -7,15 +7,22 @@
 # See the file COPYING for details.
 
 AUTOMAKE_OPTIONS = foreign 1.2
-lib_LTLIBRARIES = liboop.la
-noinst_PROGRAMS = test
+lib_LTLIBRARIES = liboop.la liboop-adns.la
+noinst_PROGRAMS = test-oop test-adns
 
-liboop_la_LDFLAGS = -version-info 0:0:0 # version:revision:age
-liboop_la_SOURCES = sys.c test.c alloc.c
-include_HEADERS = oop.h
+INCLUDES = -I$(srcdir)/foreign
 
-LDADD = liboop.la
-test_SOURCES = test.c
+liboop_la_LDFLAGS = -version-info 1:0:1 # version:revision:age
+liboop_la_SOURCES = sys.c select.c alloc.c
+
+liboop_adns_la_LDFLAGS = -version-info 0:0:0 # version:revision:age
+liboop_adns_la_SOURCES = adns.c
+
+include_HEADERS = oop.h oop-adns.h
+
+LDADD = liboop-adns.la liboop.la -ladns
+test_oop_SOURCES = test-oop.c
+test_adns_SOURCES = test-adns.c
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \
