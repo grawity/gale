@@ -79,8 +79,9 @@ static void *on_loc(struct gale_text name,struct gale_location *l,void *x) {
 		: OOP_CONTINUE;
 }
 
-static void *on_unsealed(oop_source *oop,struct timeval now,void *x) {
-	struct unpack *ctx = (struct unpack *) x;
+static void *on_unsealed(oop_source *oop,struct timeval when,void *x) {
+	struct unpack * const ctx = (struct unpack *) x;
+	const struct gale_time now = gale_time_now();
 	const struct gale_text * const sender = 
 		gale_crypto_sender(ctx->message->data);
 
@@ -90,7 +91,7 @@ static void *on_unsealed(oop_source *oop,struct timeval now,void *x) {
 		const struct gale_data *bundled = 
 			gale_crypto_bundled(ctx->message->data);
 		while (NULL != bundled && 0 != bundled->l)
-			gale_key_assert(*bundled++,0);
+			gale_key_assert(*bundled++,now,0);
 	}
 
 	assert(0 == ctx->from_count);
@@ -224,13 +225,13 @@ void gale_unpack_message(oop_source *oop,
 		const struct gale_text *target = 
 			gale_crypto_target(ctx->message->data);
 		while (NULL != target && 0 != target->l) {
-			++(ctx->target_count);
+			if (0 != ctx->target_count) ++(ctx->target_count);
 			gale_key_search(oop,
 				gale_key_handle(*target++),search_all,
 				on_target_key,ctx);
 		}
 	}
 
-	if (0 == --(ctx->target_count)) 
+	if (0 != ctx->target_count && 0 == --(ctx->target_count)) 
 		oop->on_time(oop,OOP_TIME_NOW,on_unsealed,ctx);
 }
