@@ -162,6 +162,13 @@ void default_gsubrc(void) {
 			gale_text_from_number(++i,10,0)));
 	}
 
+	text = gale_var(G_("GALE_TEXT_MESSAGE_SUBJECT"));
+	if (text.l) {
+		gale_print(stdout,0,G_(" re \""));
+		gale_print(stdout,gale_print_bold,text);
+		gale_print(stdout,0,G_("\""));
+	}
+
 	if (gale_var(G_("GALE_TEXT_QUESTION_RECEIPT")).l)
 		gale_print(stdout,gale_print_clobber_right,G_(" [rcpt]"));
 
