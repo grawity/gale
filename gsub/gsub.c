@@ -3,6 +3,8 @@
 
    Beware of using this as an example; it's insufficiently Unicode-ized. */
 
+#include "default.h"
+
 #include "gale/all.h"
 #include "gale/gsubrc.h"
 
@@ -38,6 +40,7 @@ struct gale_text presence;		/* Current presence state. */
 char *tty;                              /* TTY device */
 int sig_received = 0;			/* Signal received */
 
+int do_run_default = 0;			/* Flag to run default_gsubrc */
 int do_stealth = 0;			/* Should we answer Receipt-To's? */
 int do_beep = 1;			/* Should we beep? */
 int do_termcap = 0;                     /* Should we highlight headers? */
@@ -52,6 +55,9 @@ void trap_signal(int num) {
 	if (sigaction(num,NULL,&act)) gale_alert(GALE_ERROR,"sigaction",errno);
 	if (act.sa_handler != SIG_DFL) return;
 	act.sa_handler = get_signal;
+#ifdef SA_RESTART
+	act.sa_flags &= ~SA_RESTART;
+#endif
 	if (sigaction(num,&act,NULL)) gale_alert(GALE_ERROR,"sigaction",errno);
 }
 
@@ -113,186 +119,6 @@ void print_id(struct gale_text id,struct gale_text dfl) {
 	gale_print(stdout,0,id.l ? G_(" <") : G_(" *"));
 	gale_print(stdout,gale_print_bold,id.l ? id : dfl);
 	gale_print(stdout,0,id.l ? G_(">") : G_("*"));
-}
-
-/* The default gsubrc implementation. */
-void default_gsubrc(void) {
-	char buf[40];
-	struct gale_text timecode,text,cat = gale_var(G_("GALE_CATEGORY"));
-	int wrap,hard,len = 0,termwid = gale_columns(stdout);
-
-	if (termwid < 2) termwid = 80; /* Don't crash */
-
-	/* Ignore messages to category /ping */
-	text = null_text;
-	while (gale_text_token(cat,':',&text)) {
-		if (!gale_text_compare(G_("/ping"),
-			gale_text_right(text,5)))
-			return;
-	}
-
-	/* Get the time */
-	if (0 == (timecode = gale_var(G_("GALE_TIME_ID_TIME"))).l) {
-		char tstr[80];
-		time_t when = time(NULL);
-		strftime(tstr,sizeof(tstr),"%Y-%m-%d %H:%M:%S",localtime(&when));
-		timecode = gale_text_from_local(tstr,-1);
-	}
-
-	/* Format return receipts specially */
-	if (gale_var(G_("GALE_TEXT_ANSWER_RECEIPT")).l)  {
-		struct gale_text from_comment = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
-		struct gale_text presence = gale_var(G_("GALE_TEXT_NOTICE_PRESENCE"));
-
-		gale_print(stdout,
-		gale_print_bold | gale_print_clobber_left,G_("* "));
-		gale_print(stdout,0,timecode);
-
-		gale_print(stdout,0,G_(" received:"));
-		if (presence.l) {
-			gale_print(stdout,0,G_(" "));
-			gale_print(stdout,0,presence);
-		}
-		print_id(gale_var(G_("GALE_SIGNED")),G_("unverified"));
-		if (from_comment.l) {
-			gale_print(stdout,0,G_(" ("));
-			gale_print(stdout,0,from_comment);
-			gale_print(stdout,0,G_(")"));
-		}
-		gale_print(stdout,gale_print_clobber_right,G_(""));
-		gale_print(stdout,0,G_("\n"));
-		fflush(stdout);
-		return;
-	}
-
-	gale_print(stdout,gale_print_clobber_left,G_("-"));
-	for (len = 0; len < termwid - 3; ++len) gale_print(stdout,0,G_("-"));
-	gale_print(stdout,gale_print_clobber_right,G_("-"));
-	gale_print(stdout,0,G_("\n"));
-
-	/* Print the header: category, et cetera */
-	gale_print(stdout,gale_print_clobber_left,G_("["));
-	gale_print(stdout,gale_print_bold,cat);
-	gale_print(stdout,0,G_("]"));
-	len += 2 + cat.l;
-
-	text = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
-	if (text.l) {
-		gale_print(stdout,0,G_(" from "));
-		gale_print(stdout,gale_print_bold,text);
-		len += G_(" from ").l + text.l;
-	}
-
-	text = gale_var(G_("GALE_TEXT_MESSAGE_RECIPIENT"));
-	if (text.l) {
-		gale_print(stdout,0,G_(" to "));
-		gale_print(stdout,gale_print_bold,text);
-		len += G_(" to ").l + text.l;
-	}
-
-	if (gale_var(G_("GALE_TEXT_QUESTION_RECEIPT")).l) {
-		gale_print(stdout,gale_print_clobber_right,G_(" [rcpt]"));
-		len += G_(" [rcpt]").l;
-	}
-
-	gale_print(stdout,gale_print_clobber_right,G_(""));
-	gale_print(stdout,0,G_("\n"));
-
-	/* Print the message body. */
-	wrap = 0; /* amount of leftover text */
-	len = 0;  /* current column position */
-	hard = 1; /* Hard or soft CR */
-	while (fgets(buf + wrap,sizeof(buf) - wrap,stdin)) {
-		int out = 0;
-
-		/* Figure out how much text we can safely output. */
-		while ('\0' != buf[wrap]) {
-			/* Do something at the end of the line. */
-			if (len + wrap >= termwid) {
-				/* Break any unreasonably long 'words'. */
-				if (len < termwid/2) out = wrap;
-				gale_print(stdout,gale_print_clobber_right,
-				           gale_text_from_local(buf,out));
-				gale_print(stdout,0,G_("\n"));
-				while (out < wrap && isspace(buf[out])
-				   &&  buf[out] != '\n') ++out;
-				memmove(buf,buf + out,sizeof(buf) - out);
-				len = 0; hard = 0;
-				wrap -= out;
-				out = 0;
-			}
-
-			/* Look for line or word breaks. */
-			if ('\n' == buf[wrap]) {
-				len = -(out = wrap + 1);
-				hard = 1;
-			}
-			else if (0 == wrap + len 
-			&& !hard && isspace(buf[wrap])) {
-				out = wrap;
-				do ++wrap;
-				while ('\0' != buf[wrap] && buf[wrap] != '\n'
-				   &&  isspace(buf[wrap]));
-				memmove(buf + out,buf + wrap,sizeof(buf)-wrap);
-				continue;
-			}
-			else if (isspace(buf[wrap])
-			&& (0 == wrap || !isspace(buf[wrap-1]))) out = wrap;
-			++wrap;
-		}
-
-		if (0 == out && wrap == sizeof(buf) - 1) out = wrap;
-		gale_print(stdout,gale_print_clobber_right,
-		           gale_text_from_local(buf,out));
-		len += out;
-		memmove(buf,buf + out,sizeof(buf) - out);
-		wrap -= out;
-	}
-
-	if (wrap > 0) {
-		gale_print(stdout,gale_print_clobber_right,
-		           gale_text_from_local(buf,wrap));
-		len += wrap;
-	}
-
-	if (len > 0) gale_print(stdout,0,G_("\n"));
-
-	/* Print the signature information. */
-	{
-		struct gale_text from_id = gale_var(G_("GALE_SIGNED"));
-		struct gale_text to_id = gale_var(G_("GALE_ENCRYPTED"));
-		struct gale_text from_comment = 
-			gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
-		int len = 0;
-
-		if (from_id.l) len += from_id.l;
-		else if (from_comment.l) len += G_("unverified").l;
-		else len += G_("anonymous").l;
-
-		if (to_id.l) len += to_id.l;
-		else len += G_("everyone").l;
-
-		while (len++ < termwid - 34) gale_print(stdout,0,G_(" "));
-
-		gale_print(stdout,0,G_("--"));
-		if (from_comment.l)
-			print_id(from_id,G_("unverified"));
-		else
-			print_id(null_text,G_("anonymous"));
-
-		gale_print(stdout,0,G_(" for"));
-		print_id(to_id,G_("everyone"));
-
-		gale_print(stdout,0,G_(" at "));
-		gale_print(stdout,gale_print_clobber_right,
-			gale_text_right(timecode,-5));
-		gale_print(stdout,0,G_(" --"));
-		gale_print(stdout,gale_print_clobber_right,G_("\n"));
-
-		if (to_id.l && do_beep) gale_beep(stdout);
-	}
-
-	fflush(stdout);
 }
 
 /* Transmit a message body to a gsubrc process. */
@@ -531,7 +357,7 @@ void present_message(struct gale_message *_msg) {
 		}
 
 		/* If we can't find or can't run gsubrc, use default. */
-		default_gsubrc();
+		default_gsubrc(do_beep);
 		exit(0);
 	}
 
@@ -554,19 +380,24 @@ done:
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gsub [-hbenkKa] [-f rcprog] [-l rclib] [-p state] cat\n"
+	"usage: gsub [-habekKnr] [-f rcprog] "
+#ifdef HAVE_DLOPEN
+	"[-l rclib] "
+#endif
+	"[-p state] cat\n"
 	"flags: -h          Display this message\n"
+	"       -a          Run in \"stealth\" mode\n"
 	"       -b          Do not beep (normally personal messages beep)\n"
 	"       -e          Do not include default subscriptions\n"
-	"       -n          Do not fork (default if stdout redirected)\n"
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
-	"       -a          Run in \"stealth\" mode\n"
-	"       -p state    Announce presence state (eg. \"out/to/lunch\")\n"
+	"       -n          Do not fork (default if stdout redirected)\n"
+	"       -r          Run the default internal gsubrc and exit\n"
 	"       -f rcprog   Use rcprog (default gsubrc, if found)\n"
 #ifdef HAVE_DLOPEN
 	"       -l rclib    Use module (default gsubrc.so, if found)\n" 
 #endif
+	"       -p state    Announce presence state (eg. \"out/to/lunch\")\n"
 	,GALE_BANNER);
 	exit(1);
 }
@@ -674,21 +505,27 @@ int main(int argc,char **argv) {
 	add_subs(&serv,gale_var(G_("GALE_GSUB")));
 
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"benkKaf:l:p:h"))) switch (opt) {
+	while (EOF != (opt = getopt(argc,argv,"habenkKrf:l:p:"))) switch (opt) {
+	case 'a': do_stealth = 1; break;        /* Do not send login/logout */
 	case 'b': do_beep = 0; break;		/* Do not beep */
 	case 'e': serv.l = 0; break;            /* Do not include defaults */
 	case 'n': do_fork = 0; break;           /* Do not go into background */
 	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
 	case 'K': if (tty) gale_kill(gale_text_from_local(tty,-1),1);
 	          return 0;			/* *only* kill other gsubs */
+	case 'r': do_run_default = 1; break;	/* *only* run default_gsubrc */
 	case 'f': rcprog = gale_text_from_local(optarg,-1); break;       
 						/* Use a wacky gsubrc */
 	case 'l': rclib = gale_text_from_local(optarg,-1); break;	
 						/* Use a wacky gsubrc.so */
-	case 'a': do_stealth = 1; break;        /* Do not send login/logout */
 	case 'p': set_presence(optarg); break;	/* Presence */
 	case 'h':                               /* Usage message */
 	case '?': usage();
+	}
+
+	if (do_run_default) {
+		default_gsubrc(do_beep);
+		return 0;
 	}
 
 	/* One argument, at most (subscriptions) */

@@ -65,13 +65,22 @@ struct gale_text gale_text_right(struct gale_text text,int i) {
 }
 
 int gale_text_token(struct gale_text string,wch sep,struct gale_text *token) {
-	if (!token->p) {
+	if (NULL == string.p) {
+		assert(0 == string.l);
+		string.p = (wch *) 0xdeadbabe;
+	}
+
+	if (token->p < string.p || token->p > string.p + string.l) {
+		/* Invalid (typically NULL) token => start iteration. */
 		token->p = string.p - 1;
 		token->l = 0;
-	} else if (token->p + token->l == string.p + string.l) {
+	} else if (token->p + token->l >= string.p + string.l) {
+		/* Last token => done iterating. */
 		*token = null_text;
 		return 0;
 	}
+
+	/* Skip the seperator and find the next token. */
 	token->p += token->l + 1;
 	token->l = 0; 
 	while (token->p + token->l != string.p + string.l

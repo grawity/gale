@@ -76,8 +76,9 @@ YACC = @YACC@
 ZEPHYR_LIBS = @ZEPHYR_LIBS@
 
 bin_PROGRAMS = gsub
-gsub_SOURCES = gsub.c
+gsub_SOURCES = gsub.c default.c
 gsub_LDADD = $(GALE_LIBS) $(DL_LIBS)
+noinst_HEADERS = default.h
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../include/gale/config.h
 CONFIG_CLEAN_FILES = 
@@ -88,13 +89,15 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I../include/gale
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-gsub_OBJECTS =  gsub.o
+gsub_OBJECTS =  gsub.o default.o
 gsub_DEPENDENCIES = 
 gsub_LDFLAGS = 
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS)
 LINK = $(LIBTOOL) --mode=link $(CC) $(CFLAGS) $(LDFLAGS) -o $@
+HEADERS =  $(noinst_HEADERS)
+
 DIST_COMMON =  Makefile.am Makefile.in
 
 
@@ -102,11 +105,11 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = tar
 GZIP = --best
-DEP_FILES =  .deps/gsub.P
+DEP_FILES =  .deps/default.P .deps/gsub.P
 SOURCES = $(gsub_SOURCES)
 OBJECTS = $(gsub_OBJECTS)
 
-all: Makefile $(PROGRAMS)
+all: Makefile $(PROGRAMS) $(HEADERS)
 
 .SUFFIXES:
 .SUFFIXES: .S .c .lo .o .s

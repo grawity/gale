@@ -51,7 +51,7 @@ int main(int argc,char *argv[]) {
 		fn = out_pub;
 		if (0 == fn.l) {
 			assert(!trust);
-			dir = dot_gale;
+			dir = gale_global->dot_gale;
 			fn = gale_text_concat(2,id->name,G_(".unsigned"));
 		}
 

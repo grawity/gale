@@ -65,6 +65,7 @@ static void read_conf(struct gale_text fn) {
 
 void _gale_globals(struct passwd *pwd) {
 	struct gale_global_data *G = gale_malloc_safe(sizeof(*gale_global));
+	struct gale_text conf;
 	memset(G,'\0',sizeof(*gale_global));
 	gale_global = G;
 
@@ -82,6 +83,8 @@ void _gale_globals(struct passwd *pwd) {
 	else
 		G->dot_gale = sub_dir(G->home_dir,G_(".gale"),0777);
 
+	conf = gale_var(G_("GALE_CONF"));
+	if (0 != conf.l) read_conf(dir_file(G->dot_gale,conf));
 	read_conf(dir_file(G->dot_gale,G_("conf")));
 
 	G->sys_dir = gale_var(G_("GALE_SYS_DIR"));

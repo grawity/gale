@@ -2,35 +2,11 @@
 #include "id.h"
 
 #include "gale/misc.h"
+#include "gale/globals.h"
 
 #include <assert.h>
 #include <stdlib.h>
 #include <stdarg.h>
-
-static struct auth_id *root = NULL;
-
-static void detach_id(void *vid,void *x) {
-	struct auth_id *id = (struct auth_id *) vid;
-	(void) x;
-
-	if (!id->left) {
-		*(id->ptr) = id->right;
-		if (id->right) id->right->ptr = id->ptr;
-	} else if (!id->right) {
-		*(id->ptr) = id->left;
-		if (id->left) id->left->ptr = id->ptr;
-	} else {
-		struct auth_id *sub = id->left;
-		while (sub->right) sub = sub->right;
-		detach_id(sub,NULL);
-		*(id->ptr) = sub;
-		sub->ptr = id->ptr;
-		sub->left = id->left;
-		if (sub->left) sub->left->ptr = &sub->left;
-		sub->right = id->right;
-		if (sub->right) sub->right->ptr = &sub->right;
-	}
-}
 
 void _ga_warn_id(struct gale_text text,...) {
 	struct gale_text out,tok = null_text;
@@ -51,37 +27,31 @@ void _ga_warn_id(struct gale_text text,...) {
 }
 
 void init_auth_id(struct auth_id **pid,struct gale_text name) {
-	struct auth_id **ptr = &root;
-	int c = 0;
+	struct auth_id *ptr;
 
-	while (*ptr) {
-		c = gale_text_compare(name,(*ptr)->name);
-		if (c < 0) ptr = &(*ptr)->left;
-		else if (c > 0) ptr = &(*ptr)->right;
-		else break;
+	if (NULL == gale_global->auth_tree)
+		gale_global->auth_tree = gale_make_wt();
+
+	ptr = (struct auth_id *) gale_wt_find(gale_global->auth_tree,name);
+	if (NULL == ptr) {
+		gale_dprintf(11,"(auth) new key: \"%s\"\n",
+		             gale_text_to_local(name));
+		gale_create(ptr);
+		ptr->version = 0;
+		ptr->trusted = 0;
+		ptr->sign_time = gale_time_zero();
+		ptr->expire_time = gale_time_forever();
+		ptr->find_time = gale_time_zero();
+		ptr->name = name;
+		ptr->comment = G_("(uninitialized)");
+		ptr->source = _ga_init_inode();
+		ptr->public = NULL;
+		ptr->private = NULL;
+		_ga_init_sig(&ptr->sig);
+		gale_wt_add(gale_global->auth_tree,name,ptr);
 	}
 
-	if (*ptr == NULL) {
-		struct auth_id *id;
-		gale_create(id);
-		id->version = 0;
-		id->trusted = 0;
-		id->sign_time = gale_time_zero();
-		id->expire_time = gale_time_forever();
-		id->find_time = gale_time_zero();
-		id->name = name;
-		id->comment = G_("(uninitialized)");
-		id->source = _ga_init_inode();
-		id->public = NULL;
-		id->private = NULL;
-		_ga_init_sig(&id->sig);
-		id->left = id->right = NULL;
-		id->ptr = ptr;
-		*ptr = id;
-		gale_finalizer(id,detach_id,NULL);
-	}
-
-	*pid = *ptr;
+	*pid = ptr;
 }
 
 struct gale_text auth_id_name(struct auth_id *id) {

@@ -41,7 +41,7 @@ static void stash(char * const * argv) {
 		gale_alert(GALE_NOTICE,
 		gale_text_to_local(gale_text_concat(5, 
 			G_("saving private key in \""),
-			_ga_dot_private,G_("/"),inode.name,
+			gale_global->dot_private,G_("/"),inode.name,
 			G_("\""))),0);
 	}
 }

@@ -93,7 +93,7 @@ struct gale_client *gale_open(struct gale_text spec) {
 
 	if (!spec.p)
 		gale_alert(GALE_WARNING,
-		           "gale_open(null_text) subscribe to *everything*!",0);
+		           "gale_open(null_text) subscribes to everything!",0);
 
 	gale_create(client);
 	client->server = gale_var(G_("GALE_SERVER"));

@@ -31,25 +31,11 @@ void gale_finalizer(void *obj,void (*f)(void *,void *),void *data) {
 	GC_register_finalizer(obj,f,data,0,0);
 }
 
+void gale_weak_ptr(void **ptr) {
+	GC_general_register_disappearing_link(ptr,*ptr);
+}
+
 /* -------------------------------------------------------------------------- */
-
-#if 0
-void *gale_memdup(const void *s,int len) {
-	void *r = gale_malloc(len);
-	memcpy(r,s,len);
-	return r;
-}
-
-char *gale_strndup(const char *s,int len) {
-	char *r = gale_memdup(s,len + 1);
-	r[len] = '\0';
-	return r;
-}
-
-char *gale_strdup(const char *s) {
-	return gale_strndup(s,strlen(s));
-}
-#endif
 
 struct gale_data gale_data_copy(struct gale_data d) {
 	struct gale_data r;

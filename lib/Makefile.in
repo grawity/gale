@@ -76,7 +76,9 @@ YACC = @YACC@
 ZEPHYR_LIBS = @ZEPHYR_LIBS@
 
 lib_LTLIBRARIES = libgale.la
-libgale_la_LDFLAGS = -version-info 1:0:0
+
+libgale_la_LDFLAGS = -version-info 3:0:2
+
 libgale_la_SOURCES = \
 	authmsg.c client.c connect.c find.c id.c init.c global.c \
 	input.c kill.c libgale.c link.c message.c output.c \
@@ -84,7 +86,7 @@ libgale_la_SOURCES = \
 	crypt.c customs.c file.c gen.c \
 	keyid.c findkey.c privkey.c pubkey.c random.c sign.c \
 	dir.c error.c exec.c alloc.c server.c text.c time.c pack.c term.c \
-	fragment.c var.c
+	fragment.c var.c weaktree.c
 
 noinst_HEADERS = buffer.h \
 	common.h file.h id.h key.h pack.h random.h sign.h
@@ -104,7 +106,7 @@ init.lo global.lo input.lo kill.lo libgale.lo link.lo message.lo \
 output.lo standard.lo cache.lo crypt.lo customs.lo file.lo gen.lo \
 keyid.lo findkey.lo privkey.lo pubkey.lo random.lo sign.lo dir.lo \
 error.lo exec.lo alloc.lo server.lo text.lo time.lo pack.lo term.lo \
-fragment.lo var.lo
+fragment.lo var.lo weaktree.lo
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS)
@@ -125,7 +127,7 @@ DEP_FILES =  .deps/alloc.P .deps/authmsg.P .deps/cache.P .deps/client.P \
 .deps/keyid.P .deps/kill.P .deps/libgale.P .deps/link.P .deps/message.P \
 .deps/output.P .deps/pack.P .deps/privkey.P .deps/pubkey.P \
 .deps/random.P .deps/server.P .deps/sign.P .deps/standard.P \
-.deps/term.P .deps/text.P .deps/time.P .deps/var.P
+.deps/term.P .deps/text.P .deps/time.P .deps/var.P .deps/weaktree.P
 SOURCES = $(libgale_la_SOURCES)
 OBJECTS = $(libgale_la_OBJECTS)
 

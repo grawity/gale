@@ -221,7 +221,7 @@ void usage(void) {
 		"%s\n"
 		"usage: gwatch [flags] [cat]\n"
 		"flags: -h          Display this message\n"
-		"       -n          Do not fork (default if -m, -t, or stdout redirected)\n"
+		"       -n          Do not fork (default if -m, -s, or stdout redirected)\n"
 		"       -k          Do not kill other gwatch processes\n"
 		"       -K          Kill other gwatch processes and terminate\n"
 		"       -i id       Watch user \"id\"\n"

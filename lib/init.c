@@ -74,6 +74,7 @@ static void init_vars(struct passwd *pwd) {
 void gale_restart(void) {
 	sigprocmask(SIG_SETMASK,&blocked,NULL);
 	assert(main_argv[main_argc] == NULL);
+	alarm(0);
 	execvp(main_argv[0],main_argv);
 	gale_alert(GALE_WARNING,main_argv[0],errno);
 }

@@ -16,6 +16,8 @@
 
 /* Safely output a string to the console. */
 void gale_print(FILE *fp,int attr,struct gale_text);
+/* Predict the column movement a character would cause. */
+int gale_column(int col,wch);
 /* Beep. */
 void gale_beep(FILE *fp);
 /* Get the terminal width. */
@@ -63,6 +65,7 @@ void *gale_malloc_atomic(size_t size);  /* memory cannot contain pointers */
 void *gale_malloc_safe(size_t size);    /* memory will not be collected */
 void gale_free(void *);
 void gale_finalizer(void *,void (*)(void *,void *),void *);
+void gale_weak_ptr(void **);
 
 /* Handy macros. */
 #define gale_create(x) ((x) = gale_malloc(sizeof(*(x))))
@@ -98,6 +101,15 @@ typedef char *gale_text_to(struct gale_text);
 
 gale_text_from gale_text_from_local,gale_text_from_latin1,gale_text_from_utf8;
 gale_text_to gale_text_to_local,gale_text_to_latin1,gale_text_to_utf8;
+
+/* -- weak-reference binary trees ------------------------------------------ */
+
+/* Key-value lookup tree, using weak references to the values. */
+struct gale_wt;
+
+struct gale_wt *gale_make_wt();
+void gale_wt_add(struct gale_wt *,struct gale_text key,void *);
+void *gale_wt_find(struct gale_wt *,struct gale_text key);
 
 /* -- time functions ------------------------------------------------------- */
 

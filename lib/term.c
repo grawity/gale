@@ -53,8 +53,21 @@ static void tmode(FILE *fp,char id[2]) {
 #endif
 }
 
-int okay(wch ch) {
+static int okay(wch ch) {
 	return (ch >= 32 && ch < 256) || ch == '\t';
+}
+
+int gale_column(int col,wch ch) {
+	switch (ch) {
+	case '\t':
+		return (1 + col / 8) * 8;
+	case '\n':
+		return 0;
+	default:
+		if (okay(ch)) return col + 1;
+		if (ch < 32 && ch >= 0) return col + 2;
+		return col + 7;
+	}
 }
 
 void gale_print(FILE *fp,int attr,struct gale_text str) {

@@ -222,8 +222,7 @@ static void clean(struct gale_text dir) {
 	_exit(0);
 }
 
-static int store(struct cid cid,struct gale_text dir,struct gale_data data) {
-	struct gale_text name = encode(cid);
+static int store(struct gale_text dir,struct gale_text name,struct gale_data data) {
 	struct gale_text file = dir_file(dir,name);
 	const char *sz = gale_text_to_local(file);
 	const char *szt = gale_text_to_local(dir_file(dir,temp()));
@@ -289,8 +288,19 @@ int cache_find(struct gale_data id,struct gale_group *data) {
 
 int cache_find_raw(struct gale_data id,struct gale_data *data) {
 	struct cid cid;
-	struct gale_text name = encode(cid);
-	if (!to_cid(&cid,id)) return 1;
+	void *pv;
+	struct gale_text name;
+	if (!to_cid(&cid,id)) return 0;
+	name = encode(cid);
+
+	/* Look in memory. */
+	if (gale_global->cache_tree 
+	&& (pv = gale_wt_find(gale_global->cache_tree,name))) {
+		*data = * (struct gale_data *) pv;
+		return 1;
+	}
+
+	/* Look on disk. */
 	if (find(cid,gale_global->user_cache,name,data)) return 1;
 	if (find(cid,gale_global->system_cache,name,data)) return 1;
 	return 0;
@@ -302,7 +312,18 @@ void cache_store(struct gale_data id,struct gale_group data) {
 
 void cache_store_raw(struct gale_data id,struct gale_data data)  {
 	struct cid cid;
+	struct gale_text name;
+	struct gale_data *pdata;
 	if (!to_cid(&cid,id)) return;
-	store(cid,gale_global->system_cache,data) || 
-	store(cid,gale_global->user_cache,data);
+	name = encode(cid);
+
+	/* Store in memory. */
+	if (!gale_global->cache_tree) gale_global->cache_tree = gale_make_wt();
+	gale_create(pdata);
+	*pdata = data;
+	gale_wt_add(gale_global->cache_tree,name,pdata);
+
+	/* Store on disk. */
+	store(gale_global->system_cache,name,data) || 
+	store(gale_global->user_cache,name,data);
 }

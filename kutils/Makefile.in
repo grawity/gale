@@ -77,7 +77,7 @@ ZEPHYR_LIBS = @ZEPHYR_LIBS@
 
 INCLUDES = -I$(top_srcdir)/lib
 
-bin_PROGRAMS = gkinfo gkgen gkeys
+bin_PROGRAMS = gkinfo gkgen
 sbin_PROGRAMS = gksign
 
 gkinfo_SOURCES = gkinfo.c
@@ -88,9 +88,6 @@ gkgen_LDADD = $(GALE_LIBS)
 
 gksign_SOURCES = gksign.c
 gksign_LDADD = $(GALE_LIBS)
-
-gkeys_SOURCES = gkeys.c
-gkeys_LDADD = $(GALE_LIBS)
 
 EXTRA_DIST = ROOT
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
@@ -109,9 +106,6 @@ gkinfo_LDFLAGS =
 gkgen_OBJECTS =  gkgen.o
 gkgen_DEPENDENCIES = 
 gkgen_LDFLAGS = 
-gkeys_OBJECTS =  gkeys.o
-gkeys_DEPENDENCIES = 
-gkeys_LDFLAGS = 
 gksign_OBJECTS =  gksign.o
 gksign_DEPENDENCIES = 
 gksign_LDFLAGS = 
@@ -126,9 +120,9 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = tar
 GZIP = --best
-DEP_FILES =  .deps/gkeys.P .deps/gkgen.P .deps/gkinfo.P .deps/gksign.P
-SOURCES = $(gkinfo_SOURCES) $(gkgen_SOURCES) $(gkeys_SOURCES) $(gksign_SOURCES)
-OBJECTS = $(gkinfo_OBJECTS) $(gkgen_OBJECTS) $(gkeys_OBJECTS) $(gksign_OBJECTS)
+DEP_FILES =  .deps/gkgen.P .deps/gkinfo.P .deps/gksign.P
+SOURCES = $(gkinfo_SOURCES) $(gkgen_SOURCES) $(gksign_SOURCES)
+OBJECTS = $(gkinfo_OBJECTS) $(gkgen_OBJECTS) $(gksign_OBJECTS)
 
 all: Makefile $(PROGRAMS)
 
@@ -231,10 +225,6 @@ gkinfo: $(gkinfo_OBJECTS) $(gkinfo_DEPENDENCIES)
 gkgen: $(gkgen_OBJECTS) $(gkgen_DEPENDENCIES)
 	@rm -f gkgen
 	$(LINK) $(gkgen_LDFLAGS) $(gkgen_OBJECTS) $(gkgen_LDADD) $(LIBS)
-
-gkeys: $(gkeys_OBJECTS) $(gkeys_DEPENDENCIES)
-	@rm -f gkeys
-	$(LINK) $(gkeys_LDFLAGS) $(gkeys_OBJECTS) $(gkeys_LDADD) $(LIBS)
 
 gksign: $(gksign_OBJECTS) $(gksign_DEPENDENCIES)
 	@rm -f gksign

@@ -48,6 +48,10 @@ extern struct gale_global_data {
 
 	/* The system environment. */
 	char **environ;
+
+	/* System internals. */
+	struct gale_wt *auth_tree;
+	struct gale_wt *cache_tree;
 } *gale_global;
 
 #endif
