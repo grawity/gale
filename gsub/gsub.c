@@ -528,7 +528,7 @@ int main(int argc,char **argv) {
 	/* Various flags. */
 	int opt,do_fork = 0,do_kill = 0;
 	struct gale_text rclib = null_text;
-	struct gale_text other = null_text;
+	struct gale_text others,other = null_text;
 
 	/* Subscription list. */
 	struct gale_text serv = null_text;
@@ -566,7 +566,8 @@ int main(int argc,char **argv) {
 	add_subs(&serv,gale_var(G_("GALE_GSUB")));
 
 	/* Other IDs to listen to. */
-	while (gale_text_token(gale_var(G_("GALE_OTHERS")),',',&other))
+	others = gale_var(G_("GALE_OTHERS"));
+	while (gale_text_token(others,',',&other))
 		if (0 != other.l) add_other(&serv,other);
 
 	/* Parse command line arguments. */

@@ -4,6 +4,8 @@
    terms of the GNU Lesser General Public License, version 2.1 or later.
    See the file COPYING for details. */
 
+#ifdef HAVE_WWW
+
 /* Yecch: the libwww header files need this. */
 #define HAVE_CONFIG_H
 #undef PACKAGE
@@ -183,3 +185,5 @@ void oop_www_memory() {
 	oop_malloc = HTMemory_malloc;
 	oop_free = HTMemory_free;
 }
+
+#endif

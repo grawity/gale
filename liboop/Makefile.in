@@ -87,7 +87,7 @@ WWW_LIBS = @WWW_LIBS@
 
 AUTOMAKE_OPTIONS = foreign 1.2
 lib_LTLIBRARIES = liboop.la liboop-adns.la liboop-glib.la liboop-www.la
-INCLUDES = $(GLIB_INCLUDES) $(WWW_INCLUDES) -I$(top_srcdir)/foreign
+INCLUDES = $(GLIB_INCLUDES) $(WWW_INCLUDES)
 
 # versions updated as of 0.4
 
@@ -350,7 +350,6 @@ distdir: $(DISTFILES)
 	    || cp -p $$d/$$file $(distdir)/$$file || :; \
 	  fi; \
 	done
-	$(MAKE) $(AM_MAKEFLAGS) top_distdir="$(top_distdir)" distdir="$(distdir)" dist-hook
 
 DEPS_MAGIC := $(shell mkdir .deps > /dev/null 2>&1 || :)
 
@@ -468,10 +467,6 @@ install uninstall-am uninstall all-redirect all-am all installdirs \
 mostlyclean-generic distclean-generic clean-generic \
 maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
-
-dist-hook:
-	mkdir $(distdir)/foreign
-	cp -p $(srcdir)/foreign/README $(srcdir)/foreign/*.h $(distdir)/foreign
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

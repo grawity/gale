@@ -43,23 +43,17 @@ struct gale_message *failure(struct auth_id *id) {
 
 void request(struct gale_link *link,struct auth_id *id) {
 	struct gale_message *reply;
+	gale_check_mem();
 	reply = auth_id_public(id) ? success(id) : failure(id);
 	auth_sign(&reply->data,domain,AUTH_SIGN_SELF);
 	if (reply) link_put(link,reply);
 }
 
-int prefix(struct gale_text x,struct gale_text prefix) {
-	return !gale_text_compare(gale_text_left(x,prefix.l),prefix);
-}
-
-int suffix(struct gale_text x,struct gale_text suffix) {
-	return !gale_text_compare(gale_text_right(x,suffix.l),suffix);
-}
-
 void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 	struct auth_id *encrypted = NULL,*signature = NULL;
-	struct gale_text user = null_text;
 	struct gale_fragment frag;
+
+	gale_check_mem();
 
 	encrypted = auth_decrypt(&msg->data);
 	if (!msg) return OOP_CONTINUE;

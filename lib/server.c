@@ -16,33 +16,6 @@ struct gale_cleanup {
 	struct gale_cleanup *next;
 };
 
-static void debug(int level,int idelta,const char *fmt,va_list ap) {
-	static int indent = 0;
-	int i;
-	if (idelta < 0) indent += idelta;
-	if (level < gale_global->debug_level) {
-		for (i = 0; i < indent; ++i) fputc(' ',stderr);
-		vfprintf(stderr,fmt,ap);
-		fflush(stderr);
-	}
-	if (idelta > 0) indent += idelta;
-}
-
-void gale_dprintf(int level,const char *fmt,...) {
-	va_list ap;
-	va_start(ap,fmt);
-	debug(level,0,fmt,ap);
-	va_end(ap);
-}
-
-void gale_diprintf(int level,int indent,const char *fmt,...) {
-	va_list ap;
-	if (level >= gale_global->debug_level) return;
-	va_start(ap,fmt);
-	debug(level,indent,fmt,ap);
-	va_end(ap);
-}
-
 static void *on_ignore(oop_source *source,int sig,void *data) {
 	return OOP_CONTINUE;
 }

@@ -71,7 +71,8 @@ int gale_text_token(struct gale_text string,wch sep,struct gale_text *token) {
 	}
 
 	if (token->p < string.p || token->p > string.p + string.l) {
-		/* Invalid (typically NULL) token => start iteration. */
+		/* null_text token => start iteration. */
+		assert(NULL == token->p && 0 == token->l);
 		token->p = string.p - 1;
 		token->l = 0;
 	} else if (token->p + token->l >= string.p + string.l) {

@@ -410,7 +410,7 @@ clean-local:
 	$(MAKE) -f Makefile.gc clean srcdir="${srcdir}" CC="${CC}"
 
 dist-hook:
-	$(RM) $(distdir)/README
+	$(RM) $(distdir)/README $(distdir)/gc.h
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

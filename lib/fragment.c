@@ -1,6 +1,9 @@
 #include <assert.h>
 #include "gale/misc.h"
 
+#include "global.h"
+#include "rsaref.h"
+
 #define fragment_text 0
 #define fragment_data 1
 #define fragment_time 2
@@ -292,4 +295,86 @@ size_t gale_group_size(struct gale_group group) {
 	}
 
 	return size;
+}
+
+struct gale_text gale_print_fragment(struct gale_fragment frag) {
+	struct gale_time t;
+	struct gale_text r = null_text;
+	switch (frag.type) {
+	case frag_text:
+		return gale_text_concat(3,G_("\""),frag.value.text,G_("\""));
+
+	case frag_time:
+		t = frag.value.time;
+		if (0 == gale_time_compare(gale_time_zero(),t))
+			return G_("(long ago)");
+		else if (0 == gale_time_compare(gale_time_forever(),t))
+			return G_("(never)");
+		else
+		{
+			struct timeval tv;
+			time_t sec;
+			char buf[30];
+			gale_time_to(&tv,t);
+			sec = tv.tv_sec;
+			strftime(buf,sizeof(buf),"%Y-%m-%d %H:%M",
+				 localtime(&sec));
+			return gale_text_from_latin1(buf,-1);
+		}
+
+	case frag_number:
+		return gale_text_from_number(frag.value.number,10,0);
+
+	case frag_data:
+		if (20 >= frag.value.data.l)
+		{
+			int i;
+			for (i = 0; i < frag.value.data.l; ++i)
+				r = gale_text_concat(3,r,
+					i ? G_(" ") : G_("["),
+					gale_text_from_number(frag.value.data.p[i],16,2));
+			r = gale_text_concat(2,t,G_("]"));
+		}
+		else
+		{
+			int i;
+			u8 hash[16];
+			MD5_CTX ctx;
+			MD5Init(&ctx);
+			MD5Update(&ctx,frag.value.data.p,frag.value.data.l);
+			MD5Final(hash,&ctx);
+			for (i = 0; i < 16; ++i)
+				r = gale_text_concat(3,r,
+					i ? G_(" ") : G_("{"),
+					gale_text_from_number(hash[i],16,2));
+			r = gale_text_concat(2,r,G_("}"));
+		}
+		return r;
+
+	case frag_group:
+		return G_("(nested group)");
+
+	default:
+		return G_("(unknown type)");
+	}
+}
+
+struct gale_text gale_print_group(struct gale_group grp,int indent) {
+	struct gale_text i,t = null_text;
+	wch *ch;
+	gale_create_array(ch,indent);
+	i.p = ch;
+	i.l = indent;
+	while (indent--) ch[indent] = ' ';
+
+	while (!gale_group_null(grp))
+	{
+		struct gale_fragment frag = gale_group_first(grp);
+		t = gale_text_concat(6,
+			t,i,frag.name,G_(": "),
+			gale_print_fragment(frag),
+			G_("\n"));
+		grp = gale_group_rest(grp);
+	}
+	return t;
 }

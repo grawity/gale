@@ -80,9 +80,7 @@ YACC = @YACC@
 ZEPHYR_LIBS = @ZEPHYR_LIBS@
 
 AUTOMAKE_OPTIONS = foreign 1.2
-noinst_SCRIPTS = common.sh config.sh domain.sh
 bin_SCRIPTS = gale-config gale-install
-EXTRA_DIST = common.sh config.sh domain.sh
 @BUILD_GZGW_TRUE@gzgw_dir = gzgw
 @BUILD_GZGW_FALSE@gzgw_dir = 
 @BUILD_RSAREF_TRUE@rsaref_dir = rsaref
@@ -96,7 +94,7 @@ ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ./include/gale/config.h
 CONFIG_CLEAN_FILES =  gale-config gale-install
-SCRIPTS =  $(bin_SCRIPTS) $(noinst_SCRIPTS)
+SCRIPTS =  $(bin_SCRIPTS)
 
 DIST_COMMON =  ./stamp-h.in COPYING INSTALL Makefile.am Makefile.in \
 acconfig.h aclocal.m4 config.guess config.h.in config.sub configure \
@@ -426,7 +424,7 @@ install-data-local:
 	chmod 777 "$(sysconfdir)/gale/auth/cache"
 	$(INSTALL_DATA) "$(srcdir)/kutils/ROOT" "$(sysconfdir)/gale/auth/trusted/ROOT"
 	$(INSTALL_DATA) "$(srcdir)/COPYING" "$(sysconfdir)/gale/COPYING"
-	chmod -R a+rX "$(sysconfdir)/gale"
+	-chmod -R a+rX "$(sysconfdir)/gale"
 	@echo ""
 	@echo "*** now run $(bindir)/gale-install ... even for an upgrade ***"
 

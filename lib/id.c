@@ -55,7 +55,7 @@ static void redirect(struct auth_id **id,struct gale_wt *seen) {
 }
 
 struct auth_id *lookup_id(struct gale_text spec) {
-	struct gale_text dot,at;
+	struct gale_text dot = null_text,at = null_text;
 	struct auth_id *id;
 
 	dirs[0] = dir_file(gale_global->dot_gale,G_("auth/aliases"));

@@ -15,4 +15,4 @@ clean-local:
 	$(MAKE) -f Makefile.gc clean srcdir="${srcdir}" CC="${CC}"
 
 dist-hook:
-	$(RM) $(distdir)/README
+	$(RM) $(distdir)/README $(distdir)/gc.h

@@ -8,7 +8,7 @@
 
 AUTOMAKE_OPTIONS = foreign 1.2
 lib_LTLIBRARIES = liboop.la liboop-adns.la liboop-glib.la liboop-www.la
-INCLUDES = $(GLIB_INCLUDES) $(WWW_INCLUDES) -I$(top_srcdir)/foreign
+INCLUDES = $(GLIB_INCLUDES) $(WWW_INCLUDES)
 
 # versions updated as of 0.4
 
@@ -30,10 +30,6 @@ noinst_PROGRAMS = test-oop
 
 test_oop_SOURCES = test-oop.c
 test_oop_LDADD = $(ADNS_LIBS) $(GLIB_LIBS) $(WWW_LIBS) liboop.la
-
-dist-hook:
-	mkdir $(distdir)/foreign
-	cp -p $(srcdir)/foreign/README $(srcdir)/foreign/*.h $(distdir)/foreign
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

@@ -4,6 +4,8 @@
    terms of the GNU Lesser General Public License, version 2.1 or later.
    See the file COPYING for details. */
 
+#ifdef HAVE_GLIB
+
 #include "glib.h"
 #include "oop-glib.h"
 #include "oop.h"
@@ -104,4 +106,6 @@ void oop_glib_delete() {
 	oop_sys_delete(sys);
 	g_main_set_poll_func(real_poll);
 }
+#endif
+
 #endif

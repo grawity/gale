@@ -3,12 +3,12 @@
 lib_LTLIBRARIES = libgale.la
 
 # version:revision:age
-# current as of 0.91
-libgale_la_LDFLAGS = -version-info 7:0:0
+# current as of 0.91b
+libgale_la_LDFLAGS = -version-info 8:0:1
 
 libgale_la_SOURCES = \
 	authgrp.c client.c connect.c find.c id.c init.c global.c \
-	input.c kill.c libgale.c link.c message.c output.c \
+	input.c kill.c libgale.c link.c message.c output.c debug.c \
 	standard.c cache.c \
 	crypt.c customs.c file.c gen.c \
 	keyid.c findkey.c privkey.c pubkey.c random.c sign.c \

@@ -18,6 +18,7 @@ void *gale_malloc_atomic(size_t len) { return GC_malloc_atomic(len); }
 void *gale_malloc_safe(size_t len) { return GC_malloc_uncollectable(len); }
 void gale_free(void *ptr) { GC_free(ptr); }
 void *gale_realloc(void *s,size_t len) { return GC_realloc(s,len); }
+void gale_check_mem(void) { GC_gcollect(); }
 
 void gale_finalizer(void *obj,void (*f)(void *,void *),void *data) {
 	GC_register_finalizer(obj,f,data,0,0);
@@ -42,6 +43,7 @@ void *gale_malloc_atomic(size_t len) { return malloc(len); }
 void *gale_malloc_safe(size_t len) { return malloc(len); }
 void gale_free(void *ptr) { free(ptr); }
 void *gale_realloc(void *s,size_t len) { return realloc(s,len); }
+void gale_check_mem(void) { }
 
 void gale_finalizer(void *obj,void (*f)(void *,void *),void *data) { }
 

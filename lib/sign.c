@@ -59,8 +59,6 @@ void _ga_export_sig(struct signature *sig,struct gale_data *data,int flag) {
 	_ga_pack_u32(data,sig->sig.l);
 	_ga_pack_copy(data,sig->sig.p,sig->sig.l);
 	_ga_pack_copy(data,key.p,key.l);
-
-	gale_free(key.p);
 }
 
 void _ga_init_sig(struct signature *sig) {

@@ -27,7 +27,7 @@
    magic: 0x4741 0x4C45 0x0001
    id: counted Unicode
    -- possibly truncated here: EXPORT_STUB --
-   data: fragment group
+   data: fragment group (no zero!)
 */
 
 static const byte magic[] = { 0x68, 0x13, 0x00, 0x00 };
@@ -89,6 +89,7 @@ int _ga_pub_rsa(struct gale_group group,R_RSA_PUBLIC_KEY *rsa) {
 	return 1;
 }
 
+#if 0
 static int pack_fragment(struct gale_data *data,struct gale_group group,
                          struct gale_text name,enum gale_fragment_type type)
 {
@@ -106,6 +107,7 @@ static int pack_fragment(struct gale_data *data,struct gale_group group,
 	}
 	return 1;
 }
+#endif
 
 void _ga_import_pub(struct auth_id **id,struct gale_data key,
                     struct inode *source,int trust) {
@@ -205,7 +207,7 @@ void _ga_import_pub(struct auth_id **id,struct gale_data key,
 	} else
 		valid = _ga_trust_pub(try);
 
-	if (valid && !_ga_pub_older(try->pub_data,data)) goto ignore;
+	if (valid && !trust && !_ga_pub_older(try->pub_data,data)) goto ignore;
 
 	if (2 >= version && 0 != key.l) {
 		struct gale_data blob = save;
@@ -220,11 +222,11 @@ void _ga_import_pub(struct auth_id **id,struct gale_data key,
 
 	if (NULL != sig.id
 	&&  gale_text_compare(sig.id->name,_ga_signer(try->name))) {
-		_ga_warn_id(G_("key \"%\" cannot certify \"%\""),sig.id,key);
+		_ga_warn_id(G_("key \"%\" cannot certify \"%\""),sig.id,try);
 		_ga_init_sig(&sig);
 	}
 
-	if (valid && !_ga_trust_pub(sig.id)) goto ignore;
+	if (valid && !trust && !_ga_trust_pub(sig.id)) goto ignore;
 
 	/* OK... now install the key. */
 	if (!gale_group_null(try->pub_data) 
@@ -257,7 +259,7 @@ invalid:
 
 ignore:
 	if (_ga_pub_equal(try->pub_data,data)) goto success;
-	_ga_warn_id(G_("\"%\": ignoring obsolete public key"),key);
+	_ga_warn_id(G_("\"%\": ignoring obsolete public key"),try);
 	return;
 
 success:

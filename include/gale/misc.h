@@ -68,6 +68,7 @@ void *gale_malloc_atomic(size_t size);  /* memory cannot contain pointers */
 void *gale_malloc_safe(size_t size);    /* memory will not be collected */
 void gale_free(void *);
 void gale_finalizer(void *,void (*)(void *,void *),void *);
+void gale_check_mem(void);
 
 struct gale_ptr;
 struct gale_ptr *gale_make_weak(void *);
@@ -168,6 +169,9 @@ void gale_group_prefix(struct gale_group *,struct gale_group tail);
 int gale_group_lookup(
 	struct gale_group,struct gale_text name,enum gale_fragment_type,
 	struct gale_fragment *);
+
+struct gale_text gale_print_fragment(struct gale_fragment);
+struct gale_text gale_print_group(struct gale_group,int indent);
 
 /* -- data interchange conversion ------------------------------------------ */
 
@@ -273,6 +277,7 @@ struct gale_message *gale_error_message(struct gale_text body);
 /* Debugging printf.  Will only output if gale_debug > level. */
 void gale_dprintf(int level,const char *fmt,...);
 void gale_diprintf(int level,int indent,const char *fmt,...);
+void gale_dmessage(int level,struct gale_message *msg);
 
 /* -- useful things for servers -------------------------------------------- */
 

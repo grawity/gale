@@ -1,9 +1,7 @@
 ## Process this file with automake to generate Makefile.in
 
 AUTOMAKE_OPTIONS = foreign 1.2
-noinst_SCRIPTS = common.sh config.sh domain.sh
 bin_SCRIPTS = gale-config gale-install
-EXTRA_DIST = common.sh config.sh domain.sh
 
 if BUILD_GZGW
 gzgw_dir = gzgw
@@ -47,7 +45,7 @@ install-data-local:
 	chmod 777 "$(sysconfdir)/gale/auth/cache"
 	$(INSTALL_DATA) "$(srcdir)/kutils/ROOT" "$(sysconfdir)/gale/auth/trusted/ROOT"
 	$(INSTALL_DATA) "$(srcdir)/COPYING" "$(sysconfdir)/gale/COPYING"
-	chmod -R a+rX "$(sysconfdir)/gale"
+	-chmod -R a+rX "$(sysconfdir)/gale"
 	@echo ""
 	@echo "*** now run $(bindir)/gale-install ... even for an upgrade ***"
 

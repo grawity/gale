@@ -108,6 +108,7 @@ static struct gale_message *dequeue(struct gale_link *l) {
 		m = link->msg;
 		gale_free(link);
 		gale_dprintf(7,"<- dequeueing message [%p]\n",m);
+		gale_dmessage(19,m);
 	}
 	return m;
 }
@@ -807,6 +808,7 @@ void link_put(struct gale_link *l,struct gale_message *m) {
 	++l->queue_num;
 	l->queue_mem += message_size(m);
 	gale_dprintf(7,"-> enqueueing message [%p]\n",m);
+	gale_dmessage(19,m);
 	activate(l);
 }
 

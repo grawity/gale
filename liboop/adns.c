@@ -4,6 +4,8 @@
    terms of the GNU Lesser General Public License, version 2.1 or later.
    See the file COPYING for details. */
 
+#ifdef HAVE_ADNS
+
 #include "oop.h"
 #include "adns.h"
 #include "oop-adns.h"
@@ -141,3 +143,5 @@ static void *on_select(
 	adns_afterselect(a->state,num,rfd,wfd,&xfd,&now);
 	return on_process(a->source,OOP_TIME_NOW,a);
 }
+
+#endif
