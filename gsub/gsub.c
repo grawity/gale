@@ -117,9 +117,11 @@ void print_id(struct gale_text id,struct gale_text dfl) {
 
 /* The default gsubrc implementation. */
 void default_gsubrc(void) {
-	char buf[80];
+	char buf[40];
 	struct gale_text timecode,text,cat = gale_var(G_("GALE_CATEGORY"));
-	int count = 0,len = 0,termwid = gale_columns(stdout);
+	int wrap,hard,len = 0,termwid = gale_columns(stdout);
+
+	if (termwid < 2) termwid = 80; /* Don't crash */
 
 	/* Ignore messages to category /ping */
 	text = null_text;
@@ -197,15 +199,63 @@ void default_gsubrc(void) {
 	gale_print(stdout,0,G_("\n"));
 
 	/* Print the message body. */
-	while (fgets(buf,sizeof(buf),stdin)) {
-		const int attr = gale_print_clobber_right;
-		gale_print(stdout,attr,gale_text_from_local(buf,strlen(buf)));
-		++count;
+	wrap = 0; /* amount of leftover text */
+	len = 0;  /* current column position */
+	hard = 1; /* Hard or soft CR */
+	while (fgets(buf + wrap,sizeof(buf) - wrap,stdin)) {
+		int out = 0;
+
+		/* Figure out how much text we can safely output. */
+		while ('\0' != buf[wrap]) {
+			/* Do something at the end of the line. */
+			if (len + wrap >= termwid-1) {
+				/* Break any unreasonably long 'words'. */
+				if (len < termwid/2) out = wrap;
+				gale_print(stdout,gale_print_clobber_right,
+				           gale_text_from_local(buf,out));
+				gale_print(stdout,0,G_("\n"));
+				while (out < wrap && isspace(buf[out])
+				   &&  buf[out] != '\n') ++out;
+				memmove(buf,buf + out,sizeof(buf) - out);
+				len = 0; hard = 0;
+				wrap -= out;
+				out = 0;
+			}
+
+			/* Look for line or word breaks. */
+			if ('\n' == buf[wrap]) {
+				len = -(out = wrap + 1);
+				hard = 1;
+			}
+			else if (0 == wrap + len 
+			&& !hard && isspace(buf[wrap])) {
+				out = wrap;
+				do ++wrap;
+				while ('\0' != buf[wrap] && buf[wrap] != '\n'
+				   &&  isspace(buf[wrap]));
+				memmove(buf + out,buf + wrap,sizeof(buf)-wrap);
+				continue;
+			}
+			else if (isspace(buf[wrap])
+			&& (0 == wrap || !isspace(buf[wrap-1]))) out = wrap;
+			++wrap;
+		}
+
+		if (0 == out && wrap == sizeof(buf) - 1) out = wrap;
+		gale_print(stdout,gale_print_clobber_right,
+		           gale_text_from_local(buf,out));
+		len += out;
+		memmove(buf,buf + out,sizeof(buf) - out);
+		wrap -= out;
 	}
 
-	/* Add a final newline, if for some reason the message did not
-           contain one. */
-	if (count && !strchr(buf,'\n')) gale_print(stdout,0,G_("\n"));
+	if (wrap > 0) {
+		gale_print(stdout,gale_print_clobber_right,
+		           gale_text_from_local(buf,wrap));
+		len += wrap;
+	}
+
+	if (len > 0) gale_print(stdout,0,G_("\n"));
 
 	/* Print the signature information. */
 	{

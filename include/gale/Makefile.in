@@ -76,14 +76,17 @@ VERSION = @VERSION@
 YACC = @YACC@
 ZEPHYR_LIBS = @ZEPHYR_LIBS@
 
+sysdepincdir = $(exec_prefix)/include/gale
+
 pkginclude_HEADERS = \
-	all.h auth.h client.h compat.h config.h core.h gsubrc.h misc.h types.h
+	all.h auth.h client.h compat.h core.h gsubrc.h misc.h types.h
+sysdepinc_HEADERS = config.h
 
 DISTCLEANFILES = config.h
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = config.h
 CONFIG_CLEAN_FILES = 
-HEADERS =  $(pkginclude_HEADERS)
+HEADERS =  $(pkginclude_HEADERS) $(sysdepinc_HEADERS)
 
 DIST_COMMON =  Makefile.am Makefile.in
 
@@ -116,6 +119,21 @@ uninstall-pkgincludeHEADERS:
 	@$(NORMAL_UNINSTALL)
 	list='$(pkginclude_HEADERS)'; for p in $$list; do \
 	  rm -f $(DESTDIR)$(pkgincludedir)/$$p; \
+	done
+
+install-sysdepincHEADERS: $(sysdepinc_HEADERS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(sysdepincdir)
+	@list='$(sysdepinc_HEADERS)'; for p in $$list; do \
+	  if test -f "$$p"; then d= ; else d="$(srcdir)/"; fi; \
+	  echo " $(INSTALL_DATA) $$d$$p $(DESTDIR)$(sysdepincdir)/$$p"; \
+	  $(INSTALL_DATA) $$d$$p $(DESTDIR)$(sysdepincdir)/$$p; \
+	done
+
+uninstall-sysdepincHEADERS:
+	@$(NORMAL_UNINSTALL)
+	list='$(sysdepinc_HEADERS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(sysdepincdir)/$$p; \
 	done
 
 tags: TAGS
@@ -168,18 +186,18 @@ installcheck:
 install-exec: 
 	@$(NORMAL_INSTALL)
 
-install-data: install-pkgincludeHEADERS
+install-data: install-pkgincludeHEADERS install-sysdepincHEADERS
 	@$(NORMAL_INSTALL)
 
 install: install-exec install-data all
 	@:
 
-uninstall: uninstall-pkgincludeHEADERS
+uninstall: uninstall-pkgincludeHEADERS uninstall-sysdepincHEADERS
 
 install-strip:
 	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' INSTALL_SCRIPT='$(INSTALL_PROGRAM)' install
 installdirs:
-	$(mkinstalldirs)  $(DATADIR)$(pkgincludedir)
+	$(mkinstalldirs)  $(DATADIR)$(pkgincludedir) $(DATADIR)$(sysdepincdir)
 
 
 mostlyclean-generic:
@@ -209,7 +227,8 @@ maintainer-clean:  maintainer-clean-tags maintainer-clean-generic \
 	@echo "This command is intended for maintainers to use;"
 	@echo "it deletes files that may require special tools to rebuild."
 
-.PHONY: uninstall-pkgincludeHEADERS install-pkgincludeHEADERS tags \
+.PHONY: uninstall-pkgincludeHEADERS install-pkgincludeHEADERS \
+uninstall-sysdepincHEADERS install-sysdepincHEADERS tags \
 mostlyclean-tags distclean-tags clean-tags maintainer-clean-tags \
 distdir info dvi installcheck install-exec install-data install \
 uninstall all installdirs mostlyclean-generic distclean-generic \
