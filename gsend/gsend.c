@@ -101,41 +101,19 @@ void headers(void) {
 	msg->data[msg->data_size++] = '\n';
 }
 
-/* Add an encryption recipient to the list. */
-
-void add_rcpt(const char *name) {
-	struct auth_id *id = lookup_id(name),**n;
-	do_encrypt = 1;
-
-	if (!id) return;
-	if (!find_id(id)) {
-		char *buf = gale_malloc(strlen(name) + 30);
-		sprintf(buf,"cannot locate key for \"%s\"",name);
-		gale_alert(GALE_WARNING,buf,0);
-		gale_free(buf);
-		return;
-	}
-
-	n = gale_malloc((num_rcpt + 1) * sizeof(struct auth_id *));
-	memcpy(n,rcpt,num_rcpt * sizeof(struct auth_id *));
-	n[num_rcpt++] = id;
-	gale_free(rcpt);
-	rcpt = n;
-}
-
 void usage(void) {
 	struct gale_id *id = lookup_id("username@domain");
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-aruU] [-e id [-e id] ...] [-S id] [-p cat] cat\n"
-		"flags: -e id       Send private message to <id> (many ok)\n"
-		"       -S id       Sign message with a specific <id> (one)\n"
+		"usage: gsend [-aruU] [-c cat] [-S id] [-p cat] [id [id ...]]\n"
+		"flags: -c cat      Send message on category <cat>\n"
+		"       -S id       Sign message with a specific <id>\n"
 		"       -a          Do not sign message (anonymous)\n"
 		"       -r          Do not retry server connection\n"
 		"       -p cat      Request a return receipt\n"
 		"       -u          Expect user-supplied headers\n"
 		"       -U          Ditto, and don't supply default headers\n"
-		"With -e, cat defaults to \"%s\".\n"
+		"With id, cat defaults to \"%s\".\n"
 		,GALE_BANNER,id_category(id,"user",""));
 	exit(1);
 }
@@ -151,11 +129,16 @@ int main(int argc,char *argv[]) {
 	/* Initialize the gale libraries. */
 	gale_init("gsend",argc,argv);
 
+	/* Create a new message object to send. */
+	msg = new_message();
+
 	/* Parse command line options. */
-	while ((arg = getopt(argc,argv,"hae:t:p:S:ruU")) != EOF) 
+	while ((arg = getopt(argc,argv,"hac:t:p:S:ruU")) != EOF) 
 	switch (arg) {
 	case 'a': do_sign = 0; break;        /* Anonymous (no signature) */
-	case 'e': add_rcpt(optarg); break;   /* Encrypt for recipient */
+	case 'c': msg->category =            /* Select a category */
+	          gale_strdup(optarg); 
+	          break;
 	case 'S': sign = optarg;             /* Select an ID to sign with */
 	          do_sign = 1; 
 	          break;
@@ -165,6 +148,24 @@ int main(int argc,char *argv[]) {
 	case 'U': uflag = 2; break;          /* Don't supply our own headers */
 	case 'h':                            /* Usage message */
 	case '?': usage();
+	}
+
+	rcpt = gale_malloc(sizeof(*rcpt) * (argc - optind));
+	for (; argc != optind; ++optind) {
+		struct auth_id *id = lookup_id(argv[optind]);
+		do_encrypt = 1;
+
+		if (!id) continue;
+
+		if (!find_id(id)) {
+			char *buf = gale_malloc(strlen(argv[optind]) + 30);
+			sprintf(buf,"cannot find user \"%s\"",argv[optind]);
+			gale_alert(GALE_WARNING,buf,0);
+			gale_free(buf);
+			continue;
+		}
+
+		rcpt[num_rcpt++] = id;
 	}
 
 	if (do_encrypt && !num_rcpt) 
@@ -179,13 +180,10 @@ int main(int argc,char *argv[]) {
 			gale_alert(GALE_ERROR,"No private key to sign with.",0);
 	}
 
-	/* Create a new message object to send. */
-	msg = new_message();
-
 	/* Generate keys. */
 	if (do_encrypt || do_sign) gale_keys();
 
-	if (optind == argc && do_encrypt) {  /* Default category... */
+	if (!msg->category && do_encrypt) {  /* Default category... */
 		char **n = gale_malloc(sizeof(char *) * num_rcpt);
 		int i,size = 0;
 		for (i = 0; i < num_rcpt; ++i) {
@@ -202,10 +200,8 @@ int main(int argc,char *argv[]) {
 		}
 		for (i = 0; i < num_rcpt; ++i) gale_free(n[i]);
 		gale_free(n);
-	} else if (optind != argc - 1)       /* Wrong # arguments */
+	} else if (!msg->category)       /* Wrong # arguments */
 		usage();
-	else                                 /* Copy so we can free() later */
-		msg->category = gale_strdup(argv[optind]);
 
 	/* A silly little check for a common mistake. */
 	if (ttyin && getpwnam(msg->category))
@@ -229,11 +225,11 @@ int main(int argc,char *argv[]) {
 
 	/* If stdin is a TTY, prompt the user. */
 	if (ttyin) {
-		printf("Message for ");
 		if (!do_encrypt)
-			printf("*everyone*");
+			printf("** PUBLIC ** message");
 		else {
 			int i;
+			printf("Message for ");
 			for (i = 0; i < num_rcpt; ++i) {
 				if (i > 0) {
 					if (i < num_rcpt - 1) 
@@ -244,7 +240,8 @@ int main(int argc,char *argv[]) {
 				printf("%s",auth_id_name(rcpt[i]));
 			}
 		}
-		printf(" in category \"%s\":\n",msg->category);
+		putchar(num_rcpt > 1 ? '\n' : ' ');
+		printf("in category \"%s\":\n",msg->category);
 		printf("(End your message with EOF or a solitary dot.)\n");
 	}
 

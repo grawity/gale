@@ -2,6 +2,7 @@
    sending them through a gsubrc filter. */
 
 #include "gale/all.h"
+#include "gale/gsubrc.h"
 
 #include <time.h>
 #include <errno.h>
@@ -32,10 +33,10 @@
 #endif
 
 extern char **environ;
-typedef void (gsubrc_t)(void);
 
 const char *rcprog = "gsubrc";		/* Filter program name. */
 gsubrc_t *dl_gsubrc = NULL;		/* Loaded gsubrc function. */
+gsubrc2_t *dl_gsubrc2 = NULL;		/* Extended gsubrc function. */
 struct gale_client *client;             /* Connection to server. */
 char *tty,*agent;                       /* TTY device, user-agent string. */
 
@@ -337,6 +338,12 @@ void present_message(struct gale_message *_msg) {
 	/* Terminate the new environment. */
 	envp[envp_len] = NULL;
 
+	/* Use the extended loaded gsubrc, if present. */
+	if (dl_gsubrc2) {
+		status = dl_gsubrc2(envp,next,end - next);
+		goto done;
+	}
+
 	/* Create a pipe to communicate with the gsubrc with. */
 	if (pipe(pfd)) {
 		gale_alert(GALE_WARNING,"pipe",errno);
@@ -348,7 +355,7 @@ void present_message(struct gale_message *_msg) {
 	if (!pid) {
 		const char *rc;
 
-		/* Set the environment.  (Why not execle?) */
+		/* Set the environment. */
 		environ = envp;
 
 		/* Close off file descriptors. */
@@ -360,10 +367,7 @@ void present_message(struct gale_message *_msg) {
 		if (pfd[0] != 0) close(pfd[0]);
 
 		/* Use the loaded gsubrc, if we have one. */
-		if (dl_gsubrc) {
-			dl_gsubrc();
-			exit(0);
-		}
+		if (dl_gsubrc) exit(dl_gsubrc());
 
 		/* Look for the file. */
 		rc = dir_search(rcprog,1,dot_gale,sys_dir,NULL);
@@ -395,6 +399,7 @@ void present_message(struct gale_message *_msg) {
 			status = -1;
 	}
 
+done:
 	/* Put the receipt on the queue, if we have one. */
 	if (rcpt && !status) link_put(client->link,rcpt);
 
@@ -449,16 +454,17 @@ void usage(void) {
 	fprintf(stderr,
 	"%s\n"
 	"usage: gsub [-nkKrpy] [-f rcprog] [-l rclib] cat\n"
-	"flags: -n          Do not fork (default if stdout redirected)\n"
+	"flags: -e          Do not include default subscriptions\n"
+	"       -n          Do not fork (default if stdout redirected)\n"
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
 	"       -r          Do not retry server connection\n"
 	"       -f rcprog   Use rcprog (default gsubrc, if found)\n"
 #ifdef HAVE_DLOPEN
-	"       -l rclib    Use shared library (default gsubrc.so, if found)\n" 
+	"       -l rclib    Use module (default gsubrc.so, if found)\n" 
 #endif
 	"       -p          Suppress return-receipt processing altogether\n"
-	"       -y          Disable login/logout notification\n"
+	"       -a          Disable login/logout notification\n"
 	,GALE_BANNER);
 	exit(1);
 }
@@ -482,15 +488,32 @@ void load_gsubrc(const char *name) {
 		return;
 	}
 
-	dl_gsubrc = dlsym(lib,"gsubrc");
-	if (!dl_gsubrc) {
-		while ((err = dlerror())) gale_alert(GALE_WARNING,err,0);
-		dlclose(lib);
-		return;
+	dl_gsubrc2 = dlsym(lib,"gsubrc2");
+	if (!dl_gsubrc2) {
+		dl_gsubrc = dlsym(lib,"gsubrc");
+		if (!dl_gsubrc) {
+			while ((err = dlerror())) 
+				gale_alert(GALE_WARNING,err,0);
+			dlclose(lib);
+			return;
+		}
 	}
+
 #else
 	if (name) gale_alert(GALE_WARNING,"Dynamic loading not supported.",0);
 #endif
+}
+
+/* add subscriptions to a list */
+
+void add_subs(char **subs,const char *add) {
+	if (add == NULL) return;
+	if (*subs) {
+		char *n = gale_malloc(strlen(*subs) + strlen(add) + 1);
+		sprintf(n,"%s:%s",*subs,add);
+		gale_free(*subs);
+		*subs = n;
+	} else *subs = gale_strdup(add);
 }
 
 /* main */
@@ -499,31 +522,34 @@ int main(int argc,char **argv) {
 	/* Various flags. */
 	int opt,do_retry = 1,do_notify = 1,do_fork = 0,do_kill = 0;
 	const char *rclib = NULL;
-	char *serv;             /* Subscription list. */
+	char *serv = NULL;	/* Subscription list. */
 
 	/* Initialize the gale libraries. */
 	gale_init("gsub",argc,argv);
 
-	/* If we're actually on a TTY, we do things slightly different. */
+	/* If we're actually on a TTY, we do things a bit differently. */
 	if ((tty = ttyname(1))) {
+		/* Truncate the tty name for convenience. */
+		char *tmp = strrchr(tty,'/');
 #ifdef HAVE_CURSES
 		char buf[1024];
 		/* Find out the terminal type. */
 		char *term = getenv("TERM");
-#endif
-		/* Truncate the tty name for convenience. */
-		char *tmp = strrchr(tty,'/');
-		if (tmp) tty = tmp + 1;
-		/* Go into the background; kill other gsub processes. */
-		do_fork = do_kill = 1;
-#ifdef HAVE_CURSES
 		/* Do highlighting, if available. */
 		if (term && 1 == tgetent(buf,term)) do_termcap = 1;
 #endif
+		if (tmp) tty = tmp + 1;
+		/* Go into the background; kill other gsub processes. */
+		do_fork = do_kill = 1;
 	}
 
+	/* Default subscriptions. */
+	add_subs(&serv,getenv("GALE_SUBS"));
+	add_subs(&serv,getenv("GALE_GSUB"));
+
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"nkKrpyf:l:h"))) switch (opt) {
+	while (EOF != (opt = getopt(argc,argv,"enkKrpaf:l:h"))) switch (opt) {
+	case 'e': serv = NULL; break; 		/* Do not include defaults */
 	case 'n': do_fork = 0; break;           /* Do not go into background */
 	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
 	case 'K': if (tty) gale_kill(tty,1);    /* *only* kill other gsubs */
@@ -532,19 +558,14 @@ int main(int argc,char **argv) {
 	case 'l': rclib = optarg; break;	/* Use a wacky gsubrc.so */
 	case 'r': do_retry = 0; break;          /* Do not retry */
 	case 'p': do_ping = 0; break;           /* Do not honor Receipt-To: */
-	case 'y': do_notify = 0; break;         /* Do not send login/logout */
+	case 'a': do_notify = 0; break;         /* Do not send login/logout */
 	case 'h':                               /* Usage message */
 	case '?': usage();
 	}
 
 	/* One argument, at most (subscriptions) */
 	if (optind < argc - 1) usage();
-
-	/* Use the default subscriptions, unless they specify some. */
-	if (optind == argc - 1)
-		serv = argv[optind];
-	else
-		serv = getenv("GALE_SUBS");
+	if (optind == argc - 1) add_subs(&serv,argv[optind]);
 
 	/* We need to subscribe to *something* */
 	if (serv == NULL) 
@@ -558,11 +579,7 @@ int main(int argc,char **argv) {
 
 #ifndef NDEBUG
 	/* If in debug mode, listen to debug/ for restart messages. */
-	{
-		char *tmp = gale_malloc(strlen(serv) + 8);
-		sprintf(tmp,"%s:debug/",serv);
-		serv = tmp;
-	}
+	add_subs(&serv,"debug/");
 #endif
 
 	/* Open a connection to the server. */
