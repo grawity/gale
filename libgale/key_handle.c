@@ -55,12 +55,12 @@ struct gale_key *gale_key_handle(struct gale_text name) {
  *  \param key Handle from gale_key_handle().
  *  \return Handle of the key's parent, or NULL if the key is ROOT. */
 struct gale_key *gale_key_parent(struct gale_key *key) {
-	return key->signer;
+	return key ? key->signer : NULL;
 }
 
 /** Get a key's name.
  *  \param key Handle from gale_key_handle() or gale_key_parent().
  *  \return Key's name, as passed to gale_key_handle(). */
 struct gale_text gale_key_name(struct gale_key *key) {
-	return key->name;
+	return key ? key->name : null_text;
 }
