@@ -1,0 +1,36 @@
+# @configure_input@
+
+ifeq ($(HOST),)
+HOST = $(shell hostname)
+endif
+
+ifeq ($(GALE_USER),)
+GALE_USER = $(shell whoami)
+endif
+
+# autoconf-derived values -----------------------------------------------------
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+INC_DIR = @includedir@
+SYS_DIR = @sysconfdir@/gale
+BIN_DIR = @bindir@
+LIB_DIR = @libdir@
+SUID_DIR = @sbindir@
+
+BUILD = @build_list@
+GALE_VERSION = @gale_version@
+
+CONF_CFLAGS = @CFLAGS@
+CONF_CPPFLAGS = @CPPFLAGS@
+CONF_DEFS = @DEFS@
+CONF_LDFLAGS = @LDFLAGS@
+CONF_LIBS = @LIBS@
+
+CC = @CC@
+RANLIB = @RANLIB@
+YACC = @YACC@
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
