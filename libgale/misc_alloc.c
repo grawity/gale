@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 struct gale_ptr { void *ptr; };
 
@@ -39,11 +40,11 @@ static inline void init() {
 static void init() { }
 #endif
 
-void *gale_malloc(size_t len) { init(); return GC_MALLOC(len); }
-void *gale_malloc_atomic(size_t len) { init(); return GC_MALLOC_ATOMIC(len); }
-void *gale_malloc_safe(size_t len) { init(); return GC_MALLOC_UNCOLLECTABLE(len); }
+void *gale_malloc(size_t len) { void *r; init(); r = GC_MALLOC(len); assert(!len || r); return r; }
+void *gale_malloc_atomic(size_t len) { void *r; init(); r = GC_MALLOC_ATOMIC(len); assert(!len || r); return r; }
+void *gale_malloc_safe(size_t len) { void *r; init(); r = GC_MALLOC_UNCOLLECTABLE(len); assert(!len || r); return r; }
 void gale_free(void *ptr) { init(); GC_FREE(ptr); }
-void *gale_realloc(void *s,size_t len) { init(); return GC_REALLOC(s,len); }
+void *gale_realloc(void *s,size_t len) { void *r; init(); r = GC_REALLOC(s,len); assert(!len || r); return r; }
 void gale_check_mem(void) { init(); GC_gcollect(); }
 
 void gale_finalizer(void *obj,void (*f)(void *,void *),void *data) {
