@@ -14,8 +14,4 @@ int gale_error(struct gale_client *);
 int gale_send(struct gale_client *);
 int gale_next(struct gale_client *);
 
-void gale_chdir(void);
-void gale_subdir(const char *dir,int mode);
-void gale_unsubdir(void);
-
 #endif

@@ -1,4 +1,5 @@
 #include "gale/util.h"
+#include "gale/dir.h"
 #include "gale/link.h"
 #include "gale/message.h"
 #include "gale/client.h"

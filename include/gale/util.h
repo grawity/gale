@@ -1,6 +1,8 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+void gale_init(const char *);
+
 void *gale_malloc(int size);
 void gale_free(void *);
 
