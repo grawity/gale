@@ -83,62 +83,15 @@ static void get_random(R_RANDOM_STRUCT *rand) {
 	}
 }
 
-void gale_domain(const char **ptr) {
-	static char *domain = NULL;
-	static int first = 1;
-	if (first) {
-		first = 0;
-		domain = getenv("GALE_DOMAIN");
-		if (!domain) {
-			gale_alert(GALE_WARNING,"$GALE_DOMAIN not set.",0);
-			exit(1);
-		}
-	}
-	*ptr = domain;
-}
-
-void gale_user(const char **ptr) {
-	static char *user = NULL;
-	if (!user) {
-		user = getenv("USER");
-		if (!user) {
-			user = getenv("LOGNAME");
-			if (!user) {
-				gale_alert(GALE_WARNING,
-				"neither $LOGNAME nor $USER set.",0);
-				exit(1);
-			}
-		}
-	}
-	*ptr = user;
-}
-
 static char *canonicalize(const char *id) {
 	const char *domain;
 	char *tmp;
+	if (id == NULL) return gale_strdup(getenv("GALE_ID"));
 	if (strchr(id,'@')) return gale_strdup(id);
-	gale_domain(&domain);
+	domain = getenv("GALE_DOMAIN");
 	tmp = gale_malloc(strlen(id) + strlen(domain) + 2);
 	sprintf(tmp,"%s@%s",id,domain);
 	return tmp;
-}
-
-void gale_id(const char **ptr) {
-	static char *id = NULL;
-	if (!id) {
-		const char *tmp;
-		tmp = getenv("GALE_ID");
-		if (tmp)
-			id = canonicalize(tmp);
-		else {
-			const char *domain,*user;
-			gale_domain(&domain);
-			gale_user(&user);
-			id = gale_malloc(strlen(user) + strlen(domain) + 2);
-			sprintf(id,"%s@%s",user,domain);
-		}
-	}
-	*ptr = id;
 }
 
 static int read_file(const char *dir,int mode,const char *file) {
@@ -190,12 +143,10 @@ void gale_keys(void) {
 	static int got_keys = 0;
 	R_RANDOM_STRUCT rand;
 	R_RSA_PROTO_KEY proto;
-	const char *id,*user,*domain,*tmp;
+	const char *id,*tmp;
 	int fd,i;
 
-	gale_id(&id);
-	gale_user(&user);
-	gale_domain(&domain);
+	id = getenv("GALE_ID");
 
 	if (got_keys) return;
 	got_keys = 1;
@@ -203,14 +154,14 @@ void gale_keys(void) {
 	if (!read_pub_key(id,&pub_key) && !read_priv_key(id,&priv_key))
 		return;
 
-	gale_alert(GALE_WARNING,
+	gale_alert(GALE_NOTICE,
 		"Generating RSA keys.  This takes time, but only once...",0);
 	get_random(&rand);
 	proto.bits = MAX_RSA_MODULUS_BITS;
 	proto.useFermat4 = 1;
 	if (R_GeneratePEMKeys(&pub_key,&priv_key,&proto,&rand)) 
 		rsa_err("\nR_GeneratePEMKeys");
-	gale_alert(GALE_WARNING,"Done generating keys.",0);
+	gale_alert(GALE_NOTICE,"Done generating keys.",0);
 
 	fd = write_file("private-keys",0700,id,0600);
 	priv_key.bits = htonl(priv_key.bits);
@@ -224,11 +175,10 @@ void gale_keys(void) {
 	pub_key.bits = ntohl(pub_key.bits);
 	close(fd);
 
-	i = strlen(user);
-	if (strncmp(user,id,i) || id[i] != '@' || strcmp(id+i+1,domain))
-		return;
-
 	tmp = dir_file(home_dir,".gale-public-key");
+	if (!access(tmp,F_OK)) return;
+
+	gale_alert(GALE_NOTICE,"Using this key for your ~/.gale-public-key.",0);
 	sub_dir(dot_gale,"public-keys",0777);
 	unlink(tmp);
 	if (link(dir_file(dot_gale,id),tmp)) 
@@ -250,7 +200,7 @@ static int find_key(const char *id,R_RSA_PUBLIC_KEY *key) {
 	int fd,r;
 	if (!read_pub_key(id,key)) return 0;
 	cp = strrchr(id,'@');
-	gale_domain(&domain);
+	domain = getenv("GALE_DOMAIN");
 	if (!cp || strcmp(cp + 1,domain)) return -1;
 	tmp = gale_strndup(id,cp - id);
 	pwd = getpwnam(tmp);
@@ -275,26 +225,28 @@ static int find_key(const char *id,R_RSA_PUBLIC_KEY *key) {
 	return 0;
 }
 
-char *sign_message(const char *id,const char *data,const char *end) {
+char *sign_data(const char *eid,const char *data,const char *end) {
 	R_SIGNATURE_CTX ctx;
 	unsigned char *ptr,sig[MAX_SIGNATURE_LEN];
-	char *ret;
+	char *id,*ret;
 	int i,len;
 	gale_keys();
+
+	id = canonicalize(eid);
 
 	ptr = (unsigned char *) data;
 	if (R_SignInit(&ctx,DA_MD5)) rsa_err("R_SignInit");
 	if (R_SignUpdate(&ctx,ptr,end - data)) rsa_err("R_SignUpdate");
 	if (R_SignFinal(&ctx,sig,&len,&priv_key)) rsa_err("R_SignFinal");
 
-	if (!id) gale_id(&id);
 	i = strlen(id);
 	ret = gale_malloc(ENCODED_CONTENT_LEN(len) + i + 10);
 	sprintf(ret,"RSA/MD5 %s ",id);
 	if (R_EncodePEMBlock(ret + i + 9,&len,sig,len)) 
 		rsa_err("R_EncodePEMBlock");
 	ret[i + 9 + len] = '\0';
-		
+
+	gale_free(id);
 	return ret;
 }
 
@@ -305,7 +257,7 @@ void bad_sig(char *id,char *msg) {
 	gale_free(tmp);
 }
 
-char *verify_signature(const char *sig,const char *data,const char *end) {
+char *verify_data(const char *sig,const char *data,const char *end) {
 	char *id,*cp,*dec;
 	R_RSA_PUBLIC_KEY key;
 	R_SIGNATURE_CTX ctx;
@@ -360,7 +312,7 @@ char *verify_signature(const char *sig,const char *data,const char *end) {
 	return NULL;
 }
 
-char *encrypt_message(const char *eid,const char *data,const char *dend,
+char *encrypt_data(const char *eid,const char *data,const char *dend,
                       char *out,char **oend) 
 {
 	R_ENVELOPE_CTX ctx;
@@ -410,7 +362,7 @@ void bad_msg(char *id,char *msg) {
 	gale_free(tmp);
 }
 
-char *decrypt_message(char *header,const char *data,const char *end,
+char *decrypt_data(char *header,const char *data,const char *end,
                       char *out,char **oend)
 {
 	char *cp,*next,*id = NULL;

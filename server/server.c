@@ -165,9 +165,11 @@ static void add_link(char *arg) {
 
 static void usage(void) {
 	fprintf(stderr,
+	"%s\n"
 	"usage: server [-p port] [-l [cat@]server]\n"
 	"flags: -p       Set the port to listen on\n"
-	"       -l       Configure a link to another server\n");
+	"       -l       Configure a link to another server\n"
+	,GALE_BANNER);
 	exit(1);
 }
 
@@ -181,11 +183,12 @@ int main(int argc,char *argv[]) {
 
 	srand48(time(NULL) ^ getpid());
 
-	while ((opt = getopt(argc,argv,"dDp:l:")) != EOF) switch (opt) {
+	while ((opt = getopt(argc,argv,"hdDp:l:")) != EOF) switch (opt) {
 	case 'd': ++gale_debug; break;
 	case 'D': gale_debug += 5; break;
 	case 'l': add_link(optarg); break;
 	case 'p': port = atoi(optarg); break;
+	case 'h':
 	case '?': usage();
 	}
 

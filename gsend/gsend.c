@@ -3,7 +3,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
-#include <pwd.h>
 
 #include "gale/all.h"
 
@@ -12,7 +11,7 @@ void gale_free(void *ptr) { free(ptr); }
 
 struct gale_message *msg;
 int alloc = 0;
-int have_from = 0,have_time = 0,have_type = 0;
+int have_from = 0,have_time = 0,have_type = 0,have_replyto = 0;
 const char *pflag = NULL;
 
 void reserve(int len) {
@@ -29,29 +28,27 @@ void reserve(int len) {
 }
 
 void headers(void) {
-	struct passwd *pwd;
-	const char *id;
-	gale_id(&id);
 	if (!have_type) {
 		reserve(40);
 		sprintf(msg->data + msg->data_size,
 			"Content-type: text/plain\r\n");
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
-	if (!have_from && (pwd = getpwuid(getuid()))) {
-		char *name;
-		name = strtok(pwd->pw_gecos,",");
-		if (!*name) name = pwd->pw_name;
-		if (*name) {
-			reserve(20 + strlen(name));
-			sprintf(msg->data + msg->data_size,
-			        "From: %s <%s>\r\n",name,id);
-			msg->data_size += strlen(msg->data + msg->data_size);
-		}
+	if (!have_from) {
+		char *tmp = getenv("GALE_FROM");
+		reserve(20 + strlen(tmp));
+		sprintf(msg->data + msg->data_size,"From: %s\r\n",tmp);
+		msg->data_size += strlen(msg->data + msg->data_size);
 	}
 	if (!have_time) {
 		reserve(20);
 		sprintf(msg->data + msg->data_size,"Time: %lu\r\n",time(NULL));
+		msg->data_size += strlen(msg->data + msg->data_size);
+	}
+	if (!have_replyto) {
+		char *tmp = getenv("GALE_REPLY_TO");
+		reserve(20 + strlen(tmp));
+		sprintf(msg->data + msg->data_size,"Reply-To: %s\r\n",tmp);
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
 	if (pflag) {
@@ -67,6 +64,7 @@ void headers(void) {
 
 void usage(void) {
 	fprintf(stderr,
+		"%s\n"
 		"usage: gsend [-suU] [-e id] [-p cat] cat@server\n"
 		"flags: -s       Sign message with your private key\n"
 		"       -e id    Encrypt message with <id>'s public key\n"
@@ -74,19 +72,19 @@ void usage(void) {
 		"       -p cat   Request a return receipt\n"
 		"       -u       Expect user-supplied headers\n"
 		"       -U       Ditto, and don't supply default headers\n"
-		);
+		,GALE_BANNER);
 	exit(1);
 }
 
 int main(int argc,char *argv[]) {
 	struct gale_client *client;
-	int len,arg,uflag = 0,sflag = 0,rflag = 0;
+	int arg,uflag = 0,sflag = 0,rflag = 0;
 	int ttyin = isatty(0),newline = 1;
 	char *cp,*tmp,*server,*eflag = NULL;
 
 	gale_init("gsend");
 
-	while ((arg = getopt(argc,argv,"se:p:ruU")) != EOF) 
+	while ((arg = getopt(argc,argv,"hse:p:ruU")) != EOF) 
 	switch (arg) {
 	case 's': sflag++; break;
 	case 'e': eflag = optarg; break;
@@ -94,6 +92,7 @@ int main(int argc,char *argv[]) {
 	case 'r': rflag = 1; break;
 	case 'u': uflag = 1; break;
 	case 'U': uflag = 2; break;
+	case 'h':
 	case '?': usage();
 	}
 
@@ -131,12 +130,14 @@ int main(int argc,char *argv[]) {
 		if (tmp == cp) break;
 		if (ttyin && newline && !strcmp(cp,".\n")) break;
 		if (uflag == 1) {
-			if (!strncmp(cp,"From: ",6)) 
+			if (!strncasecmp(cp,"From:",5)) 
 				have_from = 1;
-			else if (!strncmp(cp,"Content-type: ",14)) 
+			else if (!strncasecmp(cp,"Content-type:",13)) 
 				have_type = 1;
-			else if (!strncmp(cp,"Time: ",6)) 
+			else if (!strncasecmp(cp,"Time:",5)) 
 				have_time = 1;
+			else if (!strncasecmp(cp,"Reply-To:",9))
+				have_replyto = 1;
 			else if (!strcmp(cp,"\n")) {
 				headers();
 				uflag = 0;
@@ -153,29 +154,8 @@ int main(int argc,char *argv[]) {
 		}
 	}
 
-	if (sflag) {
-		tmp = sign_message(NULL,msg->data,msg->data + msg->data_size);
-		cp = gale_malloc((len = strlen(tmp)) + msg->data_size + 13);
-		sprintf(cp,"Signature: %s\r\n",tmp);
-		memcpy(cp + len + 13,msg->data,msg->data_size);
-		gale_free(tmp); gale_free(msg->data);
-		msg->data = cp;
-		msg->data_size = len + 13 + msg->data_size;
-	}
-
-	if (eflag) {
-		char *crypt = gale_malloc(msg->data_size + ENCRYPTION_PADDING);
-		char *cend;
-		char *hdr = encrypt_message(eflag,msg->data,msg->data 
-		                            + msg->data_size,crypt,&cend);
-		int len = strlen(hdr) + 14;
-		tmp = gale_malloc(len + cend - crypt);
-		sprintf(tmp,"Encryption: %s\r\n",hdr);
-		memcpy(tmp + len,crypt,cend - crypt);
-		gale_free(msg->data); gale_free(hdr);
-		msg->data = tmp;
-		msg->data_size = len + cend - crypt;
-	}
+	if (sflag) sign_message(NULL,msg);
+	if (eflag) encrypt_message(eflag,msg);
 
 	link_put(client->link,msg);
 	while (1) {

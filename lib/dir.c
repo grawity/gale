@@ -15,61 +15,6 @@ struct gale_dir {
 	char *buf;
 };
 
-struct gale_dir *dot_gale,*home_dir;
-
-static void read_conf(const char *s) {
-	char ch,var[40],value[256];
-	int num;
-	FILE *fp = fopen(s,"r");
-	if (fp == NULL) return;
-	do {
-		while (fscanf(fp," #%*[^\n]%c",&ch) == 1) ;
-		num = fscanf(fp,"%39s %255[^\n]",var,value);
-		if (num == 2) {
-			char *both,*prev = getenv(var);
-			if (prev && prev[0]) continue;
-			both = gale_malloc(strlen(var) + strlen(value) + 2);
-			sprintf(both,"%s=%s",var,value);
-			putenv(both);
-		}
-	} while (num == 2);
-}
-
-void gale_init(const char *s) {
-	char *dir;
-
-	gale_error_prefix = s;
-	read_conf(GALE_CONF);
-
-	dir = getenv("HOME");
-	if (!dir) {
-		struct passwd *pwd;
-		char *user;
-		if ((user = getenv("LOGNAME")))
-			pwd = getpwnam(user);
-		else
-			pwd = getpwuid(getuid());
-		if (pwd) 
-			dir = pwd->pw_dir;
-		else {
-			gale_alert(GALE_WARNING,"no home dir, using cwd",0);
-			dir = ".";
-		}
-	}
-	home_dir = make_dir(dir,0777);
-
-	dir = getenv("GALE_DIR");
-	if (dir) {
-		dot_gale = make_dir(dir,0777);
-		return;
-	}
-
-	dot_gale = dup_dir(home_dir);
-	sub_dir(dot_gale,".gale",0777);
-
-	read_conf(dir_file(dot_gale,"conf"));
-}
-
 const char *dir_file(struct gale_dir *d,const char *s) {
 	int l = strlen(s);
 	if (l + 1 + d->len >= d->alloc) {

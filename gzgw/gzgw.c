@@ -208,9 +208,11 @@ void g_to_z(void) {
 
 void usage(void) {
 	fprintf(stderr,
+	"%s\n"
 	"usage: gzgw [-n] [-c class[:class...]] [[cat]@[server]]\n"
 	"flags: -c       Specify Zephyr class(es) to watch\n"
-	"defaults: class MESSAGE and category 'zephyr'.\n");
+	"defaults: class MESSAGE and category 'zephyr'.\n"
+	,GALE_BANNER);
 	exit(1);
 }
 
@@ -250,10 +252,11 @@ int main(int argc,char *argv[]) {
 
 	myname = argv[0];
 
-	while (EOF != (opt = getopt(argc,argv,"dDc:"))) switch (opt) {
+	while (EOF != (opt = getopt(argc,argv,"hdDc:"))) switch (opt) {
 	case 'c': copt(optarg); break;
 	case 'd': ++gale_debug; break;
 	case 'D': gale_debug += 5; break;
+	case 'h':
 	case '?': usage();
 	}
 

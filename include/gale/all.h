@@ -9,3 +9,4 @@
 #include "gale/header.h"
 #include "gale/connect.h"
 #include "gale/compat.h"
+#include "gale/version.h"
