@@ -3038,8 +3038,11 @@ EOF
 
 
 
-INCLUDES="-I\${top_srcdir}/include -I\${top_builddir}/include"
+INCLUDES="-I\${prefix}/include"
+INCLUDES="-I\${top_srcdir}/include -I\${top_builddir}/include $INCLUDES"
 INCLUDES="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $INCLUDES"
+
+GALE_LIBS="-L\${exec_prefix}/lib $GALE_LIBS"
 
 
 

@@ -63,8 +63,8 @@ AS = @AS@
 CC = gcc
 DLLTOOL = @DLLTOOL@
 DL_LIBS = -ldl
-GALE_LIBS = ${top_builddir}/lib/libgale.la -ltermcap ${top_builddir}/gc/libgc.a -lrsaref ${top_builddir}/liboop/liboop-adns.la -ladns -lresolv ${top_builddir}/liboop/liboop.la
-INCLUDES = -DGALE_SYS_DIR=\"${prefix}/etc/gale\" -I${top_srcdir}/include -I${top_builddir}/include
+GALE_LIBS = -L${exec_prefix}/lib ${top_builddir}/lib/libgale.la -ltermcap ${top_builddir}/gc/libgc.a -lrsaref ${top_builddir}/liboop/liboop-adns.la -ladns -lresolv ${top_builddir}/liboop/liboop.la
+INCLUDES = -DGALE_SYS_DIR=\"${prefix}/etc/gale\" -I${top_srcdir}/include -I${top_builddir}/include -I${prefix}/include
 LD = /usr/bin/ld
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LN_S = ln -s
