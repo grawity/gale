@@ -129,6 +129,8 @@ const struct gale_text *gale_crypto_sender(struct gale_group signed_group) {
 	struct gale_fragment frag;
 	struct gale_text *output;
 
+	if (gale_group_null(signed_group)) return &null_text;
+
 	if (gale_group_lookup(signed_group,
 		G_("security/signature"),frag_data,&frag))
 	{
@@ -186,6 +188,8 @@ const struct gale_text *gale_crypto_sender(struct gale_group signed_group) {
 const struct gale_data *gale_crypto_bundled(struct gale_group signed_group) {
 	struct gale_fragment frag;
 	struct gale_data *output;
+
+	if (gale_group_null(signed_group)) return &null_data;
 
 	frag = gale_group_first(signed_group);
 	if (frag_group == frag.type

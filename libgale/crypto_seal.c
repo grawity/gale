@@ -30,7 +30,7 @@ int gale_crypto_seal(
 	struct gale_text *raw_name;
 	EVP_PKEY **public_key;
 
-	int is_successful = 0;
+	int good_count = 0,is_successful = 0;
 
 	plain.p = gale_malloc(gale_group_size(*data) + gale_u32_size());
 	plain.l = 0;
@@ -42,27 +42,29 @@ int gale_crypto_seal(
 	gale_create_array(public_key,key_count);
 	for (i = 0; i < key_count; ++i) public_key[i] = NULL;
 	for (i = 0; i < key_count; ++i) {
-		public_key[i] = EVP_PKEY_new();
-		EVP_PKEY_assign_RSA(public_key[i],RSA_new());
-		raw_name[i] = key_i_swizzle(crypto_i_rsa(target[i],public_key[i]->pkey.rsa));
-		if (0 == raw_name[i].l) {
-			gale_alert(GALE_WARNING,G_("key has no name"),0);
-			goto cleanup;
-		}
-		if (!crypto_i_public_valid(public_key[i]->pkey.rsa)) {
-			gale_alert(GALE_WARNING,G_("invalid public key"),0);
-			goto cleanup;
+		public_key[good_count] = EVP_PKEY_new();
+		EVP_PKEY_assign_RSA(public_key[good_count],RSA_new());
+		raw_name[good_count] = key_i_swizzle(crypto_i_rsa(
+			target[i],public_key[good_count]->pkey.rsa));
+		if (0 != raw_name[good_count].l
+		&&  crypto_i_public_valid(public_key[good_count]->pkey.rsa)) 
+			++good_count;
+		else {
+			EVP_PKEY_free(public_key[good_count]);
+			gale_alert(GALE_WARNING,gale_text_concat(3,
+				G_("invalid public key \""),
+				raw_name[good_count],G_("\"")),0);
 		}
 	}
 
-	gale_create_array(session_key_length,key_count);
-	gale_create_array(session_key,key_count);
-	for (i = 0; i < key_count; ++i) 
+	gale_create_array(session_key_length,good_count);
+	gale_create_array(session_key,good_count);
+	for (i = 0; i < good_count; ++i) 
 		gale_create_array(session_key[i],EVP_PKEY_size(public_key[i]));
 
 	crypto_i_seed();
 	if (!EVP_SealInit(&context,EVP_des_ede3_cbc(),
-		session_key,session_key_length,iv,public_key,key_count)) {
+		session_key,session_key_length,iv,public_key,good_count)) {
 		crypto_i_error();
 		goto cleanup;
 	}
@@ -71,7 +73,7 @@ int gale_crypto_seal(
 	         + gale_copy_size(EVP_CIPHER_CTX_iv_length(&context))
 	         + gale_u32_size()
 	         + plain.l + EVP_CIPHER_CTX_block_size(&context) - 1;
-	for (i = 0; i < key_count; ++i)
+	for (i = 0; i < good_count; ++i)
 		cipher.l += gale_text_size(raw_name[i])
 		         +  gale_u32_size()
 		         +  gale_copy_size(session_key_length[i]);
@@ -82,8 +84,8 @@ int gale_crypto_seal(
 	assert(IV_LEN == EVP_CIPHER_CTX_iv_length(&context));
 	gale_pack_copy(&cipher,magic2,sizeof(magic2));
 	gale_pack_copy(&cipher,iv,IV_LEN);
-	gale_pack_u32(&cipher,key_count);
-	for (i = 0; i < key_count; ++i) {
+	gale_pack_u32(&cipher,good_count);
+	for (i = 0; i < good_count; ++i) {
 		gale_pack_text(&cipher,raw_name[i]);
 		gale_pack_u32(&cipher,session_key_length[i]);
 		gale_pack_copy(&cipher,session_key[i],session_key_length[i]);
@@ -102,7 +104,7 @@ int gale_crypto_seal(
 
 	is_successful = 1;
 cleanup:
-	for (i = 0; i < key_count; ++i)
+	for (i = 0; i < good_count; ++i)
 		if (NULL != public_key[i]) EVP_PKEY_free(public_key[i]);
 	return is_successful;
 }
