@@ -558,7 +558,11 @@ static void *on_lookup(struct gale_text n,struct gale_location *loc,void *x) {
 }
 
 static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
-	add_sub((int) x,loc);
+	if (NULL == loc) 
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("could not find \""),n,G_("\"")),0);
+	else
+		add_sub((int) x,loc);
 	return on_complete();
 }
 
