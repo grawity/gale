@@ -207,6 +207,18 @@ static int on_gsubrc(int count,const struct gale_text *args,void *user) {
 	return 0;
 }
 
+static void *on_status(int status,void *x) {
+	if (WIFSIGNALED(status))
+		gale_alert(GALE_WARNING,gale_text_concat(2,
+			G_("gsubrc died with signal "),
+			gale_text_from_number(WTERMSIG(status),10,0)),0);
+	else if (do_verbose && WIFEXITED(status) && WEXITSTATUS(status) > 0)
+		gale_alert(GALE_NOTICE,gale_text_concat(2,
+			G_("gsubrc returned error "),
+			gale_text_from_number(WEXITSTATUS(status),10,0)),0);
+	return OOP_CONTINUE;
+}
+
 /* Take the message passed as an argument and show it to the user, running
    their gsubrc if present, using the default formatter otherwise. */
 static void *on_message(struct gale_message *msg,void *data) {
@@ -349,7 +361,7 @@ static void *on_message(struct gale_message *msg,void *data) {
 			gale_global->sys_dir,
 			null_text);
 
-		gale_exec(source,rc,1,&rc,&pfd,NULL,on_gsubrc,NULL,NULL);
+		gale_exec(source,rc,1,&rc,&pfd,NULL,on_gsubrc,on_status,NULL);
 
 		/* Send the message to the gsubrc. */
 		if (-1 != pfd) {
