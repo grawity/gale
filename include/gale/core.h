@@ -54,7 +54,7 @@ struct gale_message *new_message(void);
 struct gale_link;
 
 /* Protocol constants. */
-static const int gale_port = 11511;
+static const int gale_port = 11512;
 
 /* Create a new link using an event source. */
 struct gale_link *new_link(struct oop_source *);
