@@ -7,7 +7,7 @@ noinst_PROGRAMS = crypto_test key_test
 # current as of 0.99cheese
 libgale_la_LDFLAGS = -version-info 11:0:0
 
-noinst_HEADERS = crypto_i.h key_i.h io.h
+noinst_HEADERS = client_i.h crypto_i.h key_i.h io.h
 
 libgale_la_SOURCES = \
     core_init.c core_link.c core_signals.c \

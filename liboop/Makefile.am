@@ -30,7 +30,7 @@ liboop_rl_la_LDFLAGS = -version-info 0:0:0
 liboop_rl_la_LIBADD = $(READLINE_LIBS)
 liboop_rl_la_SOURCES = readline.c
 
-include_HEADERS = oop.h oop-adns.h oop-glib.h oop-www.h oop-rl.h
+include_HEADERS = oop.h oop-adns.h oop-glib.h oop-www.h oop-rl.h oop-read.h
 
 noinst_PROGRAMS = test-oop
 
