@@ -7,37 +7,38 @@
 # See the file COPYING for details.
 
 AUTOMAKE_OPTIONS = foreign 1.7
-lib_LTLIBRARIES = liboop-adns.la liboop-glib2.la liboop-glib.la liboop-tcl.la liboop-www.la liboop-rl.la liboop.la
+lib_LTLIBRARIES = liboop.la @LIBOOP_LIBS@
+EXTRA_LTLIBRARIES = liboop-adns.la liboop-glib2.la liboop-glib.la liboop-tcl.la liboop-www.la liboop-rl.la
 
-# versions updated as of 0.8
-liboop_la_LDFLAGS = -version-info 4:0:0 # version:revision:age
+# versions updated as of 1.0
+liboop_la_LDFLAGS = -version-info 4:1:0 # version:revision:age
 liboop_la_SOURCES = sys.c select.c signal.c alloc.c read.c read-fd.c read-mem.c
 
-liboop_adns_la_LDFLAGS = -version-info 2:0:0
+liboop_adns_la_LDFLAGS = -version-info 3:0:0 -rpath '$(libdir)'
 liboop_adns_la_LIBADD = $(ADNS_LIBS)
 liboop_adns_la_SOURCES = adns.c
 
-liboop_glib_la_LDFLAGS = -version-info 1:0:0
+liboop_glib_la_LDFLAGS = -version-info 1:0:1 -rpath '$(libdir)'
 liboop_glib_la_LIBADD = $(GLIB_LIBS)
 liboop_glib_la_CFLAGS = $(GLIB_INCLUDES)
 liboop_glib_la_SOURCES = glib.c
 
-liboop_glib2_la_LDFLAGS = -version-info 0:0:0
+liboop_glib2_la_LDFLAGS = -version-info 0:0:0 -rpath '$(libdir)'
 liboop_glib2_la_LIBADD = $(GLIB2_LIBS)
 liboop_glib2_la_CFLAGS = $(GLIB2_CFLAGS)
 liboop_glib2_la_SOURCES = glib.c
 
-liboop_tcl_la_LDFLAGS = -version-info 0:0:0
+liboop_tcl_la_LDFLAGS = -version-info 0:0:0 -rpath '$(libdir)'
 liboop_tcl_la_LIBADD = $(TCL_LIBS)
 liboop_tcl_la_CFLAGS = $(TCL_INCLUDES)
 liboop_tcl_la_SOURCES = tcl.c
 
-liboop_www_la_LDFLAGS = -version-info 0:0:0
+liboop_www_la_LDFLAGS = -version-info 0:0:0 -rpath '$(libdir)'
 liboop_www_la_LIBADD = $(WWW_LIBS)
 liboop_www_la_CFLAGS = $(WWW_INCLUDES)
 liboop_www_la_SOURCES = www.c
 
-liboop_rl_la_LDFLAGS = -version-info 0:0:0
+liboop_rl_la_LDFLAGS = -version-info 0:0:0 -rpath '$(libdir)'
 liboop_rl_la_LIBADD = $(READLINE_LIBS)
 liboop_rl_la_SOURCES = readline.c
 

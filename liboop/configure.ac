@@ -1,15 +1,17 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(liboop,0.9)
+AM_INIT_AUTOMAKE(liboop,1.0)
 AC_CANONICAL_HOST
-
-dnl Use libtool for shared libraries
 AM_PROG_LIBTOOL
-
-dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
 PROG_LDCONFIG=:
+
+AC_ARG_WITH(adns, AC_HELP_STRING(--without-adns,disable ADNS adapter))
+AC_ARG_WITH(readline, AC_HELP_STRING(--without-readline,disable readline adapter))
+AC_ARG_WITH(glib, AC_HELP_STRING(--without-glib,disable GLib adapter))
+AC_ARG_WITH(tcl, AC_HELP_STRING(--without-tcl,disable Tcl/Tk adapter))
+AC_ARG_WITH(libwww, AC_HELP_STRING(--with-libwww,build libwww adapter))
 
 dnl System type checks.
 case "$host" in
@@ -27,54 +29,74 @@ esac
 
 AC_CHECK_HEADERS(poll.h sys/select.h sys/socket.h string.h strings.h)
 
-AC_CHECK_LIB(adns,adns_init,[
-  ADNS_LIBS="-ladns"
-  AC_DEFINE(HAVE_ADNS)
-])
-
-AC_CHECK_LIB(readline,rl_callback_handler_install,[
-AC_CHECK_HEADER(readline/readline.h,[
-  READLINE_LIBS="-lreadline"
-  AC_DEFINE(HAVE_READLINE)
-])])
-
-save_libs="$LIBS"
-save_cppflags="$CPPFLAGS"
-AC_CHECK_PROG(PROG_GLIB_CONFIG,glib-config,glib-config)
-if test -n "$PROG_GLIB_CONFIG" ; then
-  GLIB_INCLUDES="`glib-config --cflags`"
-  GLIB_LIBS="`glib-config --libs`"
-  LIBS="$save_libs $GLIB_LIBS"
-  CPPFLAGS="$save_cppflags $GLIB_INCLUDES"
-  AC_CHECK_FUNC(g_main_set_poll_func,[
-  AC_CHECK_HEADER(glib.h,[AC_DEFINE(HAVE_GLIB)])])
+if test xno != x$with_adns; then
+  AC_CHECK_LIB(adns,adns_init,[
+    LIBOOP_LIBS="liboop-adns.la $LIBOOP_LIBS"
+    ADNS_LIBS="-ladns"
+    AC_DEFINE(HAVE_ADNS)
+  ])
 fi
-LIBS="$save_libs"
-CPPFLAGS="$save_cppflags"
 
-PKG_CHECK_MODULES(GLIB2,glib-2.0 >= 2.0,AC_DEFINE(HAVE_GLIB),[:])
-
-for version in 8.4 8.3 8.2 8.1 8.0 ; do
-  CPPFLAGS="$save_cppflags -I/usr/include/tcl$version"
-  AC_CHECK_LIB(tcl$version,Tcl_Main,[
-  AC_CHECK_HEADER(tcl.h,[
-    AC_DEFINE(HAVE_TCL)
-    TCL_INCLUDES="-I/usr/include/tcl$version"
-    TCL_LIBS="-ltcl$version"
-    break
+if test xno != x$with_readline; then
+  AC_CHECK_LIB(readline,rl_callback_handler_install,[
+  AC_CHECK_HEADER(readline/readline.h,[
+    LIBOOP_LIBS="liboop-rl.la $LIBOOP_LIBS"
+    READLINE_LIBS="-lreadline"
+    AC_DEFINE(HAVE_READLINE)
   ])])
-done
-CPPFLAGS="$save_cppflags"
+fi
 
-AC_CHECK_LIB(wwwcore,HTEvent_setRegisterCallback,[
-  AC_DEFINE(HAVE_WWW)
-  # This is just a little unpleasant.
-  WWW_LIBS=" \
-  -lwwwapp -lwwwcache -lwwwcore -lwwwdir -lwwwfile -lwwwftp -lwwwgopher \
-  -lwwwhtml -lwwwhttp -lwwwinit -lwwwmime -lwwwmux -lwwwnews -lwwwstream \
-  -lwwwtelnet -lwwwtrans -lwwwutils -lwwwzip -lmd5"
-  WWW_INCLUDES="-I/usr/include/w3c-libwww" # the libwww RPM puts headers here
-],,-lwwwutils)
+if test xno != x$with_glib; then
+  save_libs="$LIBS"
+  save_cppflags="$CPPFLAGS"
+  AC_CHECK_PROG(PROG_GLIB_CONFIG,glib-config,glib-config)
+  if test -n "$PROG_GLIB_CONFIG" ; then
+    GLIB_INCLUDES="`glib-config --cflags`"
+    GLIB_LIBS="`glib-config --libs`"
+    LIBS="$save_libs $GLIB_LIBS"
+    CPPFLAGS="$save_cppflags $GLIB_INCLUDES"
+    AC_CHECK_FUNC(g_main_set_poll_func,[
+    AC_CHECK_HEADER(glib.h,[
+      LIBOOP_LIBS="liboop-glib.la $LIBOOP_LIBS"
+      AC_DEFINE(HAVE_GLIB)
+    ])])
+  fi
+  LIBS="$save_libs"
+  CPPFLAGS="$save_cppflags"
+
+  PKG_CHECK_MODULES(GLIB2,glib-2.0 >= 2.0,[
+    LIBOOP_LIBS="liboop-glib2.la $LIBOOP_LIBS"
+    AC_DEFINE(HAVE_GLIB)
+    ],[:])
+fi
+
+if test xno != x$with_tcl; then
+  for version in 8.4 8.3 8.2 8.1 8.0 ; do
+    CPPFLAGS="$save_cppflags -I/usr/include/tcl$version"
+    AC_CHECK_LIB(tcl$version,Tcl_Main,[
+    AC_CHECK_HEADER(tcl.h,[
+      LIBOOP_LIBS="liboop-tcl.la $LIBOOP_LIBS"
+      AC_DEFINE(HAVE_TCL)
+      TCL_INCLUDES="-I/usr/include/tcl$version"
+      TCL_LIBS="-ltcl$version"
+      break
+    ])])
+  done
+  CPPFLAGS="$save_cppflags"
+fi
+
+if test xyes = x$with_libwww; then
+  AC_CHECK_LIB(wwwcore,HTEvent_setRegisterCallback,[
+    LIBOOP_LIBS="liboop-www.la $LIBOOP_LIBS"
+    AC_DEFINE(HAVE_WWW)
+    # This is just a little unpleasant.
+    WWW_LIBS=" \
+    -lwwwapp -lwwwcache -lwwwcore -lwwwdir -lwwwfile -lwwwftp -lwwwgopher \
+    -lwwwhtml -lwwwhttp -lwwwinit -lwwwmime -lwwwmux -lwwwnews -lwwwstream \
+    -lwwwtelnet -lwwwtrans -lwwwutils -lwwwzip -lmd5"
+    WWW_INCLUDES="-I/usr/include/w3c-libwww" # the libwww RPM puts headers here
+  ],,-lwwwutils)
+fi
 
 if test -z "$no_wacky_libs" ; then
   AC_CHECK_LIB(resolv,res_query)
@@ -96,4 +118,5 @@ AC_SUBST(ADNS_LIBS)
 AC_SUBST(WWW_INCLUDES)
 AC_SUBST(WWW_LIBS)
 AC_SUBST(READLINE_LIBS)
+AC_SUBST(LIBOOP_LIBS)
 AC_OUTPUT(Makefile)
