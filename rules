@@ -1,0 +1,43 @@
+ZEPHYR_INC = -I/ofb/include # -I/usr/ug/include
+ZEPHYR_LIB = -L/ofb/lib -lzephyr -lcom_err # -L/usr/ug/lib
+
+RSAREF_INC = -I/ofb/include
+RSAREF_LIB = -L/ofb/lib -lrsaref
+
+BIN_DIR = /home/egnor/bin
+LIB_DIR = /home/egnor/lib
+INC_DIR = /home/egnor/include/gale
+
+# --------------------------------------------------------------------------- #
+
+CC = gcc
+CFLAGS = -Wall -g
+CPPFLAGS = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC)
+LDLIBS = -L$(TOP)/lib -lgale $(RSAREF_LIB) $(ZEPHYR_LIB)
+
+all::
+	@make --no-print-directory subdirs TARGET=all
+all:: $(BIN_TARGETS) $(LIB_TARGETS)
+
+install::
+	@make --no-print-directory subdirs TARGET=install
+install:: $(BIN_TARGETS) $(LIB_TARGETS)
+ifdef BIN_TARGETS
+	@mkdir -p $(BIN_DIR)
+	[ -z "$(BIN_TARGETS)" ] || cp $(BIN_TARGETS) $(BIN_DIR)
+endif
+ifdef LIB_TARGETS
+	@mkdir -p $(LIB_DIR)
+	[ -z "$(LIB_TARGETS)" ] || cp $(LIB_TARGETS) $(LIB_DIR)
+endif
+ifdef INCLUDES
+	@mkdir -p $(INC_DIR)
+	[ -z "$(INCLUDES)" ] || cp $(INCLUDES) $(INC_DIR)
+endif
+
+clean::
+	$(RM) *.o $(BIN_TARGETS) $(LIB_TARGETS)
+	@make --no-print-directory subdirs TARGET=clean
+
+subdirs:
+	@for sub in $(SUBDIRS) "" ; do [ -z "$$sub" ] || make -C $$sub $(TARGET) || exit 1 ; done

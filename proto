@@ -1,0 +1,6 @@
+puff <size> <category>[:<category>...] <crlf> <data>
+will <size> <category>[:<category>...] <crlf> <data>
+gimme <category>[:<category>...] <crlf>
+lossage <number> <crlf>
+enq <cookie>
+ack <cookie>

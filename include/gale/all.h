@@ -1,0 +1,8 @@
+#include "gale/util.h"
+#include "gale/link.h"
+#include "gale/message.h"
+#include "gale/client.h"
+#include "gale/auth.h"
+#include "gale/header.h"
+#include "gale/connect.h"
+#include "gale/compat.h"

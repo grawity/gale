@@ -1,0 +1,87 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <time.h>
+
+#include "gale/client.h"
+#include "gale/link.h"
+#include "gale/util.h"
+#include "gale/connect.h"
+#include "gale/compat.h"
+
+static void do_connect(struct gale_client *client) {
+	struct gale_connect *conn = make_connect(client->spec);
+	if (client->socket != -1) close(client->socket);
+	client->socket = -1;
+	if (!conn) return;
+	do {
+		fd_set fds;
+		FD_ZERO(&fds);
+		connect_select(conn,&fds);
+		select(FD_SETSIZE,NULL,HPINT &fds,NULL,NULL);
+		client->socket = select_connect(&fds,conn);
+	} while (!client->socket);
+}
+
+void gale_retry(struct gale_client *client) {
+	int retry_time = 0;
+	srand48(getpid() ^ time(NULL));
+	reset_link(client->link);
+	do {
+		fprintf(stderr,"gale: server connection failed");
+		if (retry_time)
+			fprintf(stderr," again, waiting %d seconds",retry_time);
+		fprintf(stderr,"\r\n");
+		sleep(retry_time);
+		if (retry_time)
+			retry_time = retry_time + lrand48() % retry_time + 1;
+		else
+			retry_time = 2;
+		do_connect(client);
+	} while (client->socket < 0);
+	fprintf(stderr,"gale: server connection ok\r\n");
+}
+
+struct gale_client *gale_open(const char *spec,int num,int mem) {
+	struct gale_client *client;
+
+	client = gale_malloc(sizeof(*client));
+	client->spec = gale_strdup(spec ? spec : "");
+	client->socket = -1;
+	client->link = new_link();
+	link_limits(client->link,num,mem);
+
+	do_connect(client);
+
+	return client;
+}
+
+void gale_close(struct gale_client *client) {
+	if (client->socket != -1) close(client->socket);
+	free_link(client->link);
+	gale_free(client->spec);
+	gale_free(client);
+}
+
+int gale_error(struct gale_client *client) {
+	return client->socket == -1;
+}
+
+int gale_send(struct gale_client *client) {
+	if (client->socket == -1) return -1;
+	while (link_transmit_q(client->link))
+		if (link_transmit(client->link,client->socket)) return -1;
+	return 0;
+}
+
+int gale_next(struct gale_client *client) {
+	if (client->socket == -1) return -1;
+	gale_send(client);
+	if (link_receive_q(client->link))
+		if (link_receive(client->link,client->socket)) return -1;
+	return 0;
+}
