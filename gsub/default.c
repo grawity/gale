@@ -118,15 +118,8 @@ void default_gsubrc(void) {
 
 
 	/* Get the time */
-	if (0 == (timecode = gale_var(G_("GALE_TIME_ID_TIME"))).l) {
+	if (0 == (timecode = gale_var(G_("GALE_TIME_ID_TIME"))).l)
 		timecode = gale_time_format(gale_time_now());
-#if 0
-		char tstr[80];
-		time_t when = time(NULL);
-		strftime(tstr,sizeof(tstr),"%Y-%m-%d %H:%M:%S",localtime(&when));
-		timecode = gale_text_from(NULL,tstr,-1);
-#endif
-	}
 
 	if (0 != gale_var(G_("GALE_DATA_SECURITY_ENCRYPTION")).l) {
 		gale_alert(GALE_WARNING,gale_text_concat(3,
@@ -359,7 +352,7 @@ void default_gsubrc(void) {
 	{
 		struct gale_text from_name = 
 			gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
-		int len = 0;
+		int len = gale_text_width(timecode);
 
 		if (0 == from_name.l)
 			len += id_width(G_("GALE_FROM"),G_("anonymous"));
@@ -367,7 +360,7 @@ void default_gsubrc(void) {
 			len += id_width(G_("GALE_FROM"),G_("unverified")) 
 			    +  from_name.l + 3;
 
-		while (len++ < termwid - 25) gale_print(stdout,0,G_(" "));
+		while (len++ < termwid - 7) gale_print(stdout,0,G_(" "));
 		gale_print(stdout,0,G_("--"));
 		if (0 == from_name.l)
 			print_id(G_("GALE_FROM"),G_("anonymous"));
