@@ -91,15 +91,13 @@ static void get_random(R_RANDOM_STRUCT *rand) {
 
 void gale_domain(const char **ptr) {
 	static char *domain = NULL;
-	static struct utsname uts;
-	if (!domain) {
+	static int first = 1;
+	if (first) {
+		first = 0;
 		domain = getenv("GALE_DOMAIN");
 		if (!domain) {
-			if (uname(&uts)) {
-				perror("uname");
-				exit(1);
-			}
-			domain = uts.nodename;
+			fprintf(stderr,"auth: $GALE_DOMAIN not set\n");
+			exit(1);
 		}
 	}
 	*ptr = domain;
@@ -113,7 +111,7 @@ void gale_user(const char **ptr) {
 			user = getenv("LOGNAME");
 			if (!user) {
 				fprintf(stderr,"auth: neither $LOGNAME "
-				               "nor USER set\r\n");
+				               "nor $USER set\r\n");
 				exit(1);
 			}
 		}
@@ -205,6 +203,8 @@ void gale_keys(void) {
 	int fd,i;
 
 	gale_id(&id);
+	gale_user(&user);
+	gale_domain(&domain);
 
 	if (got_keys) return;
 	got_keys = 1;
@@ -234,8 +234,6 @@ void gale_keys(void) {
 	pub_key.bits = ntohl(pub_key.bits);
 	close(fd);
 
-	gale_user(&user);
-	gale_domain(&domain);
 	i = strlen(user);
 	if (strncmp(user,id,i) || id[i] != '@' || strcmp(id+i+1,domain))
 		return;

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <stdio.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -26,8 +27,6 @@ struct gale_connect *make_connect(const char *serv) {
 	int alloc = 0;
 	const char *end,*cp;
 	struct gale_connect *conn = gale_malloc(sizeof(*conn));
-	if (!serv || !*serv) serv = getenv("GALE_SERVER");
-	if (!serv) serv = "";
 	cp = serv;
 	conn->len = 0;
 	conn->array = NULL;
@@ -44,12 +43,12 @@ struct gale_connect *make_connect(const char *serv) {
 		sin.sin_family = AF_INET;
 		sin.sin_port = htons(colon < end ? atoi(colon + 1) : DEF_PORT);
 		name = gale_strndup(cp,colon - cp);
-		if (!*name)
-			sin.sin_addr.s_addr = inet_addr("127.0.0.1");
-		else if ((he = gethostbyname(name)))
+		if ((he = gethostbyname(name)))
 			memcpy(&sin.sin_addr,he->h_addr,sizeof(sin.sin_addr));
-		else
+		else {
+			fprintf(stderr,"gale: cannot find host \"%s\"\n",name);
 		 	goto skip;
+		}
 		fd = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
 		if (fd < 0) goto skip;
 		if (fcntl(fd,F_SETFL,O_NONBLOCK)) goto skip;
