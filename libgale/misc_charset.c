@@ -167,7 +167,7 @@ char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
 	assert(0);
 #else
 	gale_create_array(copy,t.l);
-	gale_create_array(buf,(alloc = t.l));
+	gale_create_array(buf,(alloc = t.l + 1));
 
 	for (inbytes = 0; inbytes < t.l; ++inbytes) {
 		copy[inbytes] = t.p[inbytes];
@@ -177,7 +177,7 @@ char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
 	inbuf = (ICONV_CONST char *) copy;
 	inbytes = sizeof(wch) * t.l;
 	outbuf = buf;
-	outbytes = alloc;
+	outbytes = alloc - 1;
 
 	for (;;) {
 		char *newbuf;
@@ -217,7 +217,7 @@ char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
 		case E2BIG:
 			gale_create_array(newbuf,(alloc *= 2));
 			memcpy(newbuf,buf,outbuf - buf);
-			outbytes = alloc - (outbuf - buf);
+			outbytes = alloc - (outbuf - buf) - 1;
 			outbuf = newbuf + (outbuf - buf);
 			buf = newbuf;
 			break;

@@ -1,12 +1,12 @@
 #include "gale/misc.h"
 #include "gale/core.h"
+#include "gale/globals.h"
+
+/* #define CHEESY_ALLOC */
+/* #define GC_DEBUG */
 
 #include <stdlib.h>
 #include <string.h>
-#include <gc.h>
-
-/* #define CHEESY_ALLOC */
-#define GC_DEBUG
 
 struct gale_ptr { void *ptr; };
 
@@ -14,15 +14,38 @@ struct gale_ptr { void *ptr; };
 
 #ifndef CHEESY_ALLOC
 
-void *gale_malloc(size_t len) { return GC_MALLOC(len); }
-void *gale_malloc_atomic(size_t len) { return GC_MALLOC_ATOMIC(len); }
-void *gale_malloc_safe(size_t len) { return GC_MALLOC_UNCOLLECTABLE(len); }
-void gale_free(void *ptr) { GC_FREE(ptr); }
-void *gale_realloc(void *s,size_t len) { return GC_REALLOC(s,len); }
-void gale_check_mem(void) { GC_gcollect(); }
+#include <gc.h>
+
+#if defined(HAVE_GC_BACKPTR_H) && defined(GC_DEBUG)
+#include <gc_backptr.h>
+
+static struct gale_text memory_report(void *x) {
+	GC_generate_random_backtrace();
+	return null_text;
+}
+
+static inline void init() {
+	static int is_init = 0;
+	if (!is_init 
+	&&  NULL != gale_global 
+	&&  NULL != gale_global->report) {
+		is_init = 1;
+		gale_report_add(gale_global->report,memory_report,NULL);
+	}
+}
+#else  /* HAVE_GC_BACKPTR_H */
+static inline void init() { }
+#endif
+
+void *gale_malloc(size_t len) { init(); return GC_MALLOC(len); }
+void *gale_malloc_atomic(size_t len) { init(); return GC_MALLOC_ATOMIC(len); }
+void *gale_malloc_safe(size_t len) { init(); return GC_MALLOC_UNCOLLECTABLE(len); }
+void gale_free(void *ptr) { init(); GC_FREE(ptr); }
+void *gale_realloc(void *s,size_t len) { init(); return GC_REALLOC(s,len); }
+void gale_check_mem(void) { init(); GC_gcollect(); }
 
 void gale_finalizer(void *obj,void (*f)(void *,void *),void *data) {
-	GC_register_finalizer(obj,f,data,0,0);
+	GC_REGISTER_FINALIZER(obj,f,data,0,0);
 }
 
 struct gale_ptr *gale_make_weak(void *ptr) {
@@ -31,7 +54,7 @@ struct gale_ptr *gale_make_weak(void *ptr) {
 	if (ptr) {
 		wptr = gale_malloc_atomic(sizeof(*wptr));
 		wptr->ptr = ptr;
-		GC_general_register_disappearing_link(&wptr->ptr,ptr);
+		GC_GENERAL_REGISTER_DISAPPEARING_LINK(&wptr->ptr,ptr);
 	}
 
 	return wptr;
@@ -59,7 +82,7 @@ struct gale_ptr *gale_make_weak(void *ptr) {
 	return wptr;
 }
 
-#endif
+#endif /* CHEESY_ALLOC */
 
 struct gale_ptr *gale_make_ptr(void *ptr) {
 	struct gale_ptr *wptr;

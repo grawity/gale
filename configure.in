@@ -173,7 +173,9 @@ else
   AC_CHECK_LIB(gc,GC_malloc,[:],[
     AC_MSG_ERROR(cannot find Boehm GC library, see INSTALL directions)
   ])
-  INCLUDES="-I/usr/include/gc $INCLUDES"
+  if test -d /usr/include/gc; then
+    CPPFLAGS="$CPPFLAGS -I/usr/include/gc"
+  fi
   GALE_LIBS="$GALE_LIBS -lgc"
 fi
 
@@ -203,10 +205,9 @@ dnl Checks for header files.
 AC_CHECK_HEADERS(sys/bitypes.h sys/select.h curses.h term.h dlfcn.h readline/readline.h getopt.h)
 AC_CHECK_HEADERS(openssl/evp.h,,[AC_MSG_ERROR(cannot find OpenSSL headers)])
 
-if test ! -f "${srcdir}/gc/include/gc.h" -a ! -f "/usr/include/gc/gc.h"; then
-  AC_CHECK_HEADERS(gc.h,,[
-    AC_MSG_ERROR(cannot find Boehm GC headers, see INSTALL directions)
-  ])
+if test ! -f "${srcdir}/gc/include/gc.h"; then
+  AC_CHECK_HEADERS(gc.h,,[AC_MSG_ERROR(cannot find Boehm GC headers, see INSTALL directions)])
+  AC_CHECK_HEADERS(gc_backptr.h)
 fi
 
 dnl Checks for typedefs, structures, and compiler characteristics.
