@@ -13,6 +13,7 @@ void gale_free(void *ptr) { free(ptr); }
 struct gale_message *msg;
 int alloc = 0;
 int have_from = 0,have_time = 0,have_type = 0;
+const char *pflag = NULL;
 
 void reserve(int len) {
 	char *tmp;
@@ -53,6 +54,12 @@ void headers(void) {
 		sprintf(msg->data + msg->data_size,"Time: %lu\r\n",time(NULL));
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
+	if (pflag) {
+		reserve(20 + strlen(pflag));
+		sprintf(msg->data + msg->data_size,
+		        "Receipt-to: %s\r\n",pflag);
+		msg->data_size += strlen(msg->data + msg->data_size);
+	}
 	reserve(2);
 	msg->data[msg->data_size++] = '\r';
 	msg->data[msg->data_size++] = '\n';
@@ -60,10 +67,11 @@ void headers(void) {
 
 void usage(void) {
 	fprintf(stderr,
-		"usage: gsend [-suU] [-e id] cat[:cat]*[@[host][:[port]]]\n"
+		"usage: gsend [-suU] [-e id] [-p cat] cat@server\n"
 		"flags: -s       Sign message with your private key\n"
 		"       -e id    Encrypt message with <id>'s public key\n"
 		"       -r       Do not retry server connection\n"
+		"       -p cat   Request a return receipt\n"
 		"       -u       Expect user-supplied headers\n"
 		"       -U       Ditto, and don't supply default headers\n"
 		);
@@ -78,10 +86,11 @@ int main(int argc,char *argv[]) {
 
 	gale_init("gsend");
 
-	while ((arg = getopt(argc,argv,"se:ruU")) != EOF) 
+	while ((arg = getopt(argc,argv,"se:p:ruU")) != EOF) 
 	switch (arg) {
 	case 's': sflag++; break;
 	case 'e': eflag = optarg; break;
+	case 'p': pflag = optarg; break;
 	case 'r': rflag = 1; break;
 	case 'u': uflag = 1; break;
 	case 'U': uflag = 2; break;
@@ -101,10 +110,7 @@ int main(int argc,char *argv[]) {
 	if (!client) exit(1);
 
 	while (gale_error(client)) {
-		if (rflag) {
-			fprintf(stderr,"error: could not contact server\n");
-			exit(1);
-		}
+		if (rflag) gale_alert(GALE_ERROR,"could not contact server",0);
 		gale_retry(client);
 	}
 
@@ -148,7 +154,7 @@ int main(int argc,char *argv[]) {
 	}
 
 	if (sflag) {
-		tmp = sign_message(msg->data,msg->data + msg->data_size);
+		tmp = sign_message(NULL,msg->data,msg->data + msg->data_size);
 		cp = gale_malloc((len = strlen(tmp)) + msg->data_size + 13);
 		sprintf(cp,"Signature: %s\r\n",tmp);
 		memcpy(cp + len + 13,msg->data,msg->data_size);
@@ -174,10 +180,7 @@ int main(int argc,char *argv[]) {
 	link_put(client->link,msg);
 	while (1) {
 		if (!gale_send(client)) break;
-		if (rflag) {
-			fprintf(stderr,"error: transmission failed\n");
-			exit(1);
-		}
+		if (rflag) gale_alert(GALE_ERROR,"transmission failed",0);
 		gale_retry(client);
 		if (!link_queue(client->link))
 			link_put(client->link,msg);
