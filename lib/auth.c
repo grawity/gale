@@ -19,7 +19,8 @@ static R_RSA_PUBLIC_KEY pub_key;
 static R_RSA_PRIVATE_KEY priv_key;
 
 static void rsa_err(char *s) {
-	fprintf(stderr,"auth: RSAREF failure in %s\r\n",s);
+	(void) s;
+	gale_alert(GALE_ERROR,"RSAREF failure.",0); /* XXX */
 	exit(1);
 }
 
@@ -33,21 +34,16 @@ static void get_random(R_RANDOM_STRUCT *rand) {
 		struct stat buf;
 		fd = open(dir_file(dot_gale,"random"),O_RDONLY);
 		if (fd >= 0 && (fstat(fd,&buf) || (buf.st_mode & 077))) {
-			fprintf(stderr,
-			"auth: The \".gale/random\" file cannot be "
-				"readable by group or other.\n");
+			gale_alert(GALE_WARNING,
+				"world-readable \".gale/random\" file",0);
 			if (fd >= 0) {
 				close(fd);
 				fd = -1;
 			}
 		}
 		if (fd < 0) {
-			fprintf(stderr,
-			"auth: WARNING: You do not have a cryptographic "
-				"random number source.\n"
-			"Use a system with /dev/urandom (e.g. Linux) or "
-				"otherwise get good random\n"
-			"data into your \".gale/random\" file.\n");
+			gale_alert(GALE_WARNING,
+			"You do not have a good random number source.",0);
 		}
 	}
 
@@ -94,7 +90,7 @@ void gale_domain(const char **ptr) {
 		first = 0;
 		domain = getenv("GALE_DOMAIN");
 		if (!domain) {
-			fprintf(stderr,"auth: $GALE_DOMAIN not set\n");
+			gale_alert(GALE_WARNING,"$GALE_DOMAIN not set.",0);
 			exit(1);
 		}
 	}
@@ -108,8 +104,8 @@ void gale_user(const char **ptr) {
 		if (!user) {
 			user = getenv("LOGNAME");
 			if (!user) {
-				fprintf(stderr,"auth: neither $LOGNAME "
-				               "nor $USER set\r\n");
+				gale_alert(GALE_WARNING,
+				"neither $LOGNAME nor $USER set.",0);
 				exit(1);
 			}
 		}
@@ -163,7 +159,7 @@ static int read_pub_key(const char *id,R_RSA_PUBLIC_KEY *key) {
 	if (fd < 0) return -1;
 	r = read(fd,key,sizeof(*key));
 	close(fd);
-	if (r < sizeof(*key)) return -1;
+	if (r < (int) sizeof(*key)) return -1;
 	key->bits = ntohl(key->bits);
 	return 0;
 }
@@ -173,7 +169,7 @@ static int read_priv_key(const char *id,R_RSA_PRIVATE_KEY *key) {
 	if (fd < 0) return -1;
 	r = read(fd,key,sizeof(*key));
 	close(fd);
-	if (r < sizeof(*key)) return -1;
+	if (r < (int) sizeof(*key)) return -1;
 	key->bits = ntohl(key->bits);
 	return 0;
 }
@@ -207,14 +203,14 @@ void gale_keys(void) {
 	if (!read_pub_key(id,&pub_key) && !read_priv_key(id,&priv_key))
 		return;
 
-	fprintf(stderr,"auth: Generating RSA keys.  This takes time, "
-	               "but we only do it once...\n");
+	gale_alert(GALE_WARNING,
+		"Generating RSA keys.  This takes time, but only once...",0);
 	get_random(&rand);
 	proto.bits = MAX_RSA_MODULUS_BITS;
 	proto.useFermat4 = 1;
 	if (R_GeneratePEMKeys(&pub_key,&priv_key,&proto,&rand)) 
 		rsa_err("\nR_GeneratePEMKeys");
-	fprintf(stderr,"auth: Done generating keys.\r\n");
+	gale_alert(GALE_WARNING,"Done generating keys.",0);
 
 	fd = write_file("private-keys",0700,id,0600);
 	priv_key.bits = htonl(priv_key.bits);
@@ -236,7 +232,7 @@ void gale_keys(void) {
 	sub_dir(dot_gale,"public-keys",0777);
 	unlink(tmp);
 	if (link(dir_file(dot_gale,id),tmp)) 
-		gale_warn(tmp,errno);
+		gale_alert(GALE_WARNING,tmp,errno);
 	else {
 		umask(i = umask(0));
 		if (chmod(tmp,(0666 & ~i) | 0444)) {
@@ -249,7 +245,7 @@ void gale_keys(void) {
 
 static int find_key(const char *id,R_RSA_PUBLIC_KEY *key) {
 	struct passwd *pwd;
-	const char *cp,*domain;
+	const char *cp,*domain,*dir;
 	char *tmp;
 	int fd,r;
 	if (!read_pub_key(id,key)) return 0;
@@ -259,23 +255,29 @@ static int find_key(const char *id,R_RSA_PUBLIC_KEY *key) {
 	tmp = gale_strndup(id,cp - id);
 	pwd = getpwnam(tmp);
 	gale_free(tmp);
-	if (!pwd) return -1;
-	tmp = gale_malloc(strlen(pwd->pw_dir) + 20);
-	sprintf(tmp,"%s/.gale-public-key",pwd->pw_dir);
-	fd = open(tmp,O_RDONLY);
-	gale_free(tmp);
-	if (fd < 0) return -1;
+	fd = -1;
+	if (pwd) {
+		tmp = gale_malloc(strlen(pwd->pw_dir) + 20);
+		sprintf(tmp,"%s/.gale-public-key",pwd->pw_dir);
+		fd = open(tmp,O_RDONLY);
+		gale_free(tmp);
+	}
+	if (fd < 0 && (dir = getenv("GALE_KEY_DIR")) && dir[0]) {
+		tmp = gale_malloc(strlen(dir) + strlen(id) + 2);
+		sprintf(tmp,"%s/%s",dir,id);
+		fd = open(tmp,O_RDONLY);
+		gale_free(tmp);
+	}
 	r = read(fd,key,sizeof(*key));
 	close(fd);
-	if (r < sizeof(*key)) return -1;
+	if (r < (int) sizeof(*key)) return -1;
 	key->bits = ntohl(key->bits);
 	return 0;
 }
 
-char *sign_message(const char *data,const char *end) {
+char *sign_message(const char *id,const char *data,const char *end) {
 	R_SIGNATURE_CTX ctx;
 	unsigned char *ptr,sig[MAX_SIGNATURE_LEN];
-	const char *id;
 	char *ret;
 	int i,len;
 	gale_keys();
@@ -285,17 +287,22 @@ char *sign_message(const char *data,const char *end) {
 	if (R_SignUpdate(&ctx,ptr,end - data)) rsa_err("R_SignUpdate");
 	if (R_SignFinal(&ctx,sig,&len,&priv_key)) rsa_err("R_SignFinal");
 
-	gale_id(&id); i = strlen(id);
+	if (!id) gale_id(&id);
+	i = strlen(id);
 	ret = gale_malloc(ENCODED_CONTENT_LEN(len) + i + 10);
 	sprintf(ret,"RSA/MD5 %s ",id);
-	if (R_EncodePEMBlock(ret + i + 9,&len,sig,len));
+	if (R_EncodePEMBlock(ret + i + 9,&len,sig,len)) 
+		rsa_err("R_EncodePEMBlock");
 	ret[i + 9 + len] = '\0';
 		
 	return ret;
 }
 
 void bad_sig(char *id,char *msg) {
-	fprintf(stderr,"auth: CANNOT VALIDATE signature \"%s\": %s\r\n",id,msg);
+	char *tmp = gale_malloc(128 + strlen(id) + strlen(msg));
+	sprintf(tmp,"CAN'T VALIDATE signature \"%s\"; %s",id,msg);
+	gale_alert(GALE_WARNING,tmp,0);
+	gale_free(tmp);
 }
 
 char *verify_signature(const char *sig,const char *data,const char *end) {
@@ -353,7 +360,7 @@ char *verify_signature(const char *sig,const char *data,const char *end) {
 	return NULL;
 }
 
-char *encrypt_message(char *id,const char *data,const char *dend,
+char *encrypt_message(const char *eid,const char *data,const char *dend,
                       char *out,char **oend) 
 {
 	R_ENVELOPE_CTX ctx;
@@ -362,14 +369,15 @@ char *encrypt_message(char *id,const char *data,const char *dend,
 	R_RSA_PUBLIC_KEY key,*pkey = &key;
 	R_RANDOM_STRUCT rand;
 	int len,enclen;
-	char *tmp;
+	char *tmp,*id;
 
 	gale_keys();
-	id = canonicalize(id);
+	id = canonicalize(eid);
 
 	if (find_key(id,&key)) {
-		fprintf(stderr,"auth: cannot find key \"%s\"\r\n",id);
-		exit(1);
+		char *tmp = gale_malloc(128 + strlen(id));
+		sprintf(tmp,"Can't find key \"%s\"\r\n",id);
+		gale_alert(GALE_ERROR,tmp,0);
 	}
 	get_random(&rand);
 	if (R_SealInit(&ctx,&pekey,&ekeylen,iv,1,&pkey,EA_DES_EDE3_CBC,&rand))
@@ -396,7 +404,10 @@ char *encrypt_message(char *id,const char *data,const char *dend,
 }
 
 void bad_msg(char *id,char *msg) {
-	fprintf(stderr,"auth: CANNOT DECRYPT message to \"%s\": %s\r\n",id,msg);
+	char *tmp = gale_malloc(128 + strlen(id) + strlen(msg));
+	sprintf(tmp,"CAN'T DECRYPT message to \"%s\"; %s",id,msg);
+	gale_alert(GALE_WARNING,tmp,0);
+	gale_free(tmp);
 }
 
 char *decrypt_message(char *header,const char *data,const char *end,

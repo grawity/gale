@@ -38,6 +38,7 @@ static void read_conf(const char *s) {
 void gale_init(const char *s) {
 	char *dir;
 
+	gale_error_prefix = s;
 	read_conf(GALE_CONF);
 
 	dir = getenv("HOME");
@@ -51,7 +52,7 @@ void gale_init(const char *s) {
 		if (pwd) 
 			dir = pwd->pw_dir;
 		else {
-			gale_warn("init: no home dir, using cwd",0);
+			gale_alert(GALE_WARNING,"no home dir, using cwd",0);
 			dir = ".";
 		}
 	}
@@ -95,8 +96,8 @@ struct gale_dir *make_dir(const char *s,int mode) {
 	struct gale_dir *r = gale_malloc(sizeof(struct gale_dir));
 	r->len = strlen(s);
 	strcpy(r->buf = gale_malloc(r->alloc = r->len + 1),s);
-	if ((stat(r->buf,&buf) || S_ISDIR(buf.st_mode)) && mkdir(r->buf,mode))
-		gale_warn(r->buf,errno);
+	if ((stat(r->buf,&buf) || !S_ISDIR(buf.st_mode)) && mkdir(r->buf,mode))
+		gale_alert(GALE_WARNING,r->buf,errno);
 	return r;
 }
 
@@ -108,8 +109,8 @@ void free_dir(struct gale_dir *d) {
 void sub_dir(struct gale_dir *d,const char *s,int mode) {
 	struct stat buf;
 	d->len = strlen(dir_file(d,s));
-	if ((stat(d->buf,&buf) || S_ISDIR(buf.st_mode)) && mkdir(d->buf,mode))
-		gale_warn(d->buf,errno);
+	if ((stat(d->buf,&buf) || !S_ISDIR(buf.st_mode)) && mkdir(d->buf,mode))
+		gale_alert(GALE_WARNING,d->buf,errno);
 }
 
 void up_dir(struct gale_dir *d) {

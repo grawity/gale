@@ -12,6 +12,7 @@
 #include "gale/util.h"
 #include "gale/connect.h"
 #include "gale/compat.h"
+#include "gale/error.h"
 
 static void do_connect(struct gale_client *client) {
 	struct gale_connect *conn = make_connect(client->server);
@@ -34,10 +35,11 @@ void gale_retry(struct gale_client *client) {
 	srand48(getpid() ^ time(NULL));
 	reset_link(client->link);
 	do {
-		fprintf(stderr,"gale: server connection failed");
 		if (retry_time)
-			fprintf(stderr," again, waiting %d seconds",retry_time);
-		fprintf(stderr,"\r\n");
+			gale_alert(GALE_WARNING,"server connection failed "
+				"again, waiting before retry",0);
+		else
+			gale_alert(GALE_WARNING,"server connection failed",0);
 		sleep(retry_time);
 		if (retry_time)
 			retry_time = retry_time + lrand48() % retry_time + 1;
@@ -45,7 +47,7 @@ void gale_retry(struct gale_client *client) {
 			retry_time = 2;
 		do_connect(client);
 	} while (client->socket < 0);
-	fprintf(stderr,"gale: server connection ok\r\n");
+	gale_alert(GALE_NOTICE,"server connection ok",0);
 }
 
 struct gale_client *gale_open(const char *spec,int num,int mem) {
@@ -78,8 +80,8 @@ struct gale_client *gale_open(const char *spec,int num,int mem) {
 		if (env) client->server = gale_strdup(env);
 	}
 	if (!client->server || !client->server[0]) {
-		fprintf(stderr,
-		"gale: no server given and $GALE_SERVER not set\n");
+		gale_alert(GALE_WARNING,
+		"no server specified and $GALE_SERVER not set\n",0);
 		gale_close(client);
 		return NULL;
 	}

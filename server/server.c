@@ -33,7 +33,7 @@ static void incoming(void) {
 	int one = 1;
 	int newfd = accept(listener,(struct sockaddr *) &sin,&len);
 	if (newfd < 0) {
-		gale_warn("accept",errno);
+		gale_alert(GALE_WARNING,"accept",errno);
 		return;
 	}
 	gale_dprintf(2,"[%d] new connection\n",newfd);
@@ -88,7 +88,7 @@ static void loop(void) {
 			gale_dprintf(4,"--> select: timed out\n");
 		}
 		if (ret < 0) {
-			gale_warn("select",errno);
+			gale_alert(GALE_WARNING,"select",errno);
 			continue;
 		}
 
@@ -195,22 +195,22 @@ int main(int argc,char *argv[]) {
 	openlog(argv[0],LOG_PID,LOG_DAEMON);
 
 	if (uname(&un)) 
-		gale_die("uname",errno);
+		gale_alert(GALE_ERROR,"uname",errno);
 	tmp = gale_malloc(strlen(un.nodename) + 20);
 	sprintf(tmp,"%s:%d",un.nodename,port);
 	server_id = tmp;
 
 	listener = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
 	if (listener < 0) 
-		gale_die("socket",errno);
+		gale_alert(GALE_ERROR,"socket",errno);
 	sin.sin_addr.s_addr = INADDR_ANY;
 	sin.sin_port = htons(port);
 	if (setsockopt(listener,SOL_SOCKET,SO_REUSEADDR,&one,sizeof(one)))
-		gale_die("setsockopt",errno);
+		gale_alert(GALE_ERROR,"setsockopt",errno);
 	if (bind(listener,(struct sockaddr *)&sin,sizeof(sin))) 
-		gale_die("bind",errno);
+		gale_alert(GALE_ERROR,"bind",errno);
 	if (listen(listener,20))
-		gale_die("listen",errno);
+		gale_alert(GALE_ERROR,"listen",errno);
 
 	gale_dprintf(1,"bound socket, entering main loop\n");
 	gale_daemon();

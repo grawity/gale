@@ -10,6 +10,7 @@
 
 #include "gale/connect.h"
 #include "gale/util.h" 
+#include "gale/error.h"
 
 #define DEF_PORT (8413)
 
@@ -46,7 +47,10 @@ struct gale_connect *make_connect(const char *serv) {
 		if ((he = gethostbyname(name)))
 			memcpy(&sin.sin_addr,he->h_addr,sizeof(sin.sin_addr));
 		else {
-			fprintf(stderr,"gale: cannot find host \"%s\"\n",name);
+			char *tmp = gale_malloc(strlen(name) + 128);
+			sprintf(tmp,"can't find host \"%s\"",name);
+			gale_alert(GALE_WARNING,tmp,0);
+			gale_free(tmp);
 		 	goto skip;
 		}
 		fd = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);

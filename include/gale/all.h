@@ -3,6 +3,7 @@
 #include "gale/link.h"
 #include "gale/message.h"
 #include "gale/client.h"
+#include "gale/error.h"
 #include "gale/server.h"
 #include "gale/auth.h"
 #include "gale/header.h"

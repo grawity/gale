@@ -9,6 +9,7 @@
 
 #include "gale/server.h"
 #include "gale/compat.h"
+#include "gale/error.h"
 
 int gale_debug = 0;
 static void (*cleanup)(void);
@@ -20,7 +21,7 @@ static void terminate(void) {
 
 static void sig(int sig) {
 	terminate();
-	exit(1);
+	exit(sig);
 }
 
 void gale_dprintf(int level,const char *fmt,...) {
@@ -34,6 +35,7 @@ void gale_dprintf(int level,const char *fmt,...) {
 void gale_daemon(void) {
 	int fd;
 	if (!gale_debug) {
+		gale_error_handler = gale_error_syslog;
 		setsid();
 		fd = open("/dev/null",O_RDWR);
 		if (fd >= 0) {
@@ -43,27 +45,6 @@ void gale_daemon(void) {
 			if (fd > 2) close(fd);
 		}
 		if (fork()) exit(0);
-	}
-}
-
-void gale_die(const char *s,int err) {
-	if (err) {
-		syslog(LOG_ERR,"fatal error (%s): %s\n",s,strerror(err));
-		fprintf(stderr,"fatal error (%s): %s\n",s,strerror(err));
-	} else {
-		syslog(LOG_ERR,"fatal error: %s\n",s);
-		fprintf(stderr,"fatal error: %s\n",s);
-	}
-	exit(1);
-}
-
-void gale_warn(const char *s,int err) {
-	if (err) {
-		syslog(LOG_WARNING,"warning (%s): %s\n",s,strerror(err));
-		gale_dprintf(0,"warning (%s): %s\n",s,strerror(err));
-	} else {
-		syslog(LOG_WARNING,"warning: %s\n",s);
-		gale_dprintf(0,"warning: %s\n",s);
 	}
 }
 
