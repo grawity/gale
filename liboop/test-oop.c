@@ -25,6 +25,11 @@
 GMainLoop *glib_loop;
 #endif
 
+#ifdef HAVE_TCL
+#include <tcl.h>
+#include "oop-tcl.h"
+#endif
+
 #ifdef HAVE_WWW
 /* Yuck: */
 #define HAVE_CONFIG_H
@@ -59,6 +64,9 @@ static void usage(void) {
 "         signal   system event source with signal adapter\n"
 #ifdef HAVE_GLIB
 "         glib     GLib source adapter\n"
+#endif
+#ifdef HAVE_TCL
+"         tcl      Tcl source adapter\n"
 #endif
 "sinks:   timer    some timers\n"
 "         signal   some signal handlers\n"
@@ -603,19 +611,46 @@ static void add_sink(oop_source *src,const char *name) {
 	usage();
 }
 
-int main(int argc,char *argv[]) {
-	oop_source *source;
+static void init(oop_source *source,int count,char *sinks[]) {
 	int i;
-
-	if (argc < 3) usage();
+	source->on_signal(source,SIGQUIT,stop_loop,NULL);
 	puts("test-oop: use ^\\ (SIGQUIT) for clean shutdown or "
 	     "^C (SIGINT) to stop abruptly.");
-	source = create_source(argv[1]);
-	source->on_signal(source,SIGQUIT,stop_loop,NULL);
-	for (i = 2; i < argc; ++i)
-		add_sink(source,argv[i]);
 
-	run_source(argv[1]);
-	delete_source(argv[1]);
+	for (i = 0; i < count; ++i)
+		add_sink(source,sinks[i]);
+}
+
+/* -- tcl source ----------------------------------------------------------- */
+
+#ifdef HAVE_TCL
+static int tcl_count;
+static char **tcl_sinks;
+
+static int tcl_init(Tcl_Interp *interp) {
+	init(oop_tcl_new(),tcl_count,tcl_sinks);
+	return TCL_OK;
+} 
+#endif
+
+/* -- main ----------------------------------------------------------------- */
+
+int main(int argc,char *argv[]) {
+	if (argc < 3) usage();
+
+#ifdef HAVE_TCL
+	if (!strcmp(argv[1],"tcl")) { /* Tcl is a little ... different. */
+		tcl_count = argc - 2;
+		tcl_sinks = argv + 2;
+		Tcl_Main(1,argv,tcl_init);
+	} else
+#endif
+	{
+		oop_source * const source = create_source(argv[1]);
+		init(source,argc - 2,argv + 2);
+		run_source(argv[1]);
+		delete_source(argv[1]);
+	}
+
 	return 0;
 }

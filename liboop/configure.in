@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(liboop,0.7)
+AM_INIT_AUTOMAKE(liboop,0.8)
 AC_CANONICAL_HOST
 
 dnl Use libtool for shared libraries
@@ -44,6 +44,15 @@ if test -n "$PROG_GLIB_CONFIG" ; then
   AC_DEFINE(HAVE_GLIB)
 fi
 
+for version in 8.4 8.3 8.2 8.1 8.0 ; do
+  AC_CHECK_LIB(tcl$version,Tcl_Main,[
+    AC_DEFINE(HAVE_TCL)
+    TCL_INCLUDES="-I/usr/include/tcl$version"
+    TCL_LIBS="-ltcl$version"
+    break
+  ])
+done
+
 # the libwww RPM puts headers here:
 AC_CHECK_LIB(wwwcore,HTEvent_setRegisterCallback,[
   AC_DEFINE(HAVE_WWW)
@@ -66,6 +75,8 @@ CFLAGS="-Wall -Wno-comment -Wmissing-prototypes -Wstrict-prototypes -Wpointer-ar
 AC_SUBST(PROG_LDCONFIG)
 AC_SUBST(GLIB_INCLUDES)
 AC_SUBST(GLIB_LIBS)
+AC_SUBST(TCL_INCLUDES)
+AC_SUBST(TCL_LIBS)
 AC_SUBST(ADNS_LIBS)
 AC_SUBST(WWW_INCLUDES)
 AC_SUBST(WWW_LIBS)
