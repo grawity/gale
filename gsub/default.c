@@ -221,7 +221,7 @@ void default_gsubrc(void) {
 				quotecol = gale_column(quotecol, curchar); ++quotelen;
 			} else if ('|' == curchar) {
 				++quotecol; ++quotelen;
-				for (; quotelen < bufloaded && '>' != buf[quotelen]; ++quotelen)
+				for (; quotelen < bufloaded && '\n' != buf[quotelen] && '>' != buf[quotelen]; ++quotelen)
 					quotecol = gale_column(quotecol, buf[quotelen]);
 			} else
 				goto end_quote;
