@@ -3,10 +3,13 @@
 
 #ifdef hpux
 /* make up for the lack in <sys/types.h> */
+#include <sys/bitypes.h>
+/*
 #include <model.h>
 typedef u_int32 u_int32_t;
 typedef u_int16 u_int16_t;
 typedef u_int8 u_int8_t;
+*/
 #endif
 
 #ifdef hpux
