@@ -1,6 +1,8 @@
 /* gsub.c -- subscription client, outputs messages to the tty, optionally
    sending them through a gsubrc filter. */
 
+#include "gale/all.h"
+
 #include <time.h>
 #include <errno.h>
 #include <stdio.h>
@@ -16,10 +18,10 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 
+#ifdef HAVE_LIBTERMCAP
 #include <curses.h>
 #include <term.h>
-
-#include "gale/all.h"
+#endif
 
 extern char **environ;
 
@@ -89,9 +91,13 @@ struct gale_message *slip(const char *cat,
 
 /* Output a terminal mode string. */
 void tmode(char id[2]) {
+#ifdef HAVE_LIBTERMCAP
 	char *cap;
 	if (do_termcap && (cap = tgetstr(id,NULL))) 
 		tputs(cap,1,TPUTS_CAST putchar);
+#else
+	(void) id;
+#endif
 }
 
 /* Print a user ID, with a default string (like "everyone") for NULL. */
@@ -450,8 +456,10 @@ int main(int argc,char **argv) {
 		if (tmp) tty = tmp + 1;
 		/* Go into the background; kill other gsub processes. */
 		do_fork = do_kill = 1;
+#ifdef HAVE_LIBTERMCAP
 		/* Do highlighting, if available. */
 		if (term && 1 == tgetent(NULL,term)) do_termcap = 1;
+#endif
 	}
 
 	/* Parse command line arguments. */

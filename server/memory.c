@@ -1,10 +1,10 @@
+#include "server.h"
+
+#include "gale/misc.h"
+#include "gale/compat.h"
+
 #include <syslog.h>
 #include <stdlib.h>
-
-#include "gale/util.h"
-#include "gale/compat.h"
-#include "gale/server.h"
-#include "server.h"
 
 void *gale_malloc(size_t size) {
 	void *r = malloc(size);

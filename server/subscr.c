@@ -1,13 +1,12 @@
-#include <assert.h>
-#include <string.h>
+#include "gale/core.h"
+#include "gale/misc.h"
 
 #include "subscr.h"
 #include "connect.h"
 #include "server.h"
-#include "gale/message.h"
-#include "gale/link.h"
-#include "gale/util.h"
-#include "gale/server.h"
+
+#include <assert.h>
+#include <string.h>
 
 struct sub {
 	int flag,priority;
@@ -102,7 +101,7 @@ static int same_sub(const struct sub *a,const struct sub *b) {
 static void remove(struct node *ptr,const char *spec,int len,
                    struct sub *sub)
 {
-	struct node *parent = NULL,*prev;
+	struct node *parent = NULL,*prev = NULL;
 	int i;
 
 	gale_dprintf(3,"[%d] unsubscribing from \"%.*s\"\n",

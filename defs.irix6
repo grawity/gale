@@ -1,2 +1,0 @@
-ENDIAN = BIG_ENDIAN
-LDFLAGS = -Wl,-no_library_replacement -Wl,-rpath,$(LPATH)

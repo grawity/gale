@@ -1,7 +1,3 @@
-CC = gcc
-CFLAGS = $(WARNINGS) -Werror -g
-YACC = bison -y
-
 -include $(TOP)/defs
 -include $(TOP)/defs.$(LAB)
 -include $(TOP)/defs.$(ARCH)
@@ -11,22 +7,22 @@ YACC = bison -y
 -include $(TOP)/defs.$(shell uname -m  | sed -e 's/^i.86$$/ix86/g')
 -include $(TOP)/defs.$(HOST)
 
-export SYS_DIR BIN_DIR SUID_DIR GALE_USER GALE_DOMAIN
+export SYS_DIR BIN_DIR SUID_DIR GALE_USER GALE_DOMAIN GALE_VERSION
 
 ifndef GALE_VERSION
-GALE_VERSION := $(shell cat $(TOP)/version)
+GALE_VERSION = $(shell cat $(TOP)/version)
 endif
 
-INCLUDES = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC) $(DB_INC) $(CGIC_INC)
-DEFINES = -DSYS_DIR=\"$(SYS_DIR)\" -DGALE_VERSION=\"$(GALE_VERSION)\" -DSTDC_HEADERS # -D$(ENDIAN)
+INCLUDES = -I$(TOP)/include -I$(TOP) $(RSAREF_INC)
+DEFINES = -DGALE_VERSION=\"$(GALE_VERSION)\" -DSYS_DIR=\"$(SYS_DIR)\"
 
 WARNINGS = -W -Wimplicit -Wreturn-type -Wunused -Wswitch -Wtrigraphs -Wformat \
 	-Wchar-subscripts -Wparentheses
 
-CPPFLAGS = $(INCLUDES) $(DEFINES)
-LDLIBS = -L$(TOP)/auth -L$(TOP)/lib -lgauth -lgale -lgauth -lgale \
-	$(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB) $(CGIC_LIB) $(TERMCAP_LIB) \
-	$(SYS_LIB)
+CFLAGS = $(CONF_CFLAGS) $(WARNINGS) -Werror
+CPPFLAGS = $(INCLUDES) $(DEFINES) $(CONF_CPPFLAGS) $(CONF_DEFS)
+LDFLAGS = -L$(TOP)/auth -L$(TOP)/lib $(CONF_LDFLAGS)
+LIBS = -lgauth -lgale -lgauth -lgale $(RSAREF_LIB) $(CONF_LIBS)
 
 all::
 	@$(MAKE) --no-print-directory subdirs TARGET=all
@@ -62,11 +58,11 @@ subdirs:
 
 %: %.o
 	@echo $^ '->' $@
-	@$(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
+	@$(CC) $(LDFLAGS) $^ -o $@ $(LIBS)
 
 %: %.c
 	@echo $^ '->' $@
-	@$(CC) $(CFLAGS) $(CPPFLAGS) $*.c -o $@ $(LDFLAGS) $(LDLIBS)
+	@$(CC) $(CFLAGS) $(CPPFLAGS) $*.c -o $@ $(LDFLAGS) $(LIBS)
 
 %.a: %.o
 	@echo $^ '->' $@
@@ -76,13 +72,13 @@ subdirs:
 $(BIN_DIR)/%: % mkdir/$(BIN_DIR)
 	@echo $* '->' $(BIN_DIR)
 	@[ ! -x $@ ] || mv $@ $@.tmp.$$$$
-	@cp $* $(BIN_DIR)/$*
+	@$(INSTALL_PROGRAM) $* $(BIN_DIR)
 
 ifneq ($(SUID_DIR),$(BIN_DIR))
 $(SUID_DIR)/%: % mkdir/$(SUID_DIR)
 	@echo $* '->' $(SUID_DIR)
 	@[ ! -x $@ ] || mv $(SUID_DIR)/$* $(SUID_DIR)/$*.tmp.$$$$
-	@cp $* $(SUID_DIR)/$*
+	@$(INSTALL_PROGRAM) $* $(SUID_DIR)
 	@echo $(SUID_DIR)/$* '=>' $(BIN_DIR)
 	@$(RM) $(BIN_DIR)/$*
 	@ln -s $(SUID_DIR)/$* $(BIN_DIR)/$*
@@ -90,11 +86,11 @@ endif
 
 $(LIB_DIR)/%.a: %.a mkdir/$(LIB_DIR)
 	@echo $*.a '->' $(LIB_DIR)
-	@cp $*.a $(LIB_DIR)/$*.a
+	@$(INSTALL_DATA) $* $(LIB_DIR)
 
 $(INC_DIR)/%.h: %.h mkdir/$(INC_DIR)
 	@echo $*.h '->' $(INC_DIR)
-	@cp $*.h $(INC_DIR)/$*.h
+	@$(INSTALL_DATA) $* $(INC_DIR)
 
 mkdir/%:
-	@[ -d $* ] || echo mkdir $* && mkdir -p $*
+	@[ -d $* ] || echo install -d $* && $(INSTALL) -d $*

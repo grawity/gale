@@ -1,10 +1,1 @@
-ZEPHYR_INC = -I/usr/ug/include
-ZEPHYR_LIB = -L/usr/ug/lib -lzephyr -lcom_err
-
-RSAREF_INC = -I/usr/ug/include
-RSAREF_LIB = -L/usr/ug/lib -lrsaref
-
-DB_INC = -I/usr/ug/include
-DB_LIB = -L/usr/ug/lib -ldb
-
 SUID_DIR = $(HOME)/sbin/$(ARCH)

@@ -1,12 +1,13 @@
+#include "server.h"
+#include "attach.h"
+
+#include "gale/misc.h"
+#include "gale/server.h"
+
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <unistd.h>
-
-#include "gale/util.h"
-#include "gale/server.h"
-#include "server.h"
-#include "attach.h"
 
 struct attach *new_attach(void) {
 	struct attach *att = gale_malloc(sizeof(struct attach));

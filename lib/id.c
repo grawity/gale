@@ -134,14 +134,6 @@ int find_id(struct auth_id *id) {
 		msg = _msg;
 	}
 
-	if (auth_id_public(domain)) {
-		_msg = encrypt_message(1,&domain,msg);
-		if (_msg) {
-			release_message(msg);
-			msg = _msg;
-		}
-	}
-
 	timeout += TIMEOUT;
 	link_put(client->link,msg);
 	while (gale_send(client) && time(NULL) < timeout) {

@@ -1,11 +1,13 @@
 #ifndef CONNECT_H
 #define CONNECT_H
 
+#include "attach.h"
+
+#include "gale/core.h"
+
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "gale/link.h"
-#include "attach.h"
 
 struct connect {
 	int rfd,wfd;

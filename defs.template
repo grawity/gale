@@ -12,42 +12,6 @@
 # for compile-time configuration.
 
 # -----------------------------------------------------------------------------
-# These control where files are installed.  Modify the settings to suit your 
-# taste and local installation.
-
-prefix = $(HOME)
-exec_prefix = $(prefix)
-
-# Architecture-independent
-
-# Public header files.
-INC_DIR = $(prefix)/include/gale
-
-# Note that parts of SYS_DIR are actively updated during the operation of
-# Gale, so it should not be on a read-only partition.  It contains no
-# architecture dependent material.  Gale stores configuration files, the
-# key cache, etc. here.
-SYS_DIR = $(prefix)/etc/gale
-
-# Architecture-dependent: binaries, setuid files, and libraries, respectively.
-BIN_DIR = $(exec_prefix)/bin
-SUID_DIR = $(BIN_DIR)
-LIB_DIR = $(exec_prefix)/lib
-
-# -----------------------------------------------------------------------------
-# The Gale authentication system requires the RSAREF library.  You can get
-# this via anonymous FTP from ftp.rsa.com if you live in the US or Canada.
-# Otherwise, you're on your own; RSAEURO claims compatibility...
-
-rsaref = $(TOP)/../rsaref
-
-# Compiler flags to make RSAREF include files available.
-RSAREF_INC = -I$(rsaref)/source
-
-# Linker flags to load the RSAREF library.
-RSAREF_LIB = $(rsaref)/build/rsaref.a
-
-# -----------------------------------------------------------------------------
 # Authentication setup.
 
 # Choose a name for your authentication domain.  The extent of the domain need

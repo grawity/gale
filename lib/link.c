@@ -4,9 +4,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "gale/util.h"
-#include "gale/link.h"
-#include "gale/message.h"
+#include "gale/misc.h"
+#include "gale/core.h"
 
 struct gale_link {
 	int out_size,out_len,out_ptr,in_size,in_len,in_ptr;

@@ -1,3 +1,9 @@
+#include "gale/client.h"
+#include "gale/core.h"
+#include "gale/server.h"
+#include "gale/compat.h"
+#include "gale/misc.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -6,13 +12,6 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
-
-#include "gale/client.h"
-#include "gale/link.h"
-#include "gale/util.h"
-#include "gale/connect.h"
-#include "gale/compat.h"
-#include "gale/error.h"
 
 static void do_connect(struct gale_client *client) {
 	struct gale_connect *conn = make_connect(client->server);

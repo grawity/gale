@@ -1,7 +1,71 @@
-/* link.h -- gale server connection management */
+/* core.h -- core low-level libgale functions */
 
-#ifndef LINK_H
-#define LINK_H
+#ifndef GALE_CORE_H
+#define GALE_CORE_H
+
+/* -- basic data types and such -------------------------------------------- */
+
+#include <sys/types.h>
+#include "gale/compat.h"
+#include "gale/config.h"
+
+#if SIZEOF_INT == 4
+typedef unsigned int u32;
+#elif SIZEOF_LONG == 4
+typedef unsigned long u32;
+#elif SIZEOF_SHORT == 4
+typedef unsigned short u32;
+#else
+#error Cannot find 32-bit data type!
+#endif
+
+typedef unsigned char u8;
+
+typedef u8 byte;
+
+/* handy data type for a counted buffer. */
+struct gale_data {
+	byte *p;
+	size_t l;
+};
+
+/* -- gale version and initialization -------------------------------------- */
+
+/* Initialize gale stuff.  First parameter is the program name ("gsub");
+   the next two are argc and argv. */
+void gale_init(const char *,int argc,char * const *argv);
+
+/* The makefiles define this based on the "version" file. */
+#ifndef GALE_VERSION
+#error You must define GALE_VERSION.
+#endif
+
+/* A banner, suitable for usage messages. */
+#define GALE_BANNER \
+	("Gale version " ## GALE_VERSION ## ", copyright 1997 Dan Egnor")
+
+/* -- management of message (puff) objects --------------------------------- */
+
+/* The message object is reference counted; this is done mostly for the 
+   server, but might prove useful elsewhere. */
+
+struct gale_message {
+	char *category;        /* Owned pointer.  NUL-terminated category. */
+	/* these two should be a struct gale_data */
+	int data_size;         /* Size of message data, in characters. */
+	char *data;            /* Owned pointer to the data (not NUL-ended!) */
+	int ref;               /* Reference count. */
+};
+
+/* Create a new message with a single reference count and fields empty. */
+struct gale_message *new_message(void);
+
+/* Manage reference counts on a message.  release_message() will delete the
+   message (and free the category and data) if the reference count reaches 0 */
+void addref_message(struct gale_message *);
+void release_message(struct gale_message *);
+
+/* -- gale server connection management ------------------------------------ */
 
 /* A link object represents an active connection to a Gale server.  It does
    not include the actual file descriptor -- see client.h for a simplified
@@ -9,7 +73,6 @@
    protocol states and message queues. */
 
 struct gale_link;
-struct gale_message;
 
 /* Create a new, empty link. */
 struct gale_link *new_link(void);

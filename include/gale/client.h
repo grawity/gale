@@ -1,7 +1,11 @@
-/* client.h -- simplified, high-level interface to gale */
+/* client.h -- high-level interfaces to gale (helper functions) */
 
-#ifndef CLIENT_H
-#define CLIENT_H
+#ifndef GALE_CLIENT_H
+#define GALE_CLIENT_H
+
+/* -- simplified interface to server connections ----------------------------*/
+
+struct gale_link; /* defined in core.h */
 
 /* Client structure.  Don't write any of these fields yourself. */
 
@@ -33,5 +37,74 @@ int gale_send(struct gale_client *);
 /* Wait for the next message on the link.  Returns 0 if successful.  (Extract
    the actual message from the gale_link -- see link.h.) */
 int gale_next(struct gale_client *);
+
+/* -- puff header management ------------------------------------------------*/
+
+/* Parse a Gale message body for headers.
+
+   next    Pointer to a pointer, initially set to the beginning of the data
+   key     Pointer to a pointer, initially uninitialized
+   data    Pointer to a pointer, initially uninitialized
+   end     Pointer to the end of the message (data + data_size)
+
+   After calling, "key" will point to the (NUL-terminated) first header name
+   ("From") and "data" will point to the (NUL-terminated) contents of the
+   header.  These point into the message data itself, which is munched as a
+   side effect (NULs are introduced).
+
+   "next" is advanced to point to the remainder of the message after the first
+   header, so you can loop back and call the routine again to get the next
+   header.
+
+   The routine returns zero when no more headers are found, at which point
+   "next" points to the message body. */
+
+int parse_header(char **next,char **key,char **data,char *end);
+
+/* -- gale user id management ---------------------------------------------- */
+
+struct auth_id; /* defined in gauth.h */
+
+extern struct auth_id *user_id; /* Initialized to our own ID */
+
+/* Look up an ID by the local naming conventions. */
+struct auth_id *lookup_id(const char *);
+
+/* Locate the public key, locally or remotely.  (Potentially) very slow! */
+int find_id(struct auth_id *);
+
+/* Return prefix / domain / user / suffix in a newly gale_malloc()'d string. */
+char *id_category(struct auth_id *,const char *prefix,const char *suffix);
+
+/* For compatibility.  Deprecated. */
+#define gale_id auth_id
+#define free_id(x) free_auth_id(x)
+
+/* -- message-level authentication and encryption -------------------------- */
+
+struct gale_message; /* defined in core.h */
+
+/* Sign a message with the given ID.  
+   Returns the signed message, NULL if unsuccessful. */
+struct gale_message *sign_message(struct auth_id *id,struct gale_message *);
+
+/* Encrypt a message to the given IDs.  
+   Returns the encrypted message, NULL if unsuccessful. */
+struct gale_message *encrypt_message(int num,struct auth_id **id,
+                                     struct gale_message *);
+
+/* Verify a message's digital signature.  
+   Returns sender's id (see gauth.h; free yourself), NULL if unsuccessful. */
+struct auth_id *verify_message(struct gale_message *);
+
+/* Decrypt a message.  
+   Returns the recipient, NULL if unsuccessful or not encrypted.
+   Stores a pointer to the decrypted message, to the original message
+   (with another reference count) if not encrypted, or to NULL if encrypted
+   but unable to decrypt. */
+struct auth_id *decrypt_message(struct gale_message *,struct gale_message **);
+
+/* deprecated; wrapper to auth_id_gen */
+void gale_keys(void);
 
 #endif

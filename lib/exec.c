@@ -66,6 +66,6 @@ int gale_wait(pid_t pid) {
 	int status;
 	waitpid(pid,&status,0);
 	if (WIFEXITED(status)) return WEXITSTATUS(status);
-	if (WIFSIGNALED(status)) return -WTERMSIG(status);
-	assert(0);
+	assert(WIFSIGNALED(status));
+	return -WTERMSIG(status);
 }

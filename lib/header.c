@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <string.h>
-#include "gale/header.h"
-#include "gale/server.h"
-#include "gale/error.h"
+
+#include "gale/misc.h"
+#include "gale/core.h"
+#include "gale/client.h"
 
 static int skip_newline(char **next,char *end) {
 	if (*next == end) return 1;

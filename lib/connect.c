@@ -8,9 +8,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "gale/connect.h"
-#include "gale/util.h" 
-#include "gale/error.h"
+#include "gale/misc.h"
+#include "gale/server.h" 
 #include "gale/compat.h"
 
 #define DEF_PORT (8413)

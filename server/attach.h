@@ -1,11 +1,11 @@
 #ifndef ATTACH_H
 #define ATTACH_H
 
+#include "gale/core.h"
+
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-
-#include "gale/connect.h"
 
 struct attach {
 	char *server;

@@ -1,31 +1,41 @@
-/* auth.h -- message-level authentication */
+/* auth.h -- low-level authentication and encryption. */
 
 #ifndef GALE_AUTH_H
 #define GALE_AUTH_H
 
-#include "message.h"
-#include "id.h"
+#include "gale/core.h"
 
-/* Sign a message with the given ID.  
-   Returns the signed message, NULL if unsuccessful. */
-struct gale_message *sign_message(struct auth_id *id,struct gale_message *);
-/* Encrypt a message to the given IDs.  
-   Returns the encrypted message, NULL if unsuccessful. */
-struct gale_message *encrypt_message(int num,struct auth_id **id,
-                                     struct gale_message *);
+/* Not yet documented, sorry. */
 
-/* Verify a message's digital signature.  
-   Returns sender's id (see gauth.h; free yourself), NULL if unsuccessful. */
-struct auth_id *verify_message(struct gale_message *);
+struct auth_id;
 
-/* Decrypt a message.  
-   Returns the recipient, NULL if unsuccessful or not encrypted.
-   Stores a pointer to the decrypted message, to the original message
-   (with another reference count) if not encrypted, or to NULL if encrypted
-   but unable to decrypt. */
-struct auth_id *decrypt_message(struct gale_message *,struct gale_message **);
+void init_auth_id(struct auth_id **,const char *name);
+void free_auth_id(struct auth_id *);
+const char *auth_id_name(struct auth_id *);
+const char *auth_id_comment(struct auth_id *);
 
-/* deprecated; wrapper to auth_id_gen */
-void gale_keys(void);
+int auth_id_public(struct auth_id *);
+int auth_id_private(struct auth_id *);
+
+void auth_id_gen(struct auth_id *,const char *comment);
+
+void export_auth_id(struct auth_id *,struct gale_data *data,int private);
+void import_auth_id(struct auth_id **,struct gale_data data,int private);
+
+void auth_sign(struct auth_id *,
+               struct gale_data data,struct gale_data *sig);
+void auth_verify(struct auth_id **,
+                 struct gale_data data,struct gale_data sig);
+
+void auth_encrypt(int num,struct auth_id **,
+                  struct gale_data plain,struct gale_data *cipher);
+void auth_decrypt(struct auth_id **,
+                  struct gale_data cipher,struct gale_data *plain);
+
+#define armor_len(blen) (((blen) * 8 + 7) / 6)
+void armor(const byte *bin,int blen,char *txt);
+
+#define dearmor_len(tlen) ((tlen) * 6 / 8)
+void dearmor(const char *txt,int tlen,byte *bin);
 
 #endif

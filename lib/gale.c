@@ -1,5 +1,6 @@
+#include "gale/misc.h"
+
 #include <string.h>
-#include "gale/util.h"
 
 void *gale_realloc(void *s,size_t len) {
 	void *n = s ? gale_memdup(s,len) : gale_malloc(len);

@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "gale/util.h"
-#include "gale/message.h"
+#include "gale/misc.h"
+#include "gale/core.h"
 
 struct gale_message *new_message(void) {
 	struct gale_message *m = gale_malloc(sizeof(struct gale_message));
