@@ -1,8 +1,10 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+extern struct gale_dir *dot_gale,*home_dir,*sys_dir;
+
 void gale_init(const char *);
-char *gale_idtocat(const char *prefix,const char *id);
+char *gale_idtocat(const char *prefix,const char *id,const char *suffix);
 
 void *gale_malloc(int size);
 void gale_free(void *);
