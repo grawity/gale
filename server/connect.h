@@ -12,8 +12,10 @@ struct connect {
 	struct gale_link *link;
 	char *subscr;
 	struct connect *next;
-	int stamp;
 	struct attach *retry;
+
+	int flag,priority,stamp;
+	struct connect *sub_next;
 };
 
 struct connect *new_connect(int rfd,int wfd,int num,int mem);

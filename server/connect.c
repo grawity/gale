@@ -12,7 +12,6 @@ struct connect *new_connect(int rfd,int wfd,int num,int mem) {
 	conn->link = new_link();
 	conn->subscr = NULL;
 	conn->next = NULL;
-	conn->stamp = 0;
 	conn->retry = NULL;
 	link_limits(conn->link,num,mem);
 	return conn;

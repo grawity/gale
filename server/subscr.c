@@ -9,34 +9,43 @@
 #include "gale/util.h"
 #include "gale/server.h"
 
+struct sub {
+	int flag,priority;
+	struct connect *connect;
+};
+
 struct node {
 	char *spec;
 	int len,alloc;
 	struct node *child;
 	struct node *next;
 	int num,size;
-	struct connect **array;
+	struct sub *array;
 };
 
-int stamp = 0;
-struct node root = { "",0,0,NULL,NULL,0,0,NULL };
+static int stamp = 0;
+static struct node root = { "",0,0,NULL,NULL,0,0,NULL };
+static struct connect *list = NULL;
 
 static void add(struct node *ptr,const char *spec,int len,
-                struct connect *conn) 
+                struct sub *sub) 
 {
 	struct node *child,*node;
 	int i;
 
+	gale_dprintf(3,"[%d] subscribing to \"%.*s\"\n",
+	             sub->connect->rfd,len,spec);
+
 	if (len == 0) {
 		gale_dprintf(4,"+++ adding connection to node\n");
 		if (ptr->num == ptr->size) {
-			struct connect **old = ptr->array;
+			struct sub *old = ptr->array;
 			ptr->size = ptr->size ? ptr->size * 2 : 10;
-			ptr->array = gale_malloc(ptr->size * sizeof(void *));
-			memcpy(ptr->array,old,ptr->num * sizeof(void *));
+			ptr->array = gale_malloc(ptr->size * sizeof(*old));
+			memcpy(ptr->array,old,ptr->num * sizeof(*old));
 			if (old) gale_free(old);
 		}
-		ptr->array[ptr->num++] = conn;
+		ptr->array[ptr->num++] = *sub;
 		return;
 	}
 
@@ -56,7 +65,7 @@ static void add(struct node *ptr,const char *spec,int len,
 		ptr->child = node;
 		node->size = node->num = 0;
 		node->array = NULL;
-		add(node,spec + len,0,conn);
+		add(node,spec + len,0,sub);
 		return;
 	}
 
@@ -82,27 +91,22 @@ static void add(struct node *ptr,const char *spec,int len,
 	} else
 		gale_dprintf(4,"+++ matched \"%.*s\"\n",child->len,child->spec);
 
-	add(child,spec + i,len - i,conn);
+	add(child,spec + i,len - i,sub);
 }
 
-void add_subscr(struct connect *conn) {
-	const char *ep,*cp = conn->subscr;
-	do {
-		for (ep = cp; *ep && *ep != ':'; ++ep) ;
-		gale_dprintf(3,"[%d] subscribing to \"%.*s\"\n",
-		        conn->rfd,ep - cp,cp);
-		add(&root,cp,ep - cp,conn);
-		cp = ep + 1;
-	} while (*ep);
+static int same_sub(const struct sub *a,const struct sub *b) {
+	return (a->priority == b->priority && a->flag == b->flag &&
+	        a->connect == b->connect);
 }
 
 static void remove(struct node *ptr,const char *spec,int len,
-                   struct connect *conn)
+                   struct sub *sub)
 {
 	struct node *parent = NULL,*prev;
 	int i;
 
-	gale_dprintf(3,"[%d] unsubscribing from \"%.*s\"\n",conn->rfd,len,spec);
+	gale_dprintf(3,"[%d] unsubscribing from \"%.*s\"\n",
+	             sub->connect->rfd,len,spec);
 
 	while (len != 0) {
 		parent = ptr;
@@ -120,7 +124,7 @@ static void remove(struct node *ptr,const char *spec,int len,
 	}
 
 	gale_dprintf(4,"--- removing connection from node\n");
-	for (i = 0; i < ptr->num && ptr->array[i] != conn; ++i) ;
+	for (i = 0; i < ptr->num && !same_sub(&ptr->array[i],sub); ++i) ;
 	assert(i != ptr->num);
 	ptr->array[i] = ptr->array[--ptr->num];
 
@@ -191,13 +195,31 @@ static void remove(struct node *ptr,const char *spec,int len,
 	gale_free(prev);
 }
 
-void remove_subscr(struct connect *conn) {
+static void subscr(struct connect *conn,
+                   void (*func)(struct node *,const char *,int,struct sub *))
+{
 	const char *ep,*cp = conn->subscr;
+	struct sub sub;
+	sub.connect = conn;
+	sub.priority = 0;
+	conn->stamp = stamp;
 	do {
 		for (ep = cp; *ep && *ep != ':'; ++ep) ;
-		remove(&root,cp,ep - cp,conn);
+		sub.flag = 1;
+		if (*cp == '+') ++cp;
+		else if (*cp == '-') { ++cp; sub.flag = 0; }
+		func(&root,cp,ep - cp,&sub);
 		cp = ep + 1;
+		++(sub.priority);
 	} while (*ep);
+}
+
+void add_subscr(struct connect *conn) {
+	subscr(conn,add);
+}
+
+void remove_subscr(struct connect *conn) {
+	subscr(conn,remove);
 }
 
 static void transmit(struct node *ptr,const char *spec,int len,
@@ -205,16 +227,24 @@ static void transmit(struct node *ptr,const char *spec,int len,
 {
 	int i;
 	if (len < 0) return;
-	for (i = 0; i < ptr->num; ++i)
-		if (ptr->array[i]->stamp != stamp && ptr->array[i] != avoid) {
-			gale_dprintf(4,"[%d] transmitting message\n",
-			        ptr->array[i]->wfd);
-			link_put(ptr->array[i]->link,msg);
-			ptr->array[i]->stamp = stamp;
+	for (i = 0; i < ptr->num; ++i) {
+		if (ptr->array[i].connect == avoid) continue;
+		if (ptr->array[i].connect->stamp != stamp) {
+			ptr->array[i].connect->sub_next = list;
+			list = ptr->array[i].connect;
+			ptr->array[i].connect->stamp = stamp;
+			ptr->array[i].connect->priority = -1;
 		}
+		if (ptr->array[i].connect->priority > ptr->array[i].priority)
+			continue;
+		ptr->array[i].connect->priority = ptr->array[i].priority;
+		ptr->array[i].connect->flag = ptr->array[i].flag;
+	}
+
 	for (ptr = ptr->child; ptr; ptr = ptr->next)
 		if (ptr->len <= len && !memcmp(ptr->spec,spec,ptr->len)) {
-			gale_dprintf(4,"*** matched \"%.*s\"\n",ptr->len,ptr->spec);
+			gale_dprintf(4,"*** matched \"%.*s\"\n",
+			             ptr->len,ptr->spec);
 			transmit(ptr,spec + ptr->len,len - ptr->len,msg,avoid);
 		}
 }
@@ -222,6 +252,9 @@ static void transmit(struct node *ptr,const char *spec,int len,
 void subscr_transmit(struct gale_message *msg,struct connect *avoid) {
 	const char *ep,*cp = msg->category;
 	++stamp;
+
+	assert(list == NULL);
+
 	do {
 		for (ep = cp; *ep && *ep != ':'; ++ep) ;
 		gale_dprintf(3,"*** transmitting \"%.*s\", avoiding [%d]\n",
@@ -229,4 +262,12 @@ void subscr_transmit(struct gale_message *msg,struct connect *avoid) {
 		transmit(&root,cp,ep - cp,msg,avoid);
 		cp = ep + 1;
 	} while (*ep);
+
+	while (list != NULL) {
+		if (list->flag) {
+			gale_dprintf(4,"[%d] transmitting message\n",list->wfd);
+			link_put(list->link,msg);
+		}
+		list = list->sub_next;
+	}
 }
