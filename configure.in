@@ -16,13 +16,16 @@ AC_PROG_YACC
 dnl System type checks.
 case "$host" in
   *-sgi-irix6*)
-    LDFLAGS="-Wl,-rpath,$(LPATH) $LDFLAGS"
+    LDFLAGS="-Wl,-rpath,$LPATH $LDFLAGS"
+    no_wacky_libs=yes
     ;;
 esac
 
 dnl Checks for libraries.
-AC_CHECK_LIB(nsl,main)
-AC_CHECK_LIB(socket,socket)
+if test -z "$no_wacky_libs" ; then
+  AC_CHECK_LIB(nsl,main)
+  AC_CHECK_LIB(socket,socket)
+fi
 AC_CHECK_LIB(termcap,tgetent)
 
 save_flags="$CPPFLAGS"

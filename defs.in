@@ -13,14 +13,13 @@ endif
 prefix = @prefix@
 exec_prefix = @exec_prefix@
 
-INC_DIR = @includedir@
+INC_DIR = @includedir@/gale
 SYS_DIR = @sysconfdir@/gale
 BIN_DIR = @bindir@
 LIB_DIR = @libdir@
 SUID_DIR = @sbindir@
 
 BUILD = @build_list@
-GALE_VERSION = @gale_version@
 
 CONF_CFLAGS = @CFLAGS@
 CONF_CPPFLAGS = @CPPFLAGS@

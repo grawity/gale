@@ -67,7 +67,7 @@ subdirs:
 %.a: %.o
 	@echo $^ '->' $@
 	@ar ru $@ $^
-	@ranlib $@ || true
+	@$(RANLIB) $@ || true
 
 $(BIN_DIR)/%: % mkdir/$(BIN_DIR)
 	@echo $* '->' $(BIN_DIR)
@@ -86,11 +86,11 @@ endif
 
 $(LIB_DIR)/%.a: %.a mkdir/$(LIB_DIR)
 	@echo $*.a '->' $(LIB_DIR)
-	@$(INSTALL_DATA) $* $(LIB_DIR)
+	@$(INSTALL_DATA) $*.a $(LIB_DIR)
 
 $(INC_DIR)/%.h: %.h mkdir/$(INC_DIR)
 	@echo $*.h '->' $(INC_DIR)
-	@$(INSTALL_DATA) $* $(INC_DIR)
+	@$(INSTALL_DATA) $*.h $(INC_DIR)
 
 mkdir/%:
 	@[ -d $* ] || echo install -d $* && $(INSTALL) -d $*

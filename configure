@@ -872,7 +872,7 @@ test -n "$YACC" || YACC="yacc"
 
 case "$host" in
   *-sgi-irix6*)
-    LDFLAGS="-Wl,-rpath,$(LPATH) $LDFLAGS"
+    LDFLAGS="-Wl,-rpath,$LPATH $LDFLAGS"
     ;;
 esac
 

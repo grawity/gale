@@ -1,6 +1,6 @@
+#include "gale/server.h"
 #include "gale/client.h"
 #include "gale/core.h"
-#include "gale/server.h"
 #include "gale/compat.h"
 #include "gale/misc.h"
 
