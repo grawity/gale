@@ -24,10 +24,6 @@ static void *on_connected(struct gale_server *server,
 	struct gale_error_queue *queue = gale_make_queue(source);
 	gale_on_queue(queue,on_error_message,line);
 
-	gale_daemon(source);
-	gale_kill(gale_var(G_("GALE_DOMAIN")),1);
-	gale_detach(source);
-
 	if (0 != subscriptions.l) link_subscribe(line,subscriptions);
 	return OOP_CONTINUE;
 }
@@ -101,6 +97,21 @@ static void *on_domain_location(
 	struct gale_text name,
 	struct gale_location *loc,void *x)
 {
+	const struct gale_text domain = gale_var(G_("GALE_DOMAIN"));
+
+	if (NULL == gale_key_private(gale_location_key(loc)))
+		gale_alert(GALE_ERROR,gale_text_concat(3,
+			G_("no private key for\""),
+			domain,G_("\"")),0);
+
+	gale_alert(GALE_NOTICE,gale_text_concat(3,
+		G_("serving keys for \""),
+		domain,G_("\"")),0);
+
+	gale_daemon(source);
+	gale_kill(domain,1);
+	gale_detach(source);
+
 	domain_location = loc;
 	return OOP_CONTINUE;
 }
@@ -138,6 +149,13 @@ int main(int argc,char *argv[]) {
 	case 'K': gale_kill(gale_var(G_("GALE_DOMAIN")),1); return 0;
 	case 'h':
 	case '?': usage();
+	}
+
+	if (optind != argc) {
+		struct gale_text arg = gale_text_from(
+			gale_global->enc_cmdline,
+			argv[optind++],-1);
+		gale_set(G_("GALE_DOMAIN"),arg);
 	}
 
 	if (optind != argc) usage();
