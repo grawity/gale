@@ -30,11 +30,6 @@ void cleanup(void) {
 	ZCancelSubscriptions(port);
 }
 
-void sig(int x) {
-	cleanup();
-	exit(1);
-}
-
 void reset(void) {
 	buf_len = 0;
 }
@@ -299,10 +294,7 @@ int main(int argc,char *argv[]) {
 	gale_dprintf(1,"starting\n");
 	gale_daemon();
 
-	signal(SIGINT,sig);
-	signal(SIGTERM,sig);
-	signal(SIGHUP,sig);
-	atexit(cleanup);
+	gale_cleanup(cleanup);
 
 	for (;;) {
 		while (gale_send(client)) do_retry();
