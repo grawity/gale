@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.13)
 AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(gale,0.90c)
+AM_INIT_AUTOMAKE(gale,0.91)
 AM_CONFIG_HEADER(include/gale/config.h:config.h.in)
 AC_CANONICAL_HOST
 AM_PROG_LIBTOOL
@@ -195,11 +195,8 @@ dnl Checks for library functions.
 
 dnl Output.
 
-INCLUDES="-I\${prefix}/include"
 INCLUDES="-I\${top_srcdir}/include -I\${top_builddir}/include $INCLUDES"
 INCLUDES="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $INCLUDES"
-
-GALE_LIBS="-L\${exec_prefix}/lib $GALE_LIBS"
 
 AC_SUBST(INCLUDES)
 AC_SUBST(ZEPHYR_LIBS)
