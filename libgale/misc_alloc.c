@@ -3,7 +3,7 @@
 #include "gale/globals.h"
 
 /* #define CHEESY_ALLOC */
-/* #define GC_DEBUG */
+#define GC_DEBUG
 
 #include <stdlib.h>
 #include <string.h>
