@@ -272,7 +272,7 @@ static void *on_message(struct gale_message *msg,void *data) {
 			if (do_verbose) gale_alert(GALE_NOTICE,
 				gale_text_concat(3,
 				G_("answering key request for \""),
-				frag.value.text,
+				gale_location_name(user_location),
 				G_("\"")),0);
 			goto done;
 		}
