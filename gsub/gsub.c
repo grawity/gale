@@ -339,7 +339,8 @@ void present_message(struct gale_message *_msg) {
 		/* Process receipts, if we do. */
 		if (do_ping && !strcasecmp(key,"Receipt-To")) {
 			/* Generate a receipt. */
-			struct gale_text cat = gale_text_from_latin1(data,-1);
+			struct gale_text cat;
+			cat = gale_text_from_latin1(data,-1);
 			if (rcpt) release_message(rcpt);
 			rcpt = slip(cat,user_id,id_sign);
 			free_gale_text(cat);

@@ -25,7 +25,8 @@ static void rsa_err(char *s) {
 
 static void get_random(R_RANDOM_STRUCT *rand) {
 	R_DIGEST_CTX ctx;
-	int needed,fd,len;
+	int fd;
+	unsigned int needed,len;
 	char buf[MAX_DIGEST_LEN];
 
 	fd = open("/dev/urandom",O_RDONLY);
@@ -227,7 +228,7 @@ char *sign_data(struct gale_id *id,const char *data,const char *end) {
 	R_SIGNATURE_CTX ctx;
 	unsigned char *ptr,sig[MAX_SIGNATURE_LEN];
 	char *ret;
-	int i,len;
+	unsigned int i,len;
 	gale_keys();
 
 	ptr = (unsigned char *) data;
@@ -259,7 +260,8 @@ struct gale_id *verify_data(const char *sig,const char *data,const char *end) {
 	char *cp,*dec;
 	R_RSA_PUBLIC_KEY key;
 	R_SIGNATURE_CTX ctx;
-	int len,ret;
+	unsigned int len;
+	int ret;
 
 	gale_keys();
 	if (strncmp(sig,"RSA/MD5 ",8)) {
@@ -322,7 +324,7 @@ char *encrypt_data(struct gale_id *id,const char *data,const char *dend,
 	unsigned int ekeylen,outlen,part;
 	R_RSA_PUBLIC_KEY key,*pkey = &key;
 	R_RANDOM_STRUCT rand;
-	int len,enclen;
+	unsigned int len,enclen;
 	char *tmp;
 
 	gale_keys();
@@ -377,7 +379,8 @@ struct gale_id *decrypt_data(char *header,const char *data,const char *end,
 	char *cp,*next;
 	struct gale_id *id = NULL;
 	unsigned char *iv = NULL,*ekey = NULL;
-	int ivlen,ekeylen,ret,outlen,part;
+	unsigned int ivlen,ekeylen,outlen,part;
+	int ret;
 	R_RSA_PRIVATE_KEY key;
 	R_ENVELOPE_CTX ctx;
 
