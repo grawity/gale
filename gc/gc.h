@@ -96,10 +96,30 @@ GC_API GC_PTR (*GC_oom_fn) GC_PROTO((size_t bytes_requested));
 			/* pointer to a previously allocated heap 	*/
 			/* object.					*/
 
+GC_API int GC_find_leak;
+			/* Do not actually garbage collect, but simply	*/
+			/* report inaccessible memory that was not	*/
+			/* deallocated with GC_free.  Initial value	*/
+			/* is determined by FIND_LEAK macro.		*/
+
 GC_API int GC_quiet;	/* Disable statistics output.  Only matters if	*/
 			/* collector has been compiled with statistics	*/
 			/* enabled.  This involves a performance cost,	*/
 			/* and is thus not the default.			*/
+
+GC_API int GC_finalize_on_demand;
+			/* If nonzero, finalizers will only be run in 	*/
+			/* response to an eplit GC_invoke_finalizers	*/
+			/* call.  The default is determined by whether	*/
+			/* the FINALIZE_ON_DEMAND macro is defined	*/
+			/* when the collector is built.			*/
+
+GC_API int GC_java_finalization;
+			/* Mark objects reachable from finalizable 	*/
+			/* objects in a separate postpass.  This makes	*/
+			/* it a bit safer to use non-topologically-	*/
+			/* ordered finalization.  Default value is	*/
+			/* determined by JAVA_FINALIZATION macro.	*/
 
 GC_API int GC_dont_gc;	/* Dont collect unless explicitly requested, e.g. */
 			/* because it's not safe.			  */
@@ -134,7 +154,19 @@ GC_API GC_word GC_max_retries;
 			/* reporting out of memory after heap		*/
 			/* expansion fails.  Initially 0.		*/
 			
-			
+
+GC_API char *GC_stackbottom;	/* Cool end of user stack.		*/
+				/* May be set in the client prior to	*/
+				/* calling any GC_ routines.  This	*/
+				/* avoids some overhead, and 		*/
+				/* potentially some signals that can 	*/
+				/* confuse debuggers.  Otherwise the	*/
+				/* collector attempts to set it 	*/
+				/* automatically.			*/
+				/* For multithreaded code, this is the	*/
+				/* cold end of the stack for the	*/
+				/* primordial thread.			*/
+				
 /* Public procedures */
 /*
  * general purpose allocation routines, with roughly malloc calling conv.
@@ -256,6 +288,7 @@ GC_API void GC_gcollect GC_PROTO((void));
 /* than normal pause times for incremental collection.  However,	*/
 /* aborted collections do no useful work; the next collection needs	*/
 /* to start from the beginning.						*/
+/* Return 0 if the collection was aborted, 1 if it succeeded.		*/
 typedef int (* GC_stop_func) GC_PROTO((void));
 GC_API int GC_try_to_collect GC_PROTO((GC_stop_func stop_func));
 
@@ -497,7 +530,7 @@ GC_API int GC_invoke_finalizers GC_PROTO((void));
 	/* be finalized.  Return the number of finalizers	*/
 	/* that were run.  Normally this is also called		*/
 	/* implicitly during some allocations.	If		*/
-	/* FINALIZE_ON_DEMAND is defined, it must be called	*/
+	/* GC-finalize_on_demand is nonzero, it must be called	*/
 	/* explicitly.						*/
 
 /* GC_set_warn_proc can be used to redirect or filter warning messages.	*/
@@ -679,6 +712,7 @@ GC_API void (*GC_is_visible_print_proc)
 /* This returns a list of objects, linked through their first		*/
 /* word.  Its use can greatly reduce lock contention problems, since	*/
 /* the allocation lock can be acquired and released many fewer times.	*/
+/* lb must be large enough to hold the pointer field.			*/
 GC_PTR GC_malloc_many(size_t lb);
 #define GC_NEXT(p) (*(GC_PTR *)(p)) 	/* Retrieve the next element	*/
 					/* in returned list.		*/

@@ -38,6 +38,16 @@
 #    define HP
 #    define mach_type_known
 # endif
+# if defined(__OpenBSD__) && defined(m68k)
+#    define M68K
+#    define OPENBSD
+#    define mach_type_known
+# endif
+# if defined(__OpenBSD__) && defined(__sparc__)
+#    define SPARC
+#    define OPENBSD
+#    define mach_type_known
+# endif
 # if defined(__NetBSD__) && defined(m68k)
 #    define M68K
 #    define NETBSD
@@ -95,7 +105,8 @@
 #     endif
 #   define mach_type_known
 # endif
-# if defined(sparc) && defined(unix) && !defined(sun) && !defined(linux)
+# if defined(sparc) && defined(unix) && !defined(sun) && !defined(linux) \
+     && !defined(__OpenBSD__)
 #   define SPARC
 #   define DRSNX
 #   define mach_type_known
@@ -124,7 +135,7 @@
 #   define HP_PA
 #   define mach_type_known
 # endif
-# if defined(LINUX) && defined(i386)
+# if defined(LINUX) && (defined(i386) || defined(__i386__))
 #    define I386
 #    define mach_type_known
 # endif
@@ -136,9 +147,8 @@
 #    define M68K
 #    define mach_type_known
 # endif
-# if defined(linux) && defined(sparc)
+# if defined(LINUX) && defined(sparc)
 #    define SPARC
-#    define LINUX
 #    define mach_type_known
 # endif
 # if defined(__alpha) || defined(__alpha__)
@@ -148,9 +158,11 @@
 #   endif
 #   define mach_type_known
 # endif
-# if defined(_AMIGA)
-#   define M68K
+# if defined(_AMIGA) && !defined(AMIGA)
 #   define AMIGA
+# endif
+# ifdef AMIGA 
+#   define M68K
 #   define mach_type_known
 # endif
 # if defined(THINK_C) || defined(__MWERKS__) && !defined(__powerc)
@@ -163,6 +175,11 @@
 #   define MACOS
 #   define mach_type_known
 # endif
+# if defined(macosx)
+#    define MACOSX
+#    define POWERPC
+#    define mach_type_known
+# endif
 # if defined(NeXT) && defined(mc68000)
 #   define M68K
 #   define NEXT
@@ -171,6 +188,11 @@
 # if defined(NeXT) && defined(i386)
 #   define I386
 #   define NEXT
+#   define mach_type_known
+# endif
+# if defined(__OpenBSD__) && defined(i386)
+#   define I386
+#   define OPENBSD
 #   define mach_type_known
 # endif
 # if defined(__FreeBSD__) && defined(i386)
@@ -204,7 +226,7 @@
 #   define mach_type_known
 # endif
 # if (defined(_MSDOS) || defined(_MSC_VER)) && (_M_IX86 >= 300) \
-     || defined(_WIN32)
+     || defined(_WIN32) && !defined(__CYGWIN32__) && !defined(__CYGWIN__)
 #   define I386
 #   define MSWIN32	/* or Win32s */
 #   define mach_type_known
@@ -216,7 +238,7 @@
 #   endif
 #   define mach_type_known
 # endif
-# if defined(__CYGWIN32__)
+# if defined(__CYGWIN32__) || defined(__CYGWIN__)
 #   define I386
 #   define CYGWIN32
 #   define mach_type_known
@@ -377,6 +399,12 @@
 # ifdef M68K
 #   define MACH_TYPE "M68K"
 #   define ALIGNMENT 2
+#   ifdef OPENBSD
+#	define OS_TYPE "OPENBSD"
+#	define HEURISTIC2
+	extern char etext;
+#	define DATASTART ((ptr_t)(&etext))
+#   endif
 #   ifdef NETBSD
 #	define OS_TYPE "NETBSD"
 #	define HEURISTIC2
@@ -470,8 +498,8 @@
 
 # ifdef POWERPC
 #   define MACH_TYPE "POWERPC"
-#   define ALIGNMENT 2
 #   ifdef MACOS
+#     define ALIGNMENT 2  /* Still necessary?  Could it be 4?	*/
 #     ifndef __LOWMEM__
 #     include <LowMem.h>
 #     endif
@@ -481,11 +509,23 @@
 #     define DATAEND  /* not needed */
 #   endif
 #   ifdef LINUX
+#     define ALIGNMENT 4	/* Guess.  Can someone verify?	*/
+				/* This was 2, but that didn't sound right. */
 #     define OS_TYPE "LINUX"
-#     define STACKBOTTOM ((ptr_t)0x80000000)
+#     define HEURISTIC1
+#     undef STACK_GRAN
+#     define STACK_GRAN 0x10000000
+	/* Stack usually starts at 0x80000000 */
 #     define DATASTART GC_data_start
       extern int _end;
 #     define DATAEND (&_end)
+#   endif
+#   ifdef MACOSX
+#     define ALIGNMENT 4
+#     define OS_TYPE "MACOSX"
+#     define DATASTART ((ptr_t) get_etext())
+#     define STACKBOTTOM ((ptr_t) 0xc0000000)
+#     define DATAEND	/* not needed */
 #   endif
 # endif
 
@@ -585,6 +625,11 @@
 #     define SVR4
 #     define STACKBOTTOM ((ptr_t) 0xf0000000)
 #   endif
+#   ifdef OPENBSD
+#     define OS_TYPE "OPENBSD"
+#     define STACKBOTTOM ((ptr_t) 0xf8000000)
+#     define DATASTART ((ptr_t)(&etext))
+#   endif
 # endif
 
 # ifdef I386
@@ -639,10 +684,13 @@
 #   endif
 #   ifdef LINUX
 #	define OS_TYPE "LINUX"
-#	define STACKBOTTOM ((ptr_t)0xc0000000)
-	/* Appears to be 0xe0000000 for at least one 2.1.91 kernel.	*/
-	/* Probably needs to be more flexible, but I don't yet 		*/
-	/* fully understand how flexible.				*/
+#       define HEURISTIC1
+#       undef STACK_GRAN
+#       define STACK_GRAN 0x10000000
+	/* STACKBOTTOM is usually 0xc0000000, but this changes with	*/
+	/* different kernel configurations.  In particular, systems	*/
+	/* with 2GB physical memory will usually move the user		*/
+	/* address space limit, and hence initial SP to 0x80000000.	*/
 #       if !defined(LINUX_THREADS) || !defined(REDIRECT_MALLOC)
 #	    define MPROTECT_VDB
 #	else
@@ -722,10 +770,15 @@
 #       include "stubinfo.h"
         extern int etext;
         extern int _stklen;
+        extern int __djgpp_stack_limit;
 #       define DATASTART ((ptr_t)((((word) (&etext)) + 0x1ff) & ~0x1ff))
-#       define STACKBOTTOM ((ptr_t)((word) _stubinfo + _stubinfo->size \
-                                                     + _stklen))
+/* #       define STACKBOTTOM ((ptr_t)((word) _stubinfo + _stubinfo->size \
+                                                     + _stklen)) */
+#       define STACKBOTTOM ((ptr_t)((word) __djgpp_stack_limit + _stklen))
 		/* This may not be right.  */
+#   endif
+#   ifdef OPENBSD
+#	define OS_TYPE "OPENBSD"
 #   endif
 #   ifdef FREEBSD
 #	define OS_TYPE "FREEBSD"
@@ -740,7 +793,7 @@
 #   ifdef BSDI
 #	define OS_TYPE "BSDI"
 #   endif
-#   if defined(FREEBSD) || defined(NETBSD) \
+#   if defined(OPENBSD) || defined(FREEBSD) || defined(NETBSD) \
         || defined(THREE86BSD) || defined(BSDI)
 #	define HEURISTIC2
 	extern char etext;
@@ -875,7 +928,7 @@
 	/* Normally HEURISTIC2 is too conervative, since		*/
 	/* the text segment immediately follows the stack.		*/
 	/* Hence we give an upper pound.				*/
-    	extern __start;
+    	extern int __start;
 #   	define HEURISTIC2_LIMIT ((ptr_t)((word)(&__start) & ~(getpagesize()-1)))
 #   	define CPP_WORDSZ 64
 #   	define MPROTECT_VDB
@@ -886,17 +939,21 @@
 #       define CPP_WORDSZ 64
 #       define STACKBOTTOM ((ptr_t) 0x120000000)
 #       ifdef __ELF__
+#   	  if 0
+	    /* __data_start apparently disappeared in some recent releases. */
             extern int __data_start;
 #           define DATASTART &__data_start
-#           define DYNAMIC_LOADING
+#	  endif
+#         define DATASTART GC_data_start
+#         define DYNAMIC_LOADING
 #       else
 #           define DATASTART ((ptr_t) 0x140000000)
 #       endif
 	extern int _end;
 #	define DATAEND (&_end)
-	/* As of 1.3.90, I couldn't find a way to retrieve the correct	*/
-	/* fault address from a signal handler.				*/
-	/* Hence MPROTECT_VDB is broken.				*/
+#	define MPROTECT_VDB
+		/* Has only been superficially tested.  May not	*/
+		/* work on all versions.			*/
 #   endif
 # endif
 
@@ -998,6 +1055,10 @@
 #   undef MPROTECT_VDB
 # endif
 
+# ifdef USE_MUNMAP
+#   undef MPROTECT_VDB  /* Can't deal with address space holes. */
+# endif
+
 # if !defined(PCR_VDB) && !defined(PROC_VDB) && !defined(MPROTECT_VDB)
 #   define DEFAULT_VDB
 # endif
@@ -1024,6 +1085,11 @@
 #   define THREADS
 # endif
 
+# if defined(HP_PA) || defined(M88K) || defined(POWERPC) \
+     || (defined(I386) && defined(OS2)) || defined(UTS4) || defined(LINT)
+	/* Use setjmp based hack to mark from callee-save registers. */
+#	define USE_GENERIC_PUSH_REGS
+# endif
 # if defined(SPARC) && !defined(LINUX)
 #   define SAVE_CALL_CHAIN
 #   define ASM_CLEAR_CODE	/* Stack clearing is crucial, and we 	*/

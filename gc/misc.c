@@ -73,6 +73,12 @@ GC_bool GC_dont_gc = 0;
 
 GC_bool GC_quiet = 0;
 
+#ifdef FIND_LEAK
+  int GC_find_leak = 1;
+#else
+  int GC_find_leak = 0;
+#endif
+
 /*ARGSUSED*/
 GC_PTR GC_default_oom_fn GC_PROTO((size_t bytes_requested))
 {
@@ -427,11 +433,8 @@ void GC_init_inner()
 #   ifdef MSWIN32
  	GC_init_win32();
 #   endif
-#   if defined(LINUX) && defined(POWERPC)
-	GC_init_linuxppc();
-#   endif
-#   if defined(LINUX) && defined(SPARC)
-	GC_init_linuxsparc();
+#   if defined(LINUX) && (defined(POWERPC) || defined(ALPHA) || defined(SPARC))
+	GC_init_linux_data_start();
 #   endif
 #   ifdef SOLARIS_THREADS
 	GC_thr_init();
@@ -558,7 +561,8 @@ void GC_init_inner()
 
 void GC_enable_incremental GC_PROTO(())
 {
-# if  !defined(FIND_LEAK) && !defined(SMALL_CONFIG)
+# if !defined(SMALL_CONFIG)
+  if (!GC_find_leak) {
     DCL_LOCK_STATE;
     
     DISABLE_SIGNALS();
@@ -596,6 +600,7 @@ void GC_enable_incremental GC_PROTO(())
 out:
     UNLOCK();
     ENABLE_SIGNALS();
+  }
 # endif
 }
 
@@ -766,7 +771,7 @@ char * msg;
 void GC_print_callers (info)
 struct callinfo info[NFRAMES];
 {
-    register int i,j;
+    register int i;
     
 #   if NFRAMES == 1
       GC_err_printf0("\tCaller at allocation:\n");
@@ -776,6 +781,9 @@ struct callinfo info[NFRAMES];
     for (i = 0; i < NFRAMES; i++) {
      	if (info[i].ci_pc == 0) break;
 #	if NARGS > 0
+	{
+	  int j;
+
      	  GC_err_printf0("\t\targs: ");
      	  for (j = 0; j < NARGS; j++) {
      	    if (j != 0) GC_err_printf0(", ");
@@ -783,6 +791,7 @@ struct callinfo info[NFRAMES];
      	    				~(info[i].ci_arg[j]));
      	  }
 	  GC_err_printf0("\n");
+	}
 # 	endif
      	GC_err_printf1("\t\t##PC##= 0x%X\n", info[i].ci_pc);
     }
