@@ -38,13 +38,11 @@ which requires a certain amount of finicky setup -- including setuid binaries
    options (--prefix etc.) apply; run "sh configure --help" for usage 
    information.  
 
-   Two optional components are not built by default: gzgw (the Gale/Zephyr
-   gateway) and glog (the Gale logging service).  To enable them, use the
-   --enable-gzgw and --enable-glog flags to "configure", respectively.
-
-   If you plan to build the gzgw, you need to make sure "configure" can find 
-   the Zephyr libraries and headers by using the proper -L and -I flags (if 
-   necessary) in the LDFLAGS and CPPFLAGS environment variables, respectively.
+   The gzgw (Gale/Zephyr gateway) is not built by default.  To enable it, use
+   the --enable-gzgw flag to "configure".  If you do this, make sure 
+   "configure" can find the Zephyr libraries and headers by using the proper 
+   -L and -I flags (if necessary) in the LDFLAGS and CPPFLAGS environment 
+   variables, respectively.
 
    If you want to use a preinstalled RSAREF library, include the appropriate
    flags in LDFLAGS and CPPFLAGS so "configure" can find librsaref.a and the 
@@ -53,6 +51,10 @@ which requires a certain amount of finicky setup -- including setuid binaries
 
    Similarly, if you want to use a preinstalled Boehm GC library, make sure
    LDFLAGS and CPPFLAGS include the location of libgc.a and gc.h, respectively.
+
+   By default and where supported, Gale will install its code as static and 
+   shared libraries, and link against shared libraries.  You may use
+   --disable-shared or --disable-static to modify this behavior.
 
    Once you've figured out the right options and set environment variables
    as needed, run the script.

@@ -115,9 +115,9 @@ if test -f "${srcdir}/rsaref/source/rsa.c"; then
     dnl Some operating systems define these functions themselves; they're
     dnl not reliably equivalent.  We demand the real RSAREF!
     CPPFLAGS="-DMD5Init=gMD5Init -DMD5Update=gMD5Update -DMD5Final=gMD5Final $CPPFLAGS"
-    GALE_LIBS="$GALE_LIBS \${top_builddir}/rsaref/source/librsaref.la"
     break
   ])
+  GALE_LIBS="$GALE_LIBS \${top_builddir}/rsaref/source/librsaref.la"
 else
   AC_MSG_RESULT(no)
   AC_CHECK_LIB(rsaref,R_RandomInit,[:],[

@@ -26,6 +26,8 @@ done
 
 compileflags=""
 test "x${prefix}" != "x/usr" && compileflags="-I${prefix}/include"
+test "x${exec_prefix}" != "x/usr" -a "x${exec_prefix}" != "x${prefix}" &&
+     compileflags="$compileflags -I${exec_prefix}/include"
 for flag in @CPPFLAGS@ @DEFS@ ; do
   case "$flag" in
     -IIGNORE*) ;;

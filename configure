@@ -2157,7 +2157,6 @@ if eval "test \"`echo '$ac_cv_func_'$ac_func`\" = yes"; then
 EOF
  
             CPPFLAGS="-DMD5Init=gMD5Init -DMD5Update=gMD5Update -DMD5Final=gMD5Final $CPPFLAGS"
-    GALE_LIBS="$GALE_LIBS \${top_builddir}/rsaref/source/librsaref.la"
     break
   
 else
@@ -2165,6 +2164,7 @@ else
 fi
 done
 
+  GALE_LIBS="$GALE_LIBS \${top_builddir}/rsaref/source/librsaref.la"
 else
   echo "$ac_t""no" 1>&6
   echo $ac_n "checking for R_RandomInit in -lrsaref""... $ac_c" 1>&6
