@@ -380,7 +380,7 @@ static void usage(void) {
 #ifdef HAVE_DLOPEN
 	"[-l rclib] "
 #endif
-	"[-p state] address [address ...]\n"
+	"[-p state] addr [[-] addr ...]\n"
 	"flags: -h          Display this message\n"
 	"       -a          Never announce presence or send receipts\n"
 	"       -A          Always announce presence and send receipts\n"
@@ -558,12 +558,25 @@ static void *on_connected(
 	return on_complete();
 }
 
+static void argument(struct gale_text arg,int *positive) {
+	if (!gale_text_compare(arg,G_("-")))
+		*positive = !*positive;
+	else if (arg.l > 0 && gale_text_compare(arg,G_("+"))) {
+		const int i = add_sub();
+		sub_positive[i] = *positive;
+		++lookup_count;
+		gale_find_location(source,arg,on_subscr_loc,(void *) i);
+		*positive = 1;
+		do_default = 0;
+	}
+}
+
 /* main */
 int main(int argc,char **argv) {
 	/* Various flags. */
-	int opt;
+	int opt,positive;
 	struct gale_text rclib = null_text;
-	struct gale_text subs = null_text;
+	struct gale_text subs,line;
 
 	/* Initialize the gale libraries. */
 	gale_init("gsub",argc,argv);
@@ -621,29 +634,32 @@ int main(int argc,char **argv) {
 		return 0;
 	}
 
-	if (do_default) subs = gale_var(G_("GALE_CHEESEBALL"));
+	subs = null_text;
+	if (do_default) subs = gale_var(G_("GALE_SUBSCRIBE"));
+
+	line = null_text;
+	positive = 1;
+	while (gale_text_token(subs,'\n',&line)) {
+		struct gale_text space = null_text;
+		while (gale_text_token(line,' ',&space)) {
+			struct gale_text tab = null_text;
+			while (gale_text_token(space,'\t',&tab))
+				argument(tab,&positive);
+		}
+	}
+
+	if (!positive) {
+		gale_alert(GALE_WARNING,G_("trailing - in GALE_SUBSCRIBE"),0);
+		positive = 1;
+	}
 
 	while (argc != optind)
-		subs = gale_text_concat(3,subs,
-			(subs.l ? G_(",") : null_text),
-			gale_text_from(
-				gale_global->enc_cmdline,
-				argv[optind++],-1));
+		argument(gale_text_from(
+			gale_global->enc_cmdline,
+			argv[optind++],-1),&positive);
 
-	if (0 != subs.l) {
-		struct gale_text sub = null_text;
-		while (gale_text_token(subs,',',&sub)) {
-			const int i = add_sub();
-			if (!gale_text_compare(G_("-"),gale_text_left(sub,1))) {
-				sub_positive[i] = 0;
-				sub = gale_text_right(sub,-1);
-			}
-
-			++lookup_count;
-			gale_find_location(source,sub,on_subscr_loc,(void *) i);
-		}
-		do_default = 0;
-	}
+	if (!positive)
+		gale_alert(GALE_WARNING,G_("trailing - in arguments"),0);
 
 #ifndef NDEBUG
 	lookup_count += 2;

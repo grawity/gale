@@ -22,7 +22,7 @@ libgale_la_SOURCES = \
     misc_alloc.c misc_charset.c misc_connect.c misc_daemon.c misc_debug.c \
     misc_dir.c misc_envvar.c misc_error.c misc_exec.c misc_file.c \
     misc_fragment.c misc_globals.c misc_kill.c misc_map.c misc_pack.c \
-    misc_report.c misc_terminal.c misc_text.c misc_time.c \
+    misc_readline.c misc_report.c misc_terminal.c misc_text.c misc_time.c \
     wcwidth.c
 
 crypto_test_SOURCES = crypto_test.c

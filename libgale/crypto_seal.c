@@ -49,12 +49,8 @@ int gale_crypto_seal(
 		if (0 != raw_name[good_count].l
 		&&  crypto_i_public_valid(public_key[good_count]->pkey.rsa)) 
 			++good_count;
-		else {
+		else
 			EVP_PKEY_free(public_key[good_count]);
-			gale_alert(GALE_WARNING,gale_text_concat(3,
-				G_("invalid public key \""),
-				raw_name[good_count],G_("\"")),0);
-		}
 	}
 
 	gale_create_array(session_key_length,good_count);

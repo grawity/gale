@@ -1,7 +1,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <assert.h>
-#include <ctype.h>
 #include <pwd.h>
 
 #include "gale/globals.h"
@@ -9,63 +8,62 @@
 struct gale_global_data *gale_global;
 extern char **environ;
 
-static char *read_line(FILE *fp) {
-	static char *buf = NULL;
-	static int alloc = 0;
-	int ch,size = 0;
+static int is_space(int ch) {
+	return ' ' == ch || '\t' == ch || '\r' == ch || '\n' == ch;
+}
 
-	if (NULL == fp) return NULL;
-	if (0 == alloc) buf = gale_malloc_safe(alloc = 256);
-
-	while ((ch = fgetc(fp)) != EOF && ch != '\n') {
-		if (size >= alloc - 1) {
-			char *old = buf;
-			buf = gale_malloc_safe(alloc *= 2);
-			memcpy(buf,old,size);
-			gale_free(old);
-		}
-		buf[size++] = ch;
+static struct gale_text trim_space(struct gale_text line) {
+	while (line.l > 0 && is_space(line.p[0])) {
+		++line.p;
+		--line.l;
 	}
-
-	if (ch == EOF) return NULL;
-	buf[size++] = '\0';
-	return buf;
+	return line;
 }
 
 static void read_conf(struct gale_text fn) {
-	FILE *fp = fopen(gale_text_to(gale_global->enc_filesys,fn),"r");
-	char *s = read_line(fp);
+	FILE * const fp = fopen(gale_text_to(gale_global->enc_filesys,fn),"r");
+	struct gale_text line = gale_read_line(fp);
+	while (line.l > 0) {
+		struct gale_text var;
+		struct gale_text_accumulator val = null_accumulator;
+		int i;
 
-	while (s) {
-		struct gale_text var,value;
-		size_t len;
-
-		while (*s && isspace(*s)) ++s;
-		if (!*s || *s == '#') {
-			s = read_line(fp);
+		line = trim_space(line);
+		if (0 == line.l || '#' == line.p[0]) {
+			line = gale_read_line(fp);
 			continue;
 		}
 
-		for (len = 0; s[len] && !isspace(s[len]); ++len) ;
-		var = gale_text_from(gale_global->enc_filesys,s,len);
+		i = 1;
+		while (i < line.l 
+		   && (line.p[i] != ' ' && line.p[i] != '\t')) ++i;
+		var = gale_text_left(line,i);
 
-		s += len;
-		while (*s && isspace(*s)) ++s;
-		value = gale_text_from(gale_global->enc_filesys,s,-1);
+		while (i < line.l 
+		   && (line.p[i] == ' ' || line.p[i] == '\t')) ++i;
+		gale_text_accumulate(&val,gale_text_right(line,-i));
 
-		s = read_line(fp);
-		while (s && *s && isspace(*s)) {
-			do ++s; while (*s && isspace(*s));
-			if (*s == '#') break;
+		line = gale_read_line(fp);
+		while (line.l > 0 && (line.p[0] == ' ' || line.p[0] == '\t')) {
+			line = trim_space(line);
+			if (0 == line.l) {
+				line = gale_read_line(fp);
+				break;
+			}
 
-			value = gale_text_concat(2,value,
-				gale_text_from(gale_global->enc_filesys,s,-1));
-
-			s = read_line(fp);
+			gale_text_accumulate(&val,line);
+			line = gale_read_line(fp);
 		}
 
-		if (0 == gale_var(var).l) gale_set(var,value);
+		if (0 == gale_var(var).l) {
+			struct gale_text value = gale_text_collect(&val);
+			while (value.l > 0 && is_space(value.p[value.l - 1]))
+				--value.l;
+			gale_set(var,trim_space(value));
+		}
 	}
+
+	fclose(fp);
 }
 
 static struct gale_encoding *get_charset(struct gale_text name) {

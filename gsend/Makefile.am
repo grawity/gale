@@ -2,4 +2,4 @@
 
 bin_PROGRAMS = gsend
 gsend_SOURCES = gsend.c
-gsend_LDADD = $(GALE_LIBS) $(READLINE_LIBS)
+gsend_LDADD = $(GALE_LIBS)

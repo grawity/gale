@@ -53,6 +53,8 @@ void gale_beep(FILE *fp);
  *  \param fp Usually stdout or stderr.
  *  \return The number of character positions per line. */
 int gale_columns(FILE *fp);
+
+struct gale_text gale_read_line(FILE *fp);
 /*@}*/
 
 /** \name Process Management */

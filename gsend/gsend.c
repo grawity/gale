@@ -9,11 +9,6 @@
 
 #include "gale/all.h"
 
-#if defined(HAVE_READLINE_READLINE_H) && defined(HAVE_LIBREADLINE)
-#define HAVE_READLINE 1
-#include "readline/readline.h"
-#endif
-
 struct gale_message *msg;               /* The message we're building. */
 struct gale_location *user = NULL;	/* The local user. */
 oop_source *oop;			/* Event source. */
@@ -64,52 +59,6 @@ void headers(void) {
 	}
 }
 
-/* Read a string, and return a pointer to it.  Returns NULL on EOF. */
-char *get_line(int tty)
-{
-	int alloc,len,num;
-	char *line;
-
-	(void) tty;
-
-#ifdef HAVE_READLINE
-	if (tty) {
-		static int init = 1;
-		if (init) {
-			rl_initialize();
-			rl_bind_key('\t',rl_insert);
-			rl_bind_key('R' - '@',
-			            rl_named_function("redraw-current-line"));
-/*
-			rl_parse_and_bind("set meta-flag On\n");
-			rl_parse_and_bind("set convert-meta Off\n");
-			rl_parse_and_bind("set output-meta On\n");
-*/
-			init = 0;
-		}
-		return readline("");
-	}
-#endif
-
-	gale_create_array(line,alloc = 80);
-	len = 0;
-
-	do {
-		if (len + 40 > alloc) line = gale_realloc(line,alloc *= 2);
-		line[alloc - 2] = '\0';
-		if (!fgets(line + len,alloc - len,stdin)) break;
-		num = strlen(line + len);
-		len += num;
-	} while (num && line[len - 1] != '\n');
-
-	if (!len) {
-		gale_free(line);
-		line = NULL;
-	} else if (line[len - 1] == '\n') line[len - 1] = '\0';
-
-	return line;
-}
-
 static void collapse(struct gale_location **from,int count) {
 	struct gale_location **to = from;
 	if (NULL == from) return;
@@ -144,9 +93,9 @@ static void *on_pack(struct gale_packet *pack,void *user) {
 
 /* Get ready to send the message */
 static void prepare_message() {
-	struct gale_text body = null_text;	/* Message body */
+	struct gale_text_accumulator body;
 	struct gale_fragment frag;
-	char *line = NULL;			/* The current input line */
+	struct gale_text line;
 	int ttyin = isatty(0);	  		/* Input options */
 
 	if (do_identify) {
@@ -166,24 +115,36 @@ static void prepare_message() {
 	if (ttyin) {
 		gale_print(stdout,0,G_("To "));
 		comma_list(msg->to);
+		if (gale_group_lookup(msg->data,
+			G_("message/subject"),frag_text,&frag))
+		{
+			gale_print(stdout,0,G_(" re \""));
+			gale_print(stdout,gale_print_bold,frag.value.text);
+			gale_print(stdout,0,G_("\""));
+		}
+		
 		gale_print(stdout,0,G_(":\n"));
 		gale_print(stdout,0,G_("(End your message with EOF or a solitary dot.)\n"));
 	}
 
 	/* Get the message. */
-	while ((line = get_line(ttyin))) {
-		/* Check for a solitary dot if input comes from a TTY. */
-		if (ttyin && !strcmp(line,".")) break;
+	body = null_accumulator;
+	while ((line = gale_read_line(stdin)).l > 0) {
+		if (!gale_text_compare(gale_text_right(line,1),G_("\n")))
+			line = gale_text_left(line,-1);
+		if (!gale_text_compare(gale_text_right(line,1),G_("\r")))
+			line = gale_text_left(line,-1);
 
-		/* Append the line.  This is inefficient! */
-		body = gale_text_concat(3,body,
-			gale_text_from(gale_global->enc_console,line,-1),
-			G_("\r\n"));
+		/* Check for a solitary dot if input comes from a TTY. */
+		if (ttyin && !gale_text_compare(line,G_("."))) break;
+
+		gale_text_accumulate(&body,line);
+		gale_text_accumulate(&body,G_("\r\n"));
 	}
 
 	frag.name = G_("message/body");
 	frag.type = frag_text;
-	frag.value.text = body;
+	frag.value.text = gale_text_collect(&body);
 	gale_group_add(&msg->data,frag);
 
 	if (do_identify) {
