@@ -1,8 +1,6 @@
-#include "server.h"
 #include "attach.h"
 
 #include "gale/misc.h"
-#include "gale/server.h"
 
 #include <errno.h>
 #include <stdlib.h>

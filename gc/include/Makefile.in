@@ -60,9 +60,15 @@ POST_UNINSTALL = :
 host_alias = @host_alias@
 host_triplet = @host@
 CC = @CC@
+CGIC_LIBS = @CGIC_LIBS@
 DB_LIBS = @DB_LIBS@
 DL_LIBS = @DL_LIBS@
+GALE_LIBS = @GALE_LIBS@
+LD = @LD@
+LIBTOOL = @LIBTOOL@
+LN_S = @LN_S@
 MAKEINFO = @MAKEINFO@
+NM = @NM@
 PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 READLINE_LIBS = @READLINE_LIBS@
@@ -193,6 +199,7 @@ clean:  clean-tags clean-generic mostlyclean
 
 distclean:  distclean-tags distclean-generic clean
 	-rm -f config.status
+	-rm -f libtool
 
 maintainer-clean:  maintainer-clean-tags maintainer-clean-generic \
 		distclean

@@ -9,7 +9,6 @@
 #include <arpa/inet.h>
 
 #include "gale/misc.h"
-#include "gale/server.h" 
 #include "gale/compat.h"
 
 #define DEF_PORT (11511)

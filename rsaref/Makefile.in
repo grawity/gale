@@ -60,9 +60,15 @@ POST_UNINSTALL = :
 host_alias = @host_alias@
 host_triplet = @host@
 CC = @CC@
+CGIC_LIBS = @CGIC_LIBS@
 DB_LIBS = @DB_LIBS@
 DL_LIBS = @DL_LIBS@
+GALE_LIBS = @GALE_LIBS@
+LD = @LD@
+LIBTOOL = @LIBTOOL@
+LN_S = @LN_S@
 MAKEINFO = @MAKEINFO@
+NM = @NM@
 PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 READLINE_LIBS = @READLINE_LIBS@
@@ -233,6 +239,7 @@ clean:  clean-recursive clean-am
 
 distclean:  distclean-recursive distclean-am
 	-rm -f config.status
+	-rm -f libtool
 
 maintainer-clean:  maintainer-clean-recursive maintainer-clean-am
 	@echo "This command is intended for maintainers to use;"

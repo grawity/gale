@@ -4,6 +4,7 @@
 #define GALE_TYPES_H
 
 #include <stddef.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include "gale/compat.h"
 #include "gale/config.h"
@@ -74,6 +75,12 @@ struct gale_fragment {
 		struct gale_group group;
 		s32 number;
 	} value;
+};
+
+/* callback */
+struct gale_call {
+	void (*invoke)(void *system,void *user);
+	void *user;
 };
 
 #endif

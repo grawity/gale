@@ -173,7 +173,9 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	sigaction(SIGUSR1,&act,NULL);
 
 	sigaction(SIGPIPE,NULL,&act);
+#ifdef SA_RESETHAND
 	act.sa_flags &= ~SA_RESETHAND;
+#endif
 	act.sa_handler = sig_pipe;
 	sigaction(SIGPIPE,&act,NULL);
 

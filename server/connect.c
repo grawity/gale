@@ -4,7 +4,6 @@
 #include "gale/all.h"
 #include "connect.h"
 #include "subscr.h"
-#include "server.h"
 
 struct connect *new_connect(int rfd,int wfd) {
 	struct connect *conn;

@@ -2,6 +2,7 @@
 
 AUTOMAKE_OPTIONS = foreign 1.2
 noinst_SCRIPTS = common.sh config.sh domain.sh
+bin_SCRIPTS = gale-config
 EXTRA_DIST = common.sh config.sh domain.sh
 
 if BUILD_GZGW
@@ -22,15 +23,9 @@ else
 gc_dir =
 endif
 
-if BUILD_GLOG
-glog_dir = glog
-else
-glog_dir =
-endif
-
 SUBDIRS = ${gc_dir} ${rsaref_dir} \
 	misc lib auth server gsend gsub gwatch gkeys gdomain \
-	${gzgw_dir} ${glog_dir} include
+	${gzgw_dir} include
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

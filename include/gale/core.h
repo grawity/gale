@@ -53,8 +53,6 @@ struct gale_link;
 
 /* Create a new, empty link. */
 struct gale_link *new_link(void);
-/* The same, but use the old protocol. */
-struct gale_link *new_old_link(void);
 /* Reset the link, in case you've lost a server connection and are 
    reconnecting.  Basically, puts the protocol back to the ground state. */
 void reset_link(struct gale_link *);
@@ -97,5 +95,23 @@ struct gale_message *link_get(struct gale_link *);
 struct gale_message *link_willed(struct gale_link *);
 /* If the other end sent a subscription, get it.  (Otherwise NULL.) */
 struct gale_text link_subscribed(struct gale_link *);
+
+/* -- cache management ----------------------------------------------------- */
+
+/* Many of these functions have "raw" versions which operate on gale_data
+   instead of the normal versions which operate on gale_group structures.
+   Where possible, eschew the "raw" version and operate on structured data. */
+
+/* Compute the cache ID for some data. */
+struct gale_data cache_id(struct gale_group);
+struct gale_data cache_id_raw(struct gale_data);
+
+/* Attempt to find an item in the cache.  Returns true iff successful. */
+int cache_find(struct gale_data id,struct gale_group *data);
+int cache_find_raw(struct gale_data id,struct gale_data *data);
+
+/* Store an item in the cache (if possible), optionally returning a file. */
+void cache_store(struct gale_data id,struct gale_group data);
+void cache_store_raw(struct gale_data id,struct gale_data data);
 
 #endif

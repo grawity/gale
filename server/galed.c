@@ -14,7 +14,6 @@
 
 #include "gale/all.h"
 #include "connect.h"
-#include "server.h"
 
 static int listener,port = 11511;
 static struct connect *list = NULL;

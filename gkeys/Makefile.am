@@ -2,3 +2,4 @@
 
 bin_PROGRAMS = gkeys
 gkeys_SOURCES = gkeys.c
+gkeys_LDADD = $(GALE_LIBS)

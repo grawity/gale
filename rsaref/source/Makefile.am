@@ -1,7 +1,7 @@
 ## Process this file with automake to generate Makefile.in
 
-lib_LIBRARIES = librsaref.a
-librsaref_a_SOURCES = \
+lib_LTLIBRARIES = librsaref.la
+librsaref_la_SOURCES = \
 	desc.c digit.c md2c.c md5c.c nn.c prime.c rsa.c r_encode.c r_dh.c \
 	r_enhanc.c r_keygen.c r_random.c r_stdlib.c
 noinst_HEADERS = \

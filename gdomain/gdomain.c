@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <time.h>
 

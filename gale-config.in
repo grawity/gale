@@ -1,0 +1,76 @@
+#!/bin/sh
+# @configure_input@
+# Shamelessly ripped off from gtk-config.
+
+usage="\
+Usage: gale-config [-a] [--version] [--prefix] [--exec-prefix] [--incs] [--libs]"
+
+prefix="@prefix@"
+exec_prefix="@exec_prefix@"
+version="@VERSION@"
+
+top_builddir="IGNORE"
+top_srcdir="IGNORE"
+
+linkflags="-lgale -lgauth -lgmisc -lrsaref -lgc"
+test "x${exec_prefix}" != "x/usr" && linkflags="-L${exec_prefix}/lib $linkflags"
+for flag in @LDFLAGS@ @GALE_LIBS@ @LIBS@ ; do
+  case "$flag" in
+    -LIGNORE*) ;;
+    IGNORE*) ;;
+    -L${exec_prefix}/lib) ;;
+    -L*) linkflags="$flag $linkflags" ;;
+    *) linkflags="$linkflags $flag" ;;
+  esac
+done
+
+compileflags=""
+test "x${prefix}" != "x/usr" && compileflags="-I${prefix}/include"
+for flag in @CPPFLAGS@ @DEFS@ ; do
+  case "$flag" in
+    -IIGNORE*) ;;
+    -DHAVE_CONFIG_H) ;;
+    -DGALE_SYS_DIR=*) ;;
+    -DMD5*) ;;
+    -I${prefix}/include) ;;
+    *) compileflags="$compileflags $flag" ;;
+  esac
+done
+
+if test $# -eq 0; then
+      echo "$usage" 1>&2
+      exit 1
+fi
+
+while test $# -gt 0; do
+  case $1 in
+    -a)
+      echo "gale_prefix='$prefix'"
+      echo "gale_exec_prefix='$exec_prefix'"
+      echo "gale_version='$version'"
+      echo "gale_incs='$compileflags'"
+      echo "gale_libs='$linkflags'"
+      ;;
+    --prefix)
+      echo "$prefix"
+      ;;
+    --exec-prefix)
+      echo "$exec_prefix"
+      ;;
+    --version)
+      echo "$version"
+      ;;
+    --incs)
+      echo "$compileflags"
+      ;;
+    --libs)
+      echo "$linkflags"
+      ;;
+    *)
+      echo "$usage" 1>&2
+      exit 1
+      ;;
+  esac
+  shift
+done
+

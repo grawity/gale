@@ -2,4 +2,4 @@
 
 bin_PROGRAMS = gzgw
 gzgw_SOURCES = gzgw.c
-gzgw_LDADD = $(ZEPHYR_LIBS)
+gzgw_LDADD = $(GALE_LIBS) $(ZEPHYR_LIBS)

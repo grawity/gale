@@ -2,4 +2,5 @@
 
 bin_PROGRAMS = galed
 galed_SOURCES = galed.c connect.c subscr.c attach.c
-noinst_HEADERS = attach.h connect.h server.h subscr.h
+galed_LDADD = $(GALE_LIBS)
+noinst_HEADERS = attach.h connect.h subscr.h

@@ -5,6 +5,10 @@
 
 #include "gale/config.h"
 
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
+
 #if defined(OS_HPUX)
 void syslog(int priority, const char *message, ...);
 void openlog(const char *ident, int option, int facility);

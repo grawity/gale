@@ -3,7 +3,6 @@
 
 #include "subscr.h"
 #include "connect.h"
-#include "server.h"
 
 #include <assert.h>
 #include <string.h>

@@ -39,10 +39,4 @@ void auth_encrypt(int num,struct auth_id **,
 void auth_decrypt(struct auth_id **,
                   struct gale_data cipher,struct gale_data *plain);
 
-#define armor_len(blen) (((blen) * 8 + 7) / 6)
-void armor(const byte *bin,int blen,char *txt);
-
-#define dearmor_len(tlen) ((tlen) * 6 / 8)
-void dearmor(const char *txt,int tlen,byte *bin);
-
 #endif

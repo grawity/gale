@@ -1,4 +1,3 @@
-#include "gale/server.h"
 #include "gale/client.h"
 #include "gale/core.h"
 #include "gale/compat.h"
@@ -9,6 +8,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/select.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>

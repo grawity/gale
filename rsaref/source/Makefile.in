@@ -60,9 +60,15 @@ POST_UNINSTALL = :
 host_alias = @host_alias@
 host_triplet = @host@
 CC = @CC@
+CGIC_LIBS = @CGIC_LIBS@
 DB_LIBS = @DB_LIBS@
 DL_LIBS = @DL_LIBS@
+GALE_LIBS = @GALE_LIBS@
+LD = @LD@
+LIBTOOL = @LIBTOOL@
+LN_S = @LN_S@
 MAKEINFO = @MAKEINFO@
+NM = @NM@
 PACKAGE = @PACKAGE@
 RANLIB = @RANLIB@
 READLINE_LIBS = @READLINE_LIBS@
@@ -70,8 +76,8 @@ VERSION = @VERSION@
 YACC = @YACC@
 ZEPHYR_LIBS = @ZEPHYR_LIBS@
 
-lib_LIBRARIES = librsaref.a
-librsaref_a_SOURCES = \
+lib_LTLIBRARIES = librsaref.la
+librsaref_la_SOURCES = \
 	desc.c digit.c md2c.c md5c.c nn.c prime.c rsa.c r_encode.c r_dh.c \
 	r_enhanc.c r_keygen.c r_random.c r_stdlib.c
 noinst_HEADERS = \
@@ -83,20 +89,22 @@ DISTFILES = $(DIST_COMMON) $(TEXINFOS) $(EXTRA_DIST)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../../include/gale/config.h
 CONFIG_CLEAN_FILES = 
-LIBRARIES =  $(lib_LIBRARIES)
+LTLIBRARIES =  $(lib_LTLIBRARIES)
 
 
 DEFS = @DEFS@ -I. -I$(srcdir) -I../../include/gale
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-librsaref_a_LIBADD = 
-librsaref_a_OBJECTS =  desc.o digit.o md2c.o md5c.o nn.o prime.o rsa.o \
-r_encode.o r_dh.o r_enhanc.o r_keygen.o r_random.o r_stdlib.o
-AR = ar
+librsaref_la_LDFLAGS = 
+librsaref_la_LIBADD = 
+librsaref_la_OBJECTS =  desc.lo digit.lo md2c.lo md5c.lo nn.lo prime.lo \
+rsa.lo r_encode.lo r_dh.lo r_enhanc.lo r_keygen.lo r_random.lo \
+r_stdlib.lo
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS)
-LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@
+LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS)
+LINK = $(LIBTOOL) --mode=link $(CC) $(CFLAGS) $(LDFLAGS) -o $@
 HEADERS =  $(noinst_HEADERS)
 
 DIST_COMMON =  Makefile.am Makefile.in
@@ -107,13 +115,13 @@ GZIP = --best
 DEP_FILES =  .deps/desc.P .deps/digit.P .deps/md2c.P .deps/md5c.P \
 .deps/nn.P .deps/prime.P .deps/r_dh.P .deps/r_encode.P .deps/r_enhanc.P \
 .deps/r_keygen.P .deps/r_random.P .deps/r_stdlib.P .deps/rsa.P
-SOURCES = $(librsaref_a_SOURCES)
-OBJECTS = $(librsaref_a_OBJECTS)
+SOURCES = $(librsaref_la_SOURCES)
+OBJECTS = $(librsaref_la_OBJECTS)
 
-all: Makefile $(LIBRARIES) $(HEADERS)
+all: Makefile $(LTLIBRARIES) $(HEADERS)
 
 .SUFFIXES:
-.SUFFIXES: .S .c .o .s
+.SUFFIXES: .S .c .lo .o .s
 $(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4)
 	cd $(top_srcdir) && $(AUTOMAKE) --gnu rsaref/source/Makefile
 
@@ -122,36 +130,29 @@ Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status $(BUILT_SOURCES)
 	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 
-mostlyclean-libLIBRARIES:
+mostlyclean-libLTLIBRARIES:
 
-clean-libLIBRARIES:
-	-test -z "$(lib_LIBRARIES)" || rm -f $(lib_LIBRARIES)
+clean-libLTLIBRARIES:
+	-test -z "$(lib_LTLIBRARIES)" || rm -f $(lib_LTLIBRARIES)
 
-distclean-libLIBRARIES:
+distclean-libLTLIBRARIES:
 
-maintainer-clean-libLIBRARIES:
+maintainer-clean-libLTLIBRARIES:
 
-install-libLIBRARIES: $(lib_LIBRARIES)
+install-libLTLIBRARIES: $(lib_LTLIBRARIES)
 	@$(NORMAL_INSTALL)
 	$(mkinstalldirs) $(DESTDIR)$(libdir)
-	list='$(lib_LIBRARIES)'; for p in $$list; do \
+	@list='$(lib_LTLIBRARIES)'; for p in $$list; do \
 	  if test -f $$p; then \
-	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(libdir)/$$p"; \
-	    $(INSTALL_DATA) $$p $(DESTDIR)$(libdir)/$$p; \
-	  else :; fi; \
-	done
-	@$(POST_INSTALL)
-	@list='$(lib_LIBRARIES)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    echo " $(RANLIB) $(DESTDIR)$(libdir)/$$p"; \
-	    $(RANLIB) $(DESTDIR)$(libdir)/$$p; \
+	    echo "$(LIBTOOL)  --mode=install $(INSTALL_DATA) $$p $(DESTDIR)$(libdir)/$$p"; \
+	    $(LIBTOOL)  --mode=install $(INSTALL_DATA) $$p $(DESTDIR)$(libdir)/$$p; \
 	  else :; fi; \
 	done
 
-uninstall-libLIBRARIES:
+uninstall-libLTLIBRARIES:
 	@$(NORMAL_UNINSTALL)
-	list='$(lib_LIBRARIES)'; for p in $$list; do \
-	  rm -f $(DESTDIR)$(libdir)/$$p; \
+	list='$(lib_LTLIBRARIES)'; for p in $$list; do \
+	  $(LIBTOOL)  --mode=uninstall rm -f $(DESTDIR)$(libdir)/$$p; \
 	done
 
 .s.o:
@@ -170,10 +171,24 @@ distclean-compile:
 
 maintainer-clean-compile:
 
-librsaref.a: $(librsaref_a_OBJECTS) $(librsaref_a_DEPENDENCIES)
-	-rm -f librsaref.a
-	$(AR) cru librsaref.a $(librsaref_a_OBJECTS) $(librsaref_a_LIBADD)
-	$(RANLIB) librsaref.a
+.s.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.S.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+mostlyclean-libtool:
+	-rm -f *.lo
+
+clean-libtool:
+	-rm -rf .libs _libs
+
+distclean-libtool:
+
+maintainer-clean-libtool:
+
+librsaref.la: $(librsaref_la_OBJECTS) $(librsaref_la_DEPENDENCIES)
+	$(LINK) -rpath $(libdir) $(librsaref_la_LDFLAGS) $(librsaref_la_OBJECTS) $(librsaref_la_LIBADD) $(LIBS)
 
 tags: TAGS
 
@@ -245,7 +260,7 @@ dvi:
 check: all
 	$(MAKE)
 installcheck:
-install-exec: install-libLIBRARIES
+install-exec: install-libLTLIBRARIES
 	@$(NORMAL_INSTALL)
 
 install-data: 
@@ -254,7 +269,7 @@ install-data:
 install: install-exec install-data all
 	@:
 
-uninstall: uninstall-libLIBRARIES
+uninstall: uninstall-libLTLIBRARIES
 
 install-strip:
 	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' INSTALL_SCRIPT='$(INSTALL_PROGRAM)' install
@@ -276,33 +291,36 @@ distclean-generic:
 maintainer-clean-generic:
 	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
 	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
-mostlyclean:  mostlyclean-libLIBRARIES mostlyclean-compile \
-		mostlyclean-tags mostlyclean-depend mostlyclean-generic
+mostlyclean:  mostlyclean-libLTLIBRARIES mostlyclean-compile \
+		mostlyclean-libtool mostlyclean-tags mostlyclean-depend \
+		mostlyclean-generic
 
-clean:  clean-libLIBRARIES clean-compile clean-tags clean-depend \
-		clean-generic mostlyclean
+clean:  clean-libLTLIBRARIES clean-compile clean-libtool clean-tags \
+		clean-depend clean-generic mostlyclean
 
-distclean:  distclean-libLIBRARIES distclean-compile distclean-tags \
-		distclean-depend distclean-generic clean
+distclean:  distclean-libLTLIBRARIES distclean-compile distclean-libtool \
+		distclean-tags distclean-depend distclean-generic clean
 	-rm -f config.status
+	-rm -f libtool
 
-maintainer-clean:  maintainer-clean-libLIBRARIES \
-		maintainer-clean-compile maintainer-clean-tags \
-		maintainer-clean-depend maintainer-clean-generic \
-		distclean
+maintainer-clean:  maintainer-clean-libLTLIBRARIES \
+		maintainer-clean-compile maintainer-clean-libtool \
+		maintainer-clean-tags maintainer-clean-depend \
+		maintainer-clean-generic distclean
 	@echo "This command is intended for maintainers to use;"
 	@echo "it deletes files that may require special tools to rebuild."
 
-.PHONY: mostlyclean-libLIBRARIES distclean-libLIBRARIES \
-clean-libLIBRARIES maintainer-clean-libLIBRARIES uninstall-libLIBRARIES \
-install-libLIBRARIES mostlyclean-compile distclean-compile \
-clean-compile maintainer-clean-compile tags mostlyclean-tags \
-distclean-tags clean-tags maintainer-clean-tags distdir \
-mostlyclean-depend distclean-depend clean-depend \
-maintainer-clean-depend info dvi installcheck install-exec install-data \
-install uninstall all installdirs mostlyclean-generic distclean-generic \
-clean-generic maintainer-clean-generic clean mostlyclean distclean \
-maintainer-clean
+.PHONY: mostlyclean-libLTLIBRARIES distclean-libLTLIBRARIES \
+clean-libLTLIBRARIES maintainer-clean-libLTLIBRARIES \
+uninstall-libLTLIBRARIES install-libLTLIBRARIES mostlyclean-compile \
+distclean-compile clean-compile maintainer-clean-compile \
+mostlyclean-libtool distclean-libtool clean-libtool \
+maintainer-clean-libtool tags mostlyclean-tags distclean-tags \
+clean-tags maintainer-clean-tags distdir mostlyclean-depend \
+distclean-depend clean-depend maintainer-clean-depend info dvi \
+installcheck install-exec install-data install uninstall all \
+installdirs mostlyclean-generic distclean-generic clean-generic \
+maintainer-clean-generic clean mostlyclean distclean maintainer-clean
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

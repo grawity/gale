@@ -2,3 +2,4 @@
 
 bin_PROGRAMS = gwatch
 gwatch_SOURCES = gwatch.c
+gwatch_LDADD = $(GALE_LIBS)

@@ -2,3 +2,4 @@
 
 bin_PROGRAMS = gdomain
 gdomain_SOURCES = gdomain.c
+gdomain_LDADD = $(GALE_LIBS)
