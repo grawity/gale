@@ -123,6 +123,9 @@ static void retract_trust(struct gale_key_assertion *ass) {
 		struct gale_key_assertion **bundled = ass->bundled;
 		while (NULL != bundled && NULL != *bundled)
 			retract_trust(*bundled++);
+		if (NULL != ass->key && ass->key->private == ass)
+			ass->key->private = NULL;
+		ass->key = NULL;
 	}
 }
 
