@@ -7,6 +7,9 @@
 
 #include "gale/config.h"
 
+#include <stdlib.h> /* OpenBSD needs this or other headers fail */
+#include <unistd.h> /* MacOS X needs this or same same */
+
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
 #endif

@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(liboop,0.8)
+AM_INIT_AUTOMAKE(liboop,0.9)
 AC_CANONICAL_HOST
 
 dnl Use libtool for shared libraries

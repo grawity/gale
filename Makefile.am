@@ -2,7 +2,7 @@
 
 AUTOMAKE_OPTIONS = foreign 1.2
 bin_SCRIPTS = gale-config gale-install
-EXTRA_DIST = gale.spec iconvtest.c acconfig.h bootstrap Doxyfile
+EXTRA_DIST = gale.spec iconvtest.c bootstrap Doxyfile
 
 if BUILD_LIBOOP
 liboop_dir = liboop
