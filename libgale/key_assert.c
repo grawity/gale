@@ -79,7 +79,7 @@ const struct gale_key_assertion *gale_key_public(
  *           ::gale_key_assertion references.
  *  \sa gale_key_assert(), gale_key_public() */
 const struct gale_key_assertion *gale_key_private(struct gale_key *key) {
-	struct gale_group group;
+     /* struct gale_group group; */
 
 	/* TODO: how do we report this failure without spewing spoo? */
 
