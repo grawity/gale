@@ -25,7 +25,7 @@ struct timer_handler {
 
 static int use_count = 0;
 static struct oop_source source;
-static struct oop_adapter_signal *signal;
+static struct oop_adapter_signal *sig;
 
 static int array_size;
 static struct file_handler *array;
@@ -113,7 +113,7 @@ static void timer_call(ClientData data) {
         *ptr = timer->next;
 
         /* BUG: What if !OOP_CONTINUE? */
-        timer->f(oop_signal_source(signal),timer->t,timer->d);
+        timer->f(oop_signal_source(sig),timer->t,timer->d);
         oop_free(timer);
 }
 
@@ -168,12 +168,12 @@ oop_source *oop_tcl_new(void) {
                 list = NULL;
 
                 /* Do this last, after everything is set up. */
-                signal = oop_signal_new(&source);
-                if (NULL == signal) return NULL;
+                sig = oop_signal_new(&source);
+                if (NULL == sig) return NULL;
         }
 
         ++use_count;
-        return oop_signal_source(signal);
+        return oop_signal_source(sig);
 }
 
 void oop_tcl_done(void) {
@@ -184,7 +184,7 @@ void oop_tcl_done(void) {
                                 assert(NULL == array[i].f[j]);
                 oop_free(array);
                 assert(NULL == list);
-                oop_signal_delete(signal);
+                oop_signal_delete(sig);
         }
 }
 

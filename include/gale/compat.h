@@ -15,6 +15,14 @@
 #include <getopt.h>
 #endif
 
+#ifdef HAVE_RUNE_H
+#include <rune.h>
+#endif
+
+#ifdef HAVE_WCHAR_H
+#include <wchar.h>
+#endif
+
 #ifdef HAVE_ICONV
 #include <iconv.h>
 #endif

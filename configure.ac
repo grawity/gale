@@ -177,7 +177,7 @@ fi
 GALE_LIBS="$GALE_LIBS $termcap_lib"
 
 dnl Checks for header files.
-AC_CHECK_HEADERS(sys/bitypes.h sys/select.h curses.h term.h dlfcn.h readline/readline.h getopt.h)
+AC_CHECK_HEADERS(sys/bitypes.h sys/select.h curses.h term.h dlfcn.h readline/readline.h getopt.h rune.h wchar.h)
 
 test -d /usr/local/ssl/include && CPPFLAGS="$CPPFLAGS -I/usr/local/ssl/include"
 AC_CHECK_HEADERS(openssl/evp.h,,[AC_MSG_ERROR(cannot find OpenSSL headers)])

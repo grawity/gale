@@ -31,13 +31,16 @@ struct gale_text dir_file(struct gale_text path,struct gale_text file) {
 		&&  gale_text_compare(part,G_("../")))
 			r = gale_text_concat(2,r,part);
 		else {
-			gale_alert(GALE_WARNING,
-			           G_("replaced .. with __ in filename"),0);
 			r = gale_text_concat(3,r,G_("__"),
 				gale_text_right(part,-2));
 		}
 		if (part.l > 0 && '/' == part.p[part.l - 1]) --part.l;
 	}
+
+	if (gale_text_compare(r,file))
+		gale_alert(GALE_WARNING,gale_text_concat(6,
+			G_("replaced \""),file,G_("\" with \""),r,
+			G_("\" in "),path),0);
 
 	return gale_text_concat(3,path,G_("/"),r);
 }
