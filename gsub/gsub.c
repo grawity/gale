@@ -270,7 +270,22 @@ static void *on_message(struct gale_message *msg,void *data) {
 				gale_time_now()));
 			slip(key_location,&frag,on_put,NULL);
 			if (do_verbose) gale_alert(GALE_NOTICE,
-				G_("answering key request"),0);
+				gale_text_concat(3,
+				G_("answering key request for \""),
+				frag.value.text,
+				G_("\"")),0);
+			goto done;
+		}
+
+		/* Ignore any other AKD requests. */
+		if (frag.type == frag_text
+		&& (!gale_text_compare(frag.name,G_("question.key"))
+		||  !gale_text_compare(frag.name,G_("question/key")))) {
+			if (do_verbose) gale_alert(GALE_NOTICE,
+				gale_text_concat(3,
+				G_("ignoring key request for \""),
+				frag.value.text,
+				G_("\"")),0);
 			goto done;
 		}
 
