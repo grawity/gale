@@ -113,17 +113,17 @@ struct gale_text _gale_text_literal(const wchar_t *sz,size_t len) {
  *  is returned.  If \a len is negative, all but the rightmost \a -len
  *  characters are returned.  If \a -len is larger than the length of the
  *  string, the empty string is returned.
- *  \param str The string to extract from.
+ *  \param text The string to extract from.
  *  \param len The number of characters to extract.
- *  \return The leftmost \a len characters from \a str. */
-struct gale_text gale_text_left(struct gale_text text,int i) {
-	if (i < 0) {
-		if ((size_t) -i > text.l)
+ *  \return The leftmost \a len characters from \a text. */
+struct gale_text gale_text_left(struct gale_text text,int len) {
+	if (len < 0) {
+		if ((size_t) -len > text.l)
 			text.l = 0;
 		else
-			text.l += i;
-	} else if ((size_t) i < text.l)
-		text.l = i;
+			text.l += len;
+	} else if ((size_t) len < text.l)
+		text.l = len;
 	return text;
 }
 
@@ -132,21 +132,21 @@ struct gale_text gale_text_left(struct gale_text text,int i) {
  *  is returned.  If \a len is negative, all but the leftmost \a -len
  *  characters are returned.  If \a -len is larger than the length of the
  *  string, the empty string is returned.
- *  \param str The string to extract from.
+ *  \param text The string to extract from.
  *  \param len The number of characters to extract.
- *  \return The rightmost \a len characters from \a str. */
-struct gale_text gale_text_right(struct gale_text text,int i) {
-	if (i < 0) {
-		if ((size_t) -i > text.l) {
+ *  \return The rightmost \a len characters from \a text. */
+struct gale_text gale_text_right(struct gale_text text,int len) {
+	if (len < 0) {
+		if ((size_t) -len > text.l) {
 			text.p += text.l;
 			text.l -= text.l;
 		} else {
-			text.p -= i;
-			text.l += i;
+			text.p -= len;
+			text.l += len;
 		}
-	} else if ((size_t) i < text.l) {
-		text.p += text.l - i;
-		text.l -= text.l - i;
+	} else if ((size_t) len < text.l) {
+		text.p += text.l - len;
+		text.l -= text.l - len;
 	}
 	return text;
 }
