@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Werror -Wall -g
+CFLAGS = $(WARNINGS) -Werror -g
 YACC = bison -y
 
 -include $(TOP)/defs
@@ -9,6 +9,9 @@ YACC = bison -y
 
 INCLUDES = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC) $(DB_INC) $(CGIC_INC)
 DEFINES = -DGALE_CONF=\"$(GALE_CONF)\" -DSTDC_HEADERS
+
+WARNINGS = -W -Wimplicit -Wreturn-type -Wunused -Wswitch -Wtrigraphs -Wformat \
+	-Wchar-subscripts -Wparentheses
 
 CPPFLAGS = $(INCLUDES) $(DEFINES)
 LDLIBS = -L$(TOP)/lib -lgale $(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB) $(CGIC_LIB)

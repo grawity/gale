@@ -5,10 +5,7 @@ multiple encryption
 documentation (HTML)
 user notification
 markup language
-better error reports (include progname)
-central key repository
 new gsend protocol
-central config file
 
 limits on category (line as a whole?) (message size during collection?)
 verification of tree structure
