@@ -47,7 +47,11 @@ void watch_ping(const char *cat,const char *id) {
 	sprintf(msg->data,"Receipt-To: %s\r\n\r\n",receipt);
 	msg->data_size = strlen(msg->data);
 
-	if (id) encrypt_message(id,msg);
+	if (id) {
+		struct gale_message *new = encrypt_message(id,msg);
+		release_message(msg);
+		msg = new;
+	}
 
 	pings[count_pings++] = msg;
 }

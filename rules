@@ -32,7 +32,8 @@ install:: \
 	$(addprefix $(INC_DIR)/,$(HEADERS))
 
 clean::
-	$(RM) *.o $(BIN_TARGETS) $(LIB_TARGETS)
+	@echo rm: object files, executables, and libraries.
+	@$(RM) *.o $(BIN_TARGETS) $(LIB_TARGETS)
 	@make --no-print-directory subdirs TARGET=clean
 
 subdirs:

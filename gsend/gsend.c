@@ -157,8 +157,16 @@ int main(int argc,char *argv[]) {
 		}
 	}
 
-	if (sflag) sign_message(NULL,msg);
-	if (eflag) encrypt_message(eflag,msg);
+	if (sflag) {
+		struct gale_message *new = sign_message(NULL,msg);
+		release_message(msg);
+		msg = new;
+	}
+	if (eflag) {
+		struct gale_message *new = encrypt_message(eflag,msg);
+		release_message(msg);
+		msg = new;
+	}
 
 	link_put(client->link,msg);
 	while (1) {

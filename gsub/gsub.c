@@ -49,8 +49,16 @@ struct gale_message *slip(const char *cat,const char *sign,const char *enc) {
 	        "\r\n",from,reply,time(NULL),agent,sequence++);
 	msg->data_size = strlen(msg->data);
 
-	if (sign) sign_message(sign,msg);
-	if (enc) encrypt_message(enc,msg);
+	if (sign) {
+		struct gale_message *new = sign_message(sign,msg);
+		release_message(msg);
+		msg = new;
+	}
+	if (enc) {
+		struct gale_message *new = encrypt_message(enc,msg);
+		release_message(msg);
+		msg = new;
+	}
 
 	return msg;
 }
