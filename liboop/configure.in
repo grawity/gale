@@ -61,7 +61,7 @@ if test -z "$no_wacky_libs" ; then
 fi
 
 test yes = "$GCC" && 
-CFLAGS="-Wall -Wno-comment -Werror -Wmissing-prototypes -Wstrict-prototypes -Wpointer-arith -Wwrite-strings $CFLAGS"
+CFLAGS="-Wall -Wno-comment -Wmissing-prototypes -Wstrict-prototypes -Wpointer-arith -Wwrite-strings $CFLAGS"' $(EXTRA_CFLAGS)'
 
 AC_SUBST(PROG_LDCONFIG)
 AC_SUBST(GLIB_INCLUDES)
