@@ -20,6 +20,7 @@ static gale_key_call on_key;
 static void *on_graph(oop_source *,struct gale_map *,int,int,void *);
 
 static void find_key(oop_source *oop,struct find *find) {
+	const int flags = find->flags; /* can be reset by callbacks */
 	int i;
 	++(find->count);
 	for (i = find->loc->at_part - 1; i >= 0; i -= 2) {
@@ -31,12 +32,12 @@ static void find_key(oop_source *oop,struct find *find) {
 				gale_text_concat_array(
 				    find->loc->part_count - find->loc->at_part,
 				    find->loc->parts + find->loc->at_part))),
-			find->flags,on_key,find);
+			flags,on_key,find);
 	}
 
 	gale_key_search(oop,gale_key_handle(gale_text_concat_array(
 		find->loc->part_count,
-		find->loc->parts)),find->flags,on_key,find);
+		find->loc->parts)),flags,on_key,find);
 }
 
 static void follow_key(oop_source *oop,const struct find *find) {

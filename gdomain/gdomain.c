@@ -34,11 +34,13 @@ static void *on_connected(struct gale_server *server,
 
 static void *on_response(struct gale_packet *pk,void *x) {
 	link_put(line,pk);
+	return OOP_CONTINUE;
 }
 
 static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
 	struct gale_key *key = (struct gale_key *) x;
-	struct gale_key_assertion *pub = gale_key_public(key,gale_time_now());
+	const struct gale_key_assertion *pub = 
+		gale_key_public(key,gale_time_now());
 	struct gale_fragment frag;
 	struct gale_message *msg;
 
@@ -61,14 +63,16 @@ static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
 	else {
 		frag.name = G_("answer/key/error");
 		frag.type = frag_text;
-		frag.value.text = gale_text_concat(3,
-			G_("domain server cannot find \""),
+		frag.value.text = gale_text_concat(4,
+			gale_location_name(domain_location),
+			G_(" cannot find \""),
 			gale_key_name(key),
 			G_("\""));
 	}
 
 	gale_group_add(&msg->data,frag);
 	gale_pack_message(source,msg,on_response,NULL);
+	return OOP_CONTINUE;
 }
 
 static void *on_key(oop_source *oop,struct gale_key *key,void *x) {
@@ -127,10 +131,11 @@ int main(int argc,char *argv[]) {
 	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
 	subscriptions = null_text;
 
-	while ((arg = getopt(argc,argv,"dDh")) != EOF)
+	while ((arg = getopt(argc,argv,"dDKh")) != EOF)
 	switch (arg) {
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
+	case 'K': gale_kill(gale_var(G_("GALE_DOMAIN")),1); return 0;
 	case 'h':
 	case '?': usage();
 	}
