@@ -206,12 +206,13 @@ static void on_search(struct gale_time now,oop_source *oop,
 	struct gale_key_request *handle,
 	void *x,void **ptr)
 {
-	const struct gale_key_assertion *old;
+	const struct gale_text key_name = gale_key_name(key);
 	struct cache *cache = (struct cache *) *ptr;
+	const struct gale_key_assertion *old;
 	struct timeval timeout;
 
-	/* AKD is slow, and domain keys cannot be found with AKD. */
-	if (!(flags & search_slow)) {
+	if (!(flags & search_slow)
+	||  !gale_text_compare(gale_text_left(key_name,6),G_("_gale."))) {
 	skip:
 		gale_key_hook_done(oop,key,handle);
 		return;
@@ -219,7 +220,7 @@ static void on_search(struct gale_time now,oop_source *oop,
 
 	if (NULL == cache) {
 		int at;
-		const struct gale_text name = key_i_swizzle(gale_key_name(key));
+		const struct gale_text name = key_i_swizzle(key_name);
 		for (at = 0; at < name.l && '@' != name.p[at]; ++at) ;
 		if (name.l == at) goto skip;
 
@@ -240,10 +241,10 @@ static void on_search(struct gale_time now,oop_source *oop,
 
 		link_on_message(cache->link,on_packet,cache);
 		gale_find_exact_location(oop,gale_text_concat(2,
-			G_("_gale.query."),gale_key_name(key)),
+			G_("_gale.query."),key_name),
 			on_query_location,cache);
 		gale_find_exact_location(oop,gale_text_concat(2,
-			G_("_gale.key."),gale_key_name(key)),
+			G_("_gale.key."),key_name),
 			on_key_location,cache);
 	}
 
@@ -258,14 +259,15 @@ static void on_search(struct gale_time now,oop_source *oop,
 		unsigned variant = (* (unsigned *) random.p) % refresh_interval;
 
 		cache->last_refresh = gale_key_time(old);
-		gale_key_hook_done(oop,key,handle);
-		handle = NULL;
 		if (0 < gale_time_compare(cache->last_refresh,
 			gale_time_diff(now,gale_time_seconds(variant))))
-			return;
+			goto skip;
+
 		gale_alert(GALE_NOTICE,gale_text_concat(3,
 			G_("refreshing \""),
-			gale_key_name(key),G_("\"")),0);
+			key_name,G_("\"")),0);
+		gale_key_hook_done(oop,key,handle);
+		handle = NULL;
 	}
 
 	/* BUG?  We're assuming the timeout is actually scheduled... */
@@ -283,7 +285,7 @@ static void on_search(struct gale_time now,oop_source *oop,
 	oop->on_time(oop,timeout,on_timeout,cache);
 
 	gale_alert(GALE_NOTICE,gale_text_concat(3,
-		G_("requesting key \""),gale_key_name(key),G_("\"")),0);
+		G_("requesting key \""),key_name,G_("\"")),0);
 }
 
 void key_i_init_akd(void) {
