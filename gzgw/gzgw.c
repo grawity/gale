@@ -151,7 +151,8 @@ void to_z(struct gale_message *msg) {
 	len = strlen(category);
 	while ((next = strstr(next,category))) {
 		if (next == msg->category || next[-1] == ':') {
-			sscanf(next + len,"/%31[^/]/%255[^\n]",class,instance);
+			sscanf(next + len,"/%31[^/:]/%255[^:\n]",
+			       class,instance);
 			break;
 		}
 		next += len;
