@@ -186,7 +186,7 @@ static struct gale_text comma_list(struct gale_location **loc) {
 static void *on_receipt(struct gale_text n,struct gale_location *to,void *x) {
 	struct gale_fragment reply;
 	if (NULL != user_location) {
-		reply.name = G_("answer/receipt");
+		reply.name = G_("answer.receipt");
 		reply.type = frag_text;
 		reply.value.text = gale_location_name(user_location);
 		slip(to,&reply,on_put,NULL);
@@ -234,6 +234,7 @@ static void *on_message(struct gale_message *msg,void *data) {
 
 	/* Set some variables for gsubrc. */
 	gale_set(G_("GALE_FROM"),comma_list(msg->from));
+	gale_set(G_("GALE_SENDER"),comma_list(msg->from));
 	gale_set(G_("GALE_TO"),comma_list(msg->to));
 
 	/* Go through the message fragments. */
@@ -484,6 +485,13 @@ static void *on_complete() {
 
 	/* Fork ourselves into the background, unless we shouldn't. */
 	if (do_fork) gale_daemon(source);
+
+	if (do_verbose)
+		gale_alert(GALE_NOTICE,gale_text_concat(2,
+			(do_fork ? G_("running in background as pid ") 
+			         : G_("running in foreground as pid ")),
+			gale_text_from_number(getpid(),10,0)),0);
+
 	if (tty) {
 		gale_kill(gale_text_from(gale_global->enc_filesys,tty,-1),do_kill);
 		gale_watch_tty(source,1);
@@ -667,6 +675,7 @@ int main(int argc,char **argv) {
 
 	case 'q': /* Quiet */
 		do_chat = 0;
+		do_verbose = 0;
 		break;
 
 	case 'v': /* Verbose */
@@ -687,11 +696,6 @@ int main(int argc,char **argv) {
 	if (do_verbose) {
 		if (!do_presence)
 			gale_alert(GALE_NOTICE,G_("presence is disabled"),0);
-
-		if (do_fork)
-			gale_alert(GALE_NOTICE,G_("running in background"),0);
-		else
-			gale_alert(GALE_NOTICE,G_("running in foreground"),0);
 
 		if (rclib.l > 0)
 			gale_alert(GALE_NOTICE,gale_text_concat(3,

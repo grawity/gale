@@ -20,9 +20,12 @@ static void print_id(struct gale_text id,struct gale_text dfl) {
 	}
 
 	while (gale_text_token(id,',',&tok)) {
+                int at;
 		if (first) first = 0; else gale_print(stdout,0,G_(","));
 		gale_print(stdout,0,G_(" <"));
-		gale_print(stdout,gale_print_bold,tok);
+                for (at = 0; at < tok.l && '@' != tok.p[at]; ++at) ;
+		gale_print(stdout,gale_print_bold,gale_text_left(tok,at));
+		gale_print(stdout,0,gale_text_right(tok,-at));
 		gale_print(stdout,0,G_(">"));
 	}
 }
@@ -80,6 +83,7 @@ void default_gsubrc(void) {
 			gale_print(stdout,0,subject);
 			gale_print(stdout,0,G_("\""));
 		}
+
 		print_id(gale_var(G_("GALE_FROM")),G_("unverified"));
 		if (from_name.l) {
 			gale_print(stdout,0,G_(" ("));
