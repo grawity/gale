@@ -99,7 +99,9 @@ int main(int argc,char *argv[]) {
 	server = gale_open(source,link,category,null_text,0);
 	gale_set_error_link(source,link);
 
-	gale_daemon(source,0);
+	gale_daemon(source);
+	gale_kill(auth_id_name(domain),1);
+	gale_detach();
 	link_on_message(link,on_message,NULL);
 	oop_sys_run(sys);
 

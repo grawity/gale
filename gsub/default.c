@@ -25,11 +25,8 @@ void default_gsubrc(int do_beep) {
 
 	/* Ignore messages to category /ping */
 	text = null_text;
-	while (gale_text_token(cat,':',&text)) {
-		if (!gale_text_compare(G_("/ping"),
-			gale_text_right(text,5)))
-			return;
-	}
+	while (gale_text_token(cat,':',&text))
+		if (!gale_text_compare(G_("/ping"),text)) return;
 
 	/* Get the time */
 	if (0 == (timecode = gale_var(G_("GALE_TIME_ID_TIME"))).l) {
@@ -37,6 +34,15 @@ void default_gsubrc(int do_beep) {
 		time_t when = time(NULL);
 		strftime(tstr,sizeof(tstr),"%Y-%m-%d %H:%M:%S",localtime(&when));
 		timecode = gale_text_from_local(tstr,-1);
+	}
+
+	if (0 != gale_var(G_("GALE_DATA_SECURITY_ENCRYPTION")).l) {
+		gale_alert(GALE_WARNING,
+			gale_text_to_local(gale_text_concat(3,
+				G_("decryption error in \""),
+				cat,
+				G_("\""))),0);
+		return;
 	}
 
 	/* Format return receipts and presence notices specially */
@@ -51,9 +57,9 @@ void default_gsubrc(int do_beep) {
 			gale_print(stdout,0,presence);
 		}
 		if (subject.l) {
-			gale_print(stdout,0,G_(" ["));
+			gale_print(stdout,0,G_(" \""));
 			gale_print(stdout,0,subject);
-			gale_print(stdout,0,G_("]"));
+			gale_print(stdout,0,G_("\""));
 		}
 		print_id(gale_var(G_("GALE_SIGNED")),G_("unverified"));
 		if (from_name.l) {
@@ -286,7 +292,7 @@ void default_gsubrc(int do_beep) {
 		if (from_name.l)
 			print_id(from_id,G_("unverified"));
 		else
-			print_id(null_text,G_("anonymous"));
+			print_id(from_id,G_("anonymous"));
 
 		gale_print(stdout,0,G_(" for"));
 		print_id(to_id,G_("everyone"));

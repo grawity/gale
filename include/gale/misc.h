@@ -294,8 +294,9 @@ struct gale_connect *gale_make_connect(
 
 void gale_abort_connect(struct gale_connect *);
 
-/* Daemonize (go into the background).  If keep_tty is true (1), don't detach
-   from the tty (gsub does this), otherwise do (like most daemons). */
-void gale_daemon(oop_source *,int keep_tty);
+/* Daemonize (go into the background). */
+void gale_daemon(oop_source *);
+/* Detach from the TTY (like galed, unlike gsub). */
+void gale_detach();
 
 #endif

@@ -88,8 +88,9 @@ WWW_LIBS = @WWW_LIBS@
 AUTOMAKE_OPTIONS = foreign 1.2
 lib_LTLIBRARIES = liboop.la liboop-adns.la liboop-glib.la liboop-www.la
 INCLUDES = $(GLIB_INCLUDES) $(WWW_INCLUDES)
+EXTRA_DIST = liboop.spec
 
-# versions updated as of 0.4; 0.5 only changes build stuff.
+# versions updated as of 0.4; 0.5 and 0.6 only change build stuff.
 
 liboop_la_LDFLAGS = -version-info 2:0:0 # version:revision:age
 liboop_la_SOURCES = sys.c select.c signal.c alloc.c

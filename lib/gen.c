@@ -85,8 +85,6 @@ static void write_priv(struct auth_id *id) {
 			close(fd);
 		}
 		gale_wait(pid);
-		gale_free(key.p);
-		gale_free(argv[1]);
 	}
 }
 
@@ -123,7 +121,6 @@ static void write_pub(struct auth_id *id) {
 				gale_global->dot_local,G_("/"),inode.name,
 				G_("\""))),0);
 		}
-		gale_free(key.p);
 	}
 }
 

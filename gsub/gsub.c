@@ -328,6 +328,10 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 		if (frag_number == frag.type)
 			gale_set(gale_text_concat(2,G_("GALE_NUMBER_"),name),
 				gale_text_from_number(frag.value.number,10,0));
+
+		if (frag_data == frag.type)
+			gale_set(gale_text_concat(2,G_("GALE_DATA_"),name),
+				G_("(stuff)"));
 	}
 
 	/* Give them our key, if they wanted it. */
@@ -635,7 +639,7 @@ int main(int argc,char **argv) {
 	gale_on_connect(server,on_connected,NULL);
 
 	/* Fork ourselves into the background, unless we shouldn't. */
-	if (do_fork) gale_daemon(source,1);
+	if (do_fork) gale_daemon(source);
 	source->on_signal(source,SIGHUP,on_signal,NULL);
 	source->on_signal(source,SIGTERM,on_signal,NULL);
 	source->on_signal(source,SIGINT,on_signal,NULL);

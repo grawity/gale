@@ -19,6 +19,43 @@ static void remove_dotfile(void *data) {
 	}
 }
 
+static int send_kill(int pid,int sig,const char *name) {
+	if (!kill(pid,sig)) {
+		gale_alert(GALE_NOTICE,gale_text_to_local(
+			gale_text_concat(4,
+				G_("sent "),
+				gale_text_from_local(name,-1),
+				G_(" signal to process "),
+				gale_text_from_number(pid,10,0))),0);
+		return 1;
+	}
+
+	if (ESRCH != errno && ENOENT != errno)
+		gale_alert(GALE_WARNING,"kill",errno);
+	return 0;
+}
+
+static int wait_for(int pid) {
+	static const unsigned long delay[] = { 10, 40, 150, 300, 500 };
+	int i = 0;
+
+	for (i = 0; i < sizeof(delay) / sizeof(delay[0]); ++i) {
+		struct timeval tv;
+		if (kill(pid,0)) return 1;
+		gettimeofday(&tv,NULL);
+		tv.tv_sec = 0;
+		tv.tv_usec = 1000 * delay[0];
+		select(0,NULL,NULL,NULL,&tv);
+	}
+
+	return !!kill(pid,0);
+}
+
+static void terminate(int pid) {
+	if (send_kill(pid,SIGTERM,"TERM")
+	&& !wait_for(pid)) send_kill(pid,SIGKILL,"KILL");
+}
+
 void gale_kill(struct gale_text class,int do_kill) {
 	int fd,len,pid = getpid();
 	DIR *pdir;
@@ -56,7 +93,7 @@ void gale_kill(struct gale_text class,int do_kill) {
 				int kpid = gale_text_to_number(
 					gale_text_right(dn,-len));
 				if (kpid != pid) {
-					kill(kpid,SIGTERM);
+					terminate(kpid);
 					unlink(gale_text_to_local(
 						dir_file(gale_global->dot_gale,dn)));
 				}

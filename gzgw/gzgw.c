@@ -105,7 +105,7 @@ void *z_to_g(oop_source *source,int sock,oop_event event,void *d) {
 	while (ZPending() > 0) {
 		if ((retval = ZReceiveNotice(&notice,NULL)) != ZERR_NONE) {
 			com_err(myname,retval,"while receiving notice");
-			return;
+			return OOP_CONTINUE;
 		}
 		to_g(&notice);
 		ZFreeNotice(&notice);
@@ -118,14 +118,14 @@ void *to_z(struct gale_link *conn,struct gale_message *msg,void *data) {
 	ZNotice_t notice;
 	char instance[256] = "(invalid)";
 	char *sig = NULL,*body = NULL;
-	struct auth_id *signature,*encryption;
+	struct auth_id *signature;
 	struct gale_group group;
 	struct gale_text token = null_text;
 	int retval;
 
-	encryption = decrypt_message(msg,&msg);
-	if (!msg) return;
-	signature = verify_message(msg,&msg);
+	(void) auth_decrypt(&msg->data);
+	if (!msg) return OOP_CONTINUE;
+	signature = auth_verify(&msg->data);
 
 	memset(&notice,0,sizeof(notice));
 	notice.z_kind = UNACKED;
@@ -133,7 +133,7 @@ void *to_z(struct gale_link *conn,struct gale_message *msg,void *data) {
 	notice.z_class = sub.zsub_class;
 	notice.z_class_inst = instance;
 	notice.z_opcode = "gale";
-	notice.z_default_format = "";
+	notice.z_default_format = "Class $class, Instance $instance:\nTo: @bold($recipient) at $time $date\nFrom: @bold($1) <$sender>\n\n$2";
 	notice.z_recipient = "";
 	if (signature)
 		notice.z_sender = gale_text_to_latin1(auth_id_name(signature));
@@ -190,6 +190,8 @@ void *to_z(struct gale_link *conn,struct gale_message *msg,void *data) {
 	if ((retval = ZSendNotice(&notice,ZAUTH)) != ZERR_NONE &&
 	    (retval = ZSendNotice(&notice,ZNOAUTH)) != ZERR_NONE)
 		com_err(myname,retval,"while sending notice");
+
+	return OOP_CONTINUE;
 }
 
 void usage(void) {
@@ -203,11 +205,9 @@ void usage(void) {
 }
 
 int main(int argc,char *argv[]) {
-	struct gale_server *server;
 	oop_source_sys *sys;
 	oop_source *source;
 	int retval,opt;
-	fd_set fds;
 
 	gale_init("gzgw",argc,argv);
 	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
@@ -243,7 +243,7 @@ int main(int argc,char *argv[]) {
 
 	gale_dprintf(2,"subscribing to gale: \"%s\"\n",gale_text_to_local(cat));
 	conn = new_link(source);
-	server = gale_open(source,conn,cat,null_text);
+	(void) gale_open(source,conn,cat,null_text,0);
 
 	gale_dprintf(2,"subscribing to Zephyr\n");
 	gale_dprintf(3,"... triple %s,%s,%s\n",
@@ -267,7 +267,9 @@ int main(int argc,char *argv[]) {
 	}
 
 	gale_dprintf(1,"starting\n");
-	gale_daemon(source,0);
+	gale_daemon(source);
+	gale_kill(gale_text_from_local(sub.zsub_class,-1),1);
+	gale_detach();
 
 	gale_cleanup(cleanup,NULL);
 	link_on_message(conn,to_z,NULL);

@@ -14,8 +14,9 @@ struct path {
 
 void usage(void) {
 	fprintf(stderr,"%s\n"
-	"usage: cd logdir && glxml [-h] category\n"
-	"flags: -h          Display this message\n",GALE_BANNER);
+	"usage: cd logdir && glxml [-hn] category\n"
+	"flags: -h          Display this message\n"
+	"       -n          Do not fork\n",GALE_BANNER);
 	exit(1);
 }
 
@@ -248,13 +249,14 @@ int main(int argc,char *argv[]) {
 	struct gale_text subs;
 	struct gale_link *link;
 	struct gale_server *server;
-	int arg;
+	int arg,do_fork = 1;
 
 	gale_init("glxml",argc,argv);
 	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
 
-	while ((arg = getopt(argc,argv,"h")) != EOF) 
+	while ((arg = getopt(argc,argv,"hn")) != EOF) 
 	switch (arg) {
+	case 'n': do_fork = 0; break;
 	case 'h':
 	case '?': usage();
 	}
@@ -266,7 +268,14 @@ int main(int argc,char *argv[]) {
 	gale_set_error_link(source,link);
 	server = gale_open(source,link,subs,null_text,0);
 
-	gale_daemon(source,0);
+	if (do_fork) {
+		char buf[PATH_MAX] = "(error)";
+		gale_daemon(source);
+		getcwd(buf,PATH_MAX);
+		gale_kill(gale_text_from_local(buf,-1),1);
+		gale_detach();
+	}
+
 	oop_sys_run(sys);
 
 	return 0;

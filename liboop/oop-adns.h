@@ -18,7 +18,7 @@ typedef struct oop_adns_query oop_adns_query;
 typedef void *oop_adns_call(oop_adapter_adns *,adns_answer *,void *);
 
 /* A liboop adns adapter creates an adns instance tied to a liboop source. 
-   oop_adns_new() Returns NULL on failure.*/
+   oop_adns_new() returns NULL on failure.*/
 oop_adapter_adns *oop_adns_new(oop_source *,adns_initflags,FILE *diag);
 void oop_adns_delete(oop_adapter_adns *);
 

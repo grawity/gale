@@ -113,7 +113,18 @@ void gale_beep(FILE *fp) {
 
 int gale_columns(FILE *fp) {
 	int f = fileno(fp);
+
+	/* $GALE_COLUMNS takes precedence. */
+	{
+		struct gale_text cols = gale_var(G_("GALE_COLUMNS"));
+		int num = gale_text_to_number(cols);
+		if (0 != num) return num;
+	}
+
+	/* Other methods rely on a terminal; no terminal => 80 columns. */
 	if (!isatty(f)) return 80;
+
+	/* The most reliable method is to use TTY window-size information. */
 #ifdef TIOCGWINSZ
 	{
 		struct winsize ws;
@@ -121,11 +132,17 @@ int gale_columns(FILE *fp) {
 			return ws.ws_col;
 	}
 #endif
+
+	/* Otherwise, maybe there's an environment variable? */
 	{
-		char *cols = getenv("COLUMNS");
-		if (cols && atoi(cols)) return atoi(cols);
+		struct gale_text cols = gale_var(G_("COLUMNS"));
+		int num = gale_text_to_number(cols);
+		if (0 != num) return num;
 	}
 
+	/* Finally, use the static information in the termcap entry, if any. */
 	if (term_cols > 0) return term_cols;
+
+	/* If all else fails, default to 80 columns. */
 	return 80;
 }

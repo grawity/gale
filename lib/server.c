@@ -20,25 +20,26 @@ static void *on_ignore(oop_source *source,int sig,void *data) {
 	return OOP_CONTINUE;
 }
 
-void gale_daemon(oop_source *source,int keep_tty) {
+void gale_daemon(oop_source *source) {
 	if (!gale_global->debug_level) {
 		if (0 != fork()) exit(0);
 		setsid();
-		if (keep_tty)
-			source->on_signal(source,SIGTTOU,on_ignore,NULL);
-		else {
-			int fd;
-			fd = open("/dev/null",O_RDWR);
-			if (fd >= 0) {
-				dup2(fd,0);
-				dup2(fd,1);
-				dup2(fd,2);
-				if (fd > 2) close(fd);
-			} else {
-				close(0);
-				close(1);
-				close(2);
-			}
+		source->on_signal(source,SIGTTOU,on_ignore,NULL);
+	}
+}
+
+void gale_detach() {
+	if (!gale_global->debug_level) {
+		int fd = open("/dev/null",O_RDWR);
+		if (fd >= 0) {
+			dup2(fd,0);
+			dup2(fd,1);
+			dup2(fd,2);
+			if (fd > 2) close(fd);
+		} else {
+			close(0);
+			close(1);
+			close(2);
 		}
 	}
 }

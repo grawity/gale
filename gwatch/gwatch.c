@@ -285,7 +285,7 @@ int main(int argc,char *argv[]) {
 	link = new_link(source);
 	server = gale_open(source,link,spec,null_text,0);
 
-	if (do_fork) gale_daemon(source,1);
+	if (do_fork) gale_daemon(source);
 	if (tty.l) {
 		gale_kill(tty,do_kill);
 		gale_watch_tty(source,1);

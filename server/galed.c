@@ -163,10 +163,11 @@ int main(int argc,char *argv[]) {
 	gale_dprintf(0,"starting gale server\n");
 	openlog(argv[0],LOG_PID,LOG_LOCAL5);
 
-	make_listener(oop_sys_source(sys),server_port);
-
 	gale_dprintf(1,"now listening, entering main loop\n");
-	gale_daemon(oop_sys_source(sys),0);
+	gale_daemon(oop_sys_source(sys));
+	gale_kill(gale_text_from_number(server_port,10,0),1);
+	make_listener(oop_sys_source(sys),server_port);
+	gale_detach();
 	gale_on_error_message(oop_sys_source(sys),on_error_message,NULL);
 	oop_sys_run(sys);
 	return 0;

@@ -51,6 +51,8 @@ int main(int argc,char *argv[]) {
 	}
 
 	init_auth_id(&id,gale_text_from_local(argv[optind],-1));
+	if (!gale_text_compare(G_("ROOT"),_ga_signer(auth_id_name(id))))
+		gale_alert(GALE_WARNING,"making top-level domain key!",0);
 	if (do_wipe) {
 		while (auth_id_public(id) && _ga_erase_inode(id->pub_inode)) {
 			gale_alert(GALE_NOTICE,

@@ -124,11 +124,12 @@ static void *on_signal(oop_source *source,int sig,void *data) {
 #include "adns.h"
 #include "oop-adns.h"
 
+#define ADNS_CANCEL
 #define NUM_Q 6
 oop_adns_query *q[NUM_Q];
 oop_adapter_adns *adns;
 
-void *stop_lookup(oop_source *src,int sig,void *data) {
+void cancel_adns(void) {
 	int i;
 
 	for (i = 0; i < NUM_Q; ++i)
@@ -141,7 +142,10 @@ void *stop_lookup(oop_source *src,int sig,void *data) {
 		oop_adns_delete(adns);
 		adns = NULL;
 	}
+}
 
+void *stop_lookup(oop_source *src,int sig,void *data) {
+	cancel_adns();
 	src->cancel_signal(src,SIGQUIT,stop_lookup,NULL);
 	return OOP_CONTINUE;
 }
@@ -151,17 +155,20 @@ void *on_lookup(oop_adapter_adns *adns,adns_answer *reply,void *data) {
 	for (i = 0; i < NUM_Q; ++i) if (data == &q[i]) q[i] = NULL;
 
 	printf("adns: %s =>",reply->owner);
-	if (adns_s_ok != reply->status) {
+	if (adns_s_ok != reply->status)
 		printf(" error: %s\n",adns_strerror(reply->status));
-		return OOP_CONTINUE;
+	else {
+		if (NULL != reply->cname) printf(" (%s)",reply->cname);
+		assert(adns_r_a == reply->type);
+		for (i = 0; i < reply->nrrs; ++i)
+			printf(" %s",inet_ntoa(reply->rrs.inaddr[i]));
+		printf("\n");
 	}
-	if (NULL != reply->cname) printf(" (%s)",reply->cname);
-	assert(adns_r_a == reply->type);
-	for (i = 0; i < reply->nrrs; ++i)
-		printf(" %s",inet_ntoa(reply->rrs.inaddr[i]));
-	printf("\n");
-	free(reply);
 
+	free(reply);
+#ifdef ADNS_CANCEL
+	cancel_adns();
+#endif
 	return OOP_CONTINUE;
 }
 
