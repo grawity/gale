@@ -482,13 +482,7 @@ static void *on_reconnect(
 static void *on_complete() {
 	int i,count;
 	if (0 != --lookup_count) return OOP_CONTINUE;
-
-	if (do_default) {
-		if (do_verbose) gale_alert(GALE_NOTICE,gale_text_concat(3,
-			G_("subscription: \""),
-			gale_location_name(user_location),G_("\"")),0);
-		sub_location[add_sub()] = user_location;
-	}
+	if (do_default) sub_location[add_sub()] = user_location;
 
 #ifndef NDEBUG
 	sub_location[add_sub()] = restart_to_location;
@@ -504,6 +498,15 @@ static void *on_complete() {
 					G_("no private key for \""),
 					gale_location_name(sub_location[i]),
 					G_("\"")),0);
+
+			if (do_verbose) 
+				gale_alert(GALE_NOTICE,gale_text_concat(3,
+					sub_positive[i] 
+						? G_("subscription: \"")
+						: G_("filtering out: \""),
+					gale_location_name(sub_location[i]),
+					G_("\"")),0);
+
 			sub_location[count] = sub_location[i];
 			sub_positive[count] = sub_positive[i];
 			++count;
@@ -738,7 +741,7 @@ int main(int argc,char **argv) {
 			while (gale_text_token(line,' ',&space)) {
 				struct gale_text tab = null_text;
 				while (gale_text_token(space,'\t',&tab))
-					argument(tab,&positive,do_verbose);
+					argument(tab,&positive,0);
 			}
 		}
 	}
@@ -751,7 +754,7 @@ int main(int argc,char **argv) {
 	while (argc != optind)
 		argument(gale_text_from(
 			gale_global->enc_cmdline,
-			argv[optind++],-1),&positive,do_chat || do_verbose);
+			argv[optind++],-1),&positive,do_chat);
 
 	if (!positive)
 		gale_alert(GALE_WARNING,G_("trailing - in arguments"),0);
