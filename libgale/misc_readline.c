@@ -21,7 +21,7 @@ struct gale_text gale_read_line(FILE *fp) {
 		: (stdin == fp) 
 		? gale_global->enc_console
 		: gale_global->enc_filesys;
-	char buf[40];
+	char buf[4096];
 	int len;
 
 #ifdef HAVE_READLINE

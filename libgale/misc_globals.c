@@ -67,17 +67,23 @@ static void read_conf(struct gale_text fn) {
 	fclose(fp);
 }
 
-static struct gale_encoding *get_charset(struct gale_text name) {
-	struct gale_text enc;
+static struct gale_encoding *get_charset(
+	struct gale_text name,
+	struct gale_encoding *fallback) 
+{
+	const struct gale_text enc = gale_var(name);
+	struct gale_encoding * const ret = gale_make_encoding(enc);
+	if (NULL == ret && 0 != enc.l)
+		gale_alert(GALE_WARNING,gale_text_concat(4,
+			G_("unknown encoding \""),enc,
+			G_("\" for "),name),0);
 
-	enc = gale_var(name);
-	if (0 == enc.l) enc = gale_var(G_("GALE_CHARSET"));
-	if (0 == enc.l) enc = gale_var(G_("CHARSET"));
-	return gale_make_encoding(enc);
+	return ret ? ret : fallback;
 }
 
 void _gale_globals(void) {
 	struct gale_global_data *G = gale_malloc_safe(sizeof(*gale_global));
+	struct gale_encoding *fallback;
 	struct gale_text conf;
 	memset(G,'\0',sizeof(*gale_global));
 	gale_global = G;
@@ -111,11 +117,15 @@ void _gale_globals(void) {
 
 	/* Set up character encodings. */
 
-	G->enc_console = get_charset(G_("GALE_CHARSET_CONSOLE"));
-	G->enc_filesys = get_charset(G_("GALE_CHARSET_FILESYSTEM"));
-	G->enc_environ = get_charset(G_("GALE_CHARSET_ENVIRON"));
-	G->enc_cmdline = get_charset(G_("GALE_CHARSET_CMDLINE"));
-	G->enc_sys = get_charset(G_("GALE_CHARSET_SYSTEM"));
+	fallback = get_charset(G_("GALE_CHARSET"),NULL);
+	if (NULL == fallback) fallback = get_charset(G_("CHARSET"),NULL);
+	if (NULL == fallback) fallback = gale_make_encoding(G_("ASCII"));
+
+	G->enc_console = get_charset(G_("GALE_CHARSET_CONSOLE"),fallback);
+	G->enc_filesys = get_charset(G_("GALE_CHARSET_FILESYSTEM"),fallback);
+	G->enc_environ = get_charset(G_("GALE_CHARSET_ENVIRON"),fallback);
+	G->enc_cmdline = get_charset(G_("GALE_CHARSET_CMDLINE"),fallback);
+	G->enc_sys = get_charset(G_("GALE_CHARSET_SYSTEM"),fallback);
 
 	/* Now we initialize lots of directories. */
 

@@ -37,10 +37,8 @@ struct gale_encoding *gale_make_encoding(struct gale_text name) {
 		enc->to = get_iconv(name,ienc);
 
 		if ((iconv_t) -1 == enc->from
-		||  (iconv_t) -1 == enc->to) {
-			gale_alert(GALE_WARNING,name,errno);
+		||  (iconv_t) -1 == enc->to)
 			enc = NULL;
-		}
 	}
 #endif
 
