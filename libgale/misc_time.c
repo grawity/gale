@@ -137,7 +137,7 @@ struct gale_text gale_time_format(struct gale_time time) {
 	tm = gmtime(&tv.tv_sec);
 	strftime(date,sizeof(date),"%Y.%m.%d @",tm);
 
-	beat = 100000 * (3600*tm->tm_hour + 60*tm->tm_min + tm->tm_sec) / 86400;
+	beat = 1000 * (3600*tm->tm_hour + 60*tm->tm_min + tm->tm_sec) / 864;
 	return gale_text_concat(4,
 		gale_text_from(NULL,date,-1),
 		gale_text_from_number(beat / 100,10,-3),
