@@ -7,21 +7,23 @@
 #include <ctype.h>
 #include <stdlib.h> /* TODO */
 
-/* Print a string, shell-quoting any special characters. */
-static void print_string(int style,struct gale_text string) {
+/* Return nonzero if a string needs quoting.  Escape quotes in the string. */
+static int quote_string(struct gale_text *string) {
 	int i;
-	for (i = 0; i < string.l; ++i)
-		if (string.p[i] > 128 
-		|| (!isalnum(string.p[i])
-		&&  '.' != string.p[i]
-		&&  ',' != string.p[i]
-		&&  '-' != string.p[i]
-		&&  '_' != string.p[i]
-		&&  '/' != string.p[i]
-		&&  '@' != string.p[i])) break;
-	if (i < string.l) gale_print(stdout,0,G_("\""));
-	gale_print(stdout,style,string);
-	if (i < string.l) gale_print(stdout,0,G_("\""));
+	for (i = 0; i < string->l; ++i)
+		if (string->p[i] > 128 
+		|| (!isalnum(string->p[i])
+		&&  '.' != string->p[i]
+		&&  ',' != string->p[i]
+		&&  '-' != string->p[i]
+		&&  '_' != string->p[i]
+		&&  '/' != string->p[i]
+		&&  ':' != string->p[i]
+		&&  '@' != string->p[i])) break;
+
+	if (i == string->l) return 0;
+	*string = gale_text_replace(*string,G_("'"),G_("'\\''"));
+	return 1;
 }
 
 /* Print a user ID, with a default string (like "everyone") for NULL. */
@@ -38,10 +40,20 @@ static void print_id(struct gale_text var,struct gale_text dfl) {
 
 	do {
                 int at;
+		struct gale_text local,domain;
 		gale_print(stdout,0,G_(" "));
                 for (at = 0; at < value.l && '@' != value.p[at]; ++at) ;
-		print_string(gale_print_bold,gale_text_left(value,at));
-		print_string(0,gale_text_right(value,-at));
+		local = gale_text_left(value,at);
+		domain = gale_text_right(value,-at);
+		if (quote_string(&local) || quote_string(&domain)) {
+			gale_print(stdout,0,G_("'"));
+			gale_print(stdout,gale_print_bold,local);
+			gale_print(stdout,0,domain);
+			gale_print(stdout,0,G_("'"));
+		} else {
+			gale_print(stdout,gale_print_bold,local);
+			gale_print(stdout,0,domain);
+		}
 
 		value = gale_var(gale_text_concat(3,var,G_("_"),
 			gale_text_from_number(++i,10,0)));
@@ -54,6 +66,7 @@ static int id_width(struct gale_text var,struct gale_text dfl) {
 	if (0 == value.l) return 3 + dfl.l;
 
 	do {
+		if (quote_string(&value)) len += 2;
 		len += 1 + value.l;
 		value = gale_var(gale_text_concat(3,var,G_("_"),
 			gale_text_from_number(++i,10,0)));
@@ -103,7 +116,7 @@ void default_gsubrc(void) {
 		if (answer.l) gale_print(stdout,0,G_(" received:"));
 		if (presence.l) {
 			gale_print(stdout,0,G_(" "));
-			print_string(0,presence);
+			gale_print(stdout,0,presence);
 		}
 
 		print_id(G_("GALE_FROM"),G_("unverified"));
@@ -138,7 +151,12 @@ void default_gsubrc(void) {
 	text = gale_var(G_("GALE_TEXT_MESSAGE_KEYWORD"));
 	while (text.l) {
 		gale_print(stdout,0,G_(" /"));
-		print_string(gale_print_bold,text);
+		if (quote_string(&text)) {
+			gale_print(stdout,0,G_("'"));
+			gale_print(stdout,gale_print_bold,text);
+			gale_print(stdout,0,G_("'"));
+		} else
+			gale_print(stdout,gale_print_bold,text);
 		text = gale_var(gale_text_concat(2,
 			G_("GALE_TEXT_MESSAGE_KEYWORD_"),
 			gale_text_from_number(++i,10,0)));
