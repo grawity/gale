@@ -2,6 +2,9 @@
 #include "gale/misc.h"
 #include "gale/globals.h"
 
+/** Add standard identifying fragments to a message.
+ *  \param group Group to add fragments to.
+ *  \param terminal Terminal (or other "session") identifier for this client. */
 void gale_add_id(struct gale_group *group,struct gale_text terminal) {
 	struct gale_fragment f;
 
