@@ -80,14 +80,20 @@ void gale_alert(int sev,const char *msg,int err) {
 
 	message = gale_malloc(sizeof(*message));
 	message->severity = sev;
-	message->text = gale_text_from_local(tmp,-1);
-	if (NULL == gale_global->error)
-		output(message);
+	if (NULL == gale_global)
+		message->text = gale_text_from(NULL,tmp,-1);
 	else
+		message->text = gale_text_from(gale_global->enc_console,tmp,-1);
+
+	if (NULL == gale_global || NULL == gale_global->error)
+		output(message);
+	else {
+		message->text = gale_text_from(gale_global->enc_console,tmp,-1);
 		gale_global->error->source->on_time(
 			gale_global->error->source,
 			OOP_TIME_NOW,
 			on_error,message);
+	}
 
 	if (sev == GALE_ERROR) exit(1);
 }

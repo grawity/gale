@@ -79,7 +79,7 @@ static struct gale_message *link_filter(struct gale_message *msg,void *x) {
 	/* strip leading colon */
 	if (rewrite->cat.l > 0) rewrite->cat = gale_text_right(rewrite->cat,-1);
 		gale_dprintf(5,"*** rewrote categories to \"%s\"\n",
-		gale_text_to_local(rewrite->cat));
+		gale_text_to(gale_global->enc_console,rewrite->cat));
 	return rewrite;
 }
 

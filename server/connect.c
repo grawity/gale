@@ -37,7 +37,7 @@ static struct gale_text connect_report(void *d) {
 		G_("["),
 		gale_text_from_number((unsigned int) conn->link,16,8),
 		G_("] connect: peer="),
-		gale_text_from_local(inet_ntoa(peer.sin_addr),-1),
+		gale_text_from(NULL,inet_ntoa(peer.sin_addr),-1),
 		G_(", push ["),
 		conn->subscr,
 		G_("]\n"));

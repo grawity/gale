@@ -13,11 +13,13 @@ struct gale_environ {
 };
 
 struct gale_text gale_var(struct gale_text name) {
-	return gale_text_from_local(getenv(gale_text_to_local(name)),-1);
+	return gale_text_from(gale_global->enc_system,getenv(gale_text_to(
+		gale_global->enc_system,name)),-1);
 }
 
 void gale_set(struct gale_text name,struct gale_text value) {
-	char *text = gale_text_to_local(gale_text_concat(3,name,G_("="),value));
+	char *text = gale_text_to(gale_global->enc_system,
+		gale_text_concat(3,name,G_("="),value));
 	char **envp;
 	size_t len = name.l + 1;
 

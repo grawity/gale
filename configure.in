@@ -79,16 +79,17 @@ if test -z "$no_wacky_libs" ; then
   AC_CHECK_LIB(socket,socket)
 fi
 
-termcap_lib=""
-AC_CHECK_LIB(termcap,tgetent,[
-  GALE_LIBS="$GALE_LIBS -ltermcap"
-  termcap_lib="-ltermcap"
-],[
-  AC_CHECK_LIB(ncurses,tgetent,[
-    GALE_LIBS="$GALE_LIBS -lncurses"
-    termcap_lib="-lncurses"
-  ])
-])
+AC_CHECK_LIB(termcap,tgetent,[LIBS="$LIBS -ltermcap"],[
+  AC_CHECK_LIB(ncurses,tgetent)])
+AC_CHECK_LIB(resolv,res_query)
+AC_CHECK_LIB(iconv,iconv)
+
+dnl Make sure 'iconv' supports multibyte UTF-8 conversion.
+AC_MSG_CHECKING([for working iconv])
+AC_TRY_RUN([#include "iconvtest.c"],[
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_ICONV)
+],[AC_MSG_RESULT(no)],[AC_MSG_RESULT([unknown, assuming no])])
 
 AC_CHECK_LIB(dl,dlopen,[
   DL_LIBS="-ldl"
@@ -100,11 +101,10 @@ AC_CHECK_LIB(readline,readline,[
 if test x$use_socks = xtrue ; then
 AC_CHECK_LIB(socks,SOCKSinit,[
   GALE_LIBS="$GALE_LIBS -lsocks"
-  AC_CHECK_LIB(resolv,res_query,[GALE_LIBS="$GALE_LIBS -lresolv"])
   AC_DEFINE(HAVE_SOCKS) 
 ],[
   AC_MSG_ERROR(cannot find SOCKS library)
-],-lresolv)
+])
 fi
 
 if test x$build_gzgw = xtrue ; then
@@ -184,22 +184,17 @@ if test -f "${srcdir}/liboop/oop.h"; then
   AC_MSG_RESULT(yes)
   CPPFLAGS="-I\${top_srcdir}/liboop $CPPFLAGS"
   build_liboop=true
-  AC_CHECK_LIB(adns,adns_init,[
-   GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop-adns.la -ladns -lresolv"
-    AC_DEFINE(HAVE_ADNS)
-  ],[:],-lresolv)
+  GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop-adns.la -ladns"
   GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop.la"
 else
   AC_MSG_RESULT(no)
   AC_CHECK_LIB(oop,oop_sys_new,[:],[
     AC_MSG_ERROR(cannot find liboop library, see INSTALL directions)
   ])
-  AC_CHECK_LIB(adns,adns_init,[
-    GALE_LIBS="$GALE_LIBS -loop-adns -ladns -lresolv"
-    AC_DEFINE(HAVE_ADNS)
-  ],[:],-lresolv)
-  GALE_LIBS="$GALE_LIBS -loop"
+  GALE_LIBS="$GALE_LIBS -loop-adns -ladns -oop"
 fi
+
+GALE_LIBS="$GALE_LIBS $termcap_lib"
 
 dnl Checks for header files.
 AC_CHECK_HEADERS(sys/bitypes.h sys/select.h curses.h term.h dlfcn.h readline/readline.h getopt.h)

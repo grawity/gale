@@ -75,7 +75,7 @@ static struct gale_text encode(struct cid cid) {
 		sz[2*i + 1] = 'z' - (cid.hash[i] & 0xF);
 	}
 	return gale_text_concat(2,G_("cache."),
-	                        gale_text_from_latin1(sz,sizeof(sz)));
+	                        gale_text_from(NULL,sz,sizeof(sz)));
 }
 
 static struct gale_text temp(void) {
@@ -87,7 +87,7 @@ static struct gale_text temp(void) {
 	pid = getpid();
 
 	return gale_text_concat(6,G_("temp."),
-	       gale_text_from_local(un.nodename,-1),G_("."),
+	       gale_text_from(gale_global->enc_system,un.nodename,-1),G_("."),
 	       gale_text_from_number(pid,10,0),G_("."),
 	       gale_text_from_number(++seq,10,0));
 }
@@ -103,7 +103,9 @@ static int find(struct cid cid,struct gale_text dir,struct gale_text file,
 {
 	struct stat buf;
 	struct gale_data data;
-	const char *sz = gale_text_to_local(dir_file(dir,file));
+	const char *sz = gale_text_to(
+		gale_global->enc_system,
+		dir_file(dir,file));
 	int fd = -1,r;
 
 	if (NULL != pdata) {
@@ -160,7 +162,9 @@ static int find(struct cid cid,struct gale_text dir,struct gale_text file,
 
 error:
 	{
-		const char *szt = gale_text_to_local(dir_file(dir,temp()));
+		const char *szt = gale_text_to(
+			gale_global->enc_system,
+			dir_file(dir,temp()));
 		if (!rename(sz,szt)) unlink(szt);
 	}
 	if (0 <= fd) close(fd);
@@ -168,7 +172,9 @@ error:
 }
 
 static int getlock(struct gale_text dir,struct gale_text file) {
-	const char *sz = gale_text_to_local(dir_file(dir,file));
+	const char *sz = gale_text_to(
+		gale_global->enc_system,
+		dir_file(dir,file));
 	const char *szt = NULL;
 	int fd = -1;
 	struct stat buf;
@@ -177,7 +183,7 @@ static int getlock(struct gale_text dir,struct gale_text file) {
 	if (!stat(sz,&buf)) goto failed;
 
 	/* Now, create a unique file... */
-	szt = gale_text_to_local(dir_file(dir,temp()));	
+	szt = gale_text_to(gale_global->enc_system,dir_file(dir,temp()));	
 	fd = creat(szt,0444);
 	if (fd < 0) goto failed;
 	close(fd); fd = -1;
@@ -197,7 +203,7 @@ failed:
 }
 
 static void clean(struct gale_text dir) {
-	const char *sz = gale_text_to_local(dir);
+	const char *sz = gale_text_to(gale_global->enc_system,dir);
 	char *msg = gale_malloc(2*dir.l + 64);
 	pid_t pid;
 
@@ -225,8 +231,10 @@ static void clean(struct gale_text dir) {
 
 static int store(struct gale_text dir,struct gale_text name,struct gale_data data) {
 	struct gale_text file = dir_file(dir,name);
-	const char *sz = gale_text_to_local(file);
-	const char *szt = gale_text_to_local(dir_file(dir,temp()));
+	const char *sz = gale_text_to(gale_global->enc_system,file);
+	const char *szt = gale_text_to(
+		gale_global->enc_system,
+		dir_file(dir,temp()));
 	struct stat buf;
 	int fd = -1,r;
 

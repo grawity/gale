@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <assert.h>
 #include <ctype.h>
 #include <pwd.h>
 
@@ -32,7 +33,7 @@ static char *read_line(FILE *fp) {
 }
 
 static void read_conf(struct gale_text fn) {
-	FILE *fp = fopen(gale_text_to_local(fn),"r");
+	FILE *fp = fopen(gale_text_to(gale_global->enc_system,fn),"r");
 	char *s = read_line(fp);
 
 	while (s) {
@@ -46,11 +47,11 @@ static void read_conf(struct gale_text fn) {
 		}
 
 		for (len = 0; s[len] && !isspace(s[len]); ++len) ;
-		var = gale_text_from_local(s,len);
+		var = gale_text_from(gale_global->enc_system,s,len);
 
 		s += len;
 		while (*s && isspace(*s)) ++s;
-		value = gale_text_from_local(s,-1);
+		value = gale_text_from(gale_global->enc_system,s,-1);
 
 		s = read_line(fp);
 		while (s && *s && isspace(*s)) {
@@ -58,13 +59,22 @@ static void read_conf(struct gale_text fn) {
 			if (*s == '#') break;
 
 			value = gale_text_concat(2,value,
-				gale_text_from_local(s,-1));
+				gale_text_from(gale_global->enc_system,s,-1));
 
 			s = read_line(fp);
 		}
 
 		if (0 == gale_var(var).l) gale_set(var,value);
 	}
+}
+
+static struct gale_encoding *get_charset(struct gale_text name) {
+	struct gale_text enc;
+
+	enc = gale_var(name);
+	if (0 == enc.l) enc = gale_var(G_("GALE_CHARSET"));
+	if (0 == enc.l) enc = gale_var(G_("CHARSET"));
+	return gale_make_encoding(enc);
 }
 
 void _gale_globals(struct passwd *pwd) {
@@ -76,11 +86,13 @@ void _gale_globals(struct passwd *pwd) {
 	/* These are in this particular order to allow each 'conf' file to
 	   redirect the location of the next one. */
 
-	G->error = NULL;
-	G->cleanup_list = NULL;
+	assert(NULL == G->error);
+	assert(NULL == G->cleanup_list);
+
 	G->home_dir = gale_var(G_("HOME"));
 	if (0 == G->home_dir.l) 
-		G->home_dir = gale_text_from_local(pwd->pw_dir,-1);
+		G->home_dir = gale_text_from(
+			gale_global->enc_system,pwd->pw_dir,-1);
 	make_dir(G->home_dir,0777);
 
 	G->dot_gale = gale_var(G_("GALE_DIR"));
@@ -95,10 +107,16 @@ void _gale_globals(struct passwd *pwd) {
 
 	G->sys_dir = gale_var(G_("GALE_SYS_DIR"));
 	if (0 == G->sys_dir.l) 
-		G->sys_dir = gale_text_from_local(GALE_SYS_DIR,-1);
+		G->sys_dir = gale_text_from(
+			gale_global->enc_system,GALE_SYS_DIR,-1);
 	make_dir(G->sys_dir,0);
 
 	read_conf(dir_file(G->sys_dir,G_("conf")));
+
+	/* Set up character encodings. */
+
+	G->enc_console = get_charset(G_("GALE_CHARSET_CONSOLE"));
+	G->enc_system = get_charset(G_("GALE_CHARSET_SYSTEM"));
 
 	/* Now we initialize lots of directories. */
 
@@ -111,7 +129,8 @@ void _gale_globals(struct passwd *pwd) {
 	G->sys_trusted = sub_dir(G->sys_auth,G_("trusted"),0777);
 	G->sys_private = sub_dir(G->sys_auth,G_("private"),0777);
 	G->sys_local = sub_dir(G->sys_auth,G_("local"),0777);
-        chmod(gale_text_to_local(dir_file(G->sys_local,G_("."))),01777);
+        chmod(gale_text_to(gale_global->enc_system,
+		dir_file(G->sys_local,G_("."))),01777);
 	G->sys_cache = sub_dir(G->sys_auth,G_("cache"),0777);
 
 	G->user_cache = sub_dir(G->dot_gale,G_("cache"),0700);

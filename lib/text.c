@@ -133,7 +133,7 @@ struct gale_text gale_text_from_number(int n,int base,int pad) {
 }
 
 int gale_text_to_number(struct gale_text text) {
-	return atoi(gale_text_to_latin1(text));
+	return atoi(gale_text_to(NULL,text));
 }
 
 struct gale_data gale_text_as_data(struct gale_text text) {
@@ -149,45 +149,4 @@ struct gale_text gale_text_from_data(struct gale_data data) {
 	text.l = data.l / sizeof(wch);
 	assert(0 == (data.l % sizeof(wch)));
 	return text;
-}
-
-struct gale_text gale_text_from_latin1(const char *pch,int len) {
-	struct gale_text text;
-	size_t i;
-
-	if (!pch) {
-		text.p = NULL;
-		text.l = 0;
-	} else {
-		wch *buf;
-		if (len < 0) len = strlen(pch);
-		buf = gale_malloc(sizeof(wch) * (text.l = len));
-		for (i = 0; i < text.l; ++i) buf[i] = (unsigned char) pch[i];
-		text.p = buf;
-	}
-
-	return text;
-}
-
-char *gale_text_to_latin1(struct gale_text text) {
-	char *pch;
-	size_t i;
-
-	pch = gale_malloc(text.l + 1);
-	for (i = 0; i < text.l; ++i) 
-		if (text.p[i] < 256)
-			pch[i] = text.p[i];
-		else
-			pch[i] = '$';
-
-	pch[i] = '\0';
-	return pch;
-}
-
-struct gale_text gale_text_from_local(const char *pch,int len) {
-	return gale_text_from_latin1(pch,len);
-}
-
-char *gale_text_to_local(struct gale_text text) {
-	return gale_text_to_latin1(text);
 }

@@ -26,7 +26,7 @@ static int unchanged(struct gale_text path,struct inode *inode) {
 	if (0 != gale_text_compare(path,inode->name)) return 0;
 	if (!_ga_inode_changed(*inode)) {
 		gale_dprintf(12,"(auth) \"%s\": no change\n",
-			     gale_text_to_local(path));
+			     gale_text_to(gale_global->enc_console,path));
 		return 1;
 	}
 	*inode = _ga_init_inode();
@@ -73,12 +73,12 @@ int _ga_find_pub(struct auth_id *id) {
 
 	if (!elapsed(&id->pub_time_slow,SLOW_RETRY)) return 0;
 	gale_dprintf(11,"(auth) \"%s\": searching desperately for key\n",
-	             gale_text_to_local(id->name));
+	             gale_text_to(gale_global->enc_console,id->name));
 
 	if (NULL != gale_global->find_public 
 	&&  gale_global->find_public(id)) return 1;
 
-	argv[1] = gale_text_to_local(id->name);
+	argv[1] = gale_text_to(gale_global->enc_system,id->name);
 	pid = gale_exec("gkfind",argv,NULL,&fd,nop);
 	status = open_pub_fd(id,fd,null_text,IMPORT_NORMAL);
 	gale_wait(pid);
@@ -90,11 +90,11 @@ int auth_id_public(struct auth_id *id) {
 	struct gale_global_data * const G = gale_global;
 
 	gale_diprintf(10,2,"(auth) \"%s\": looking for public key\n",
-	             gale_text_to_local(id->name));
+	             gale_text_to(gale_global->enc_console,id->name));
 
 	if (!elapsed(&id->pub_time_fast,FAST_RETRY)) {
 		gale_diprintf(10,-2,"(auth) \"%s\": fast timeout not elapsed\n",
-		             gale_text_to_local(id->name));
+		             gale_text_to(gale_global->enc_console,id->name));
 		return _ga_trust_pub(id);
 	}
 
@@ -104,13 +104,13 @@ int auth_id_public(struct auth_id *id) {
 	||  open_pub_file(id,dir_file(G->sys_local,id->name),IMPORT_NORMAL)
 	||  open_pub_file(id,dir_file(G->sys_cache,id->name),IMPORT_NORMAL)) {
 		gale_diprintf(10,-2,"(auth) \"%s\": done looking, found it\n",
-		             gale_text_to_local(id->name));
+		             gale_text_to(gale_global->enc_console,id->name));
 		return 1;
 	}
 
 	status = _ga_find_pub(id);
 	gale_diprintf(10,-2,"(auth) \"%s\": done looking (%s)\n",
-	             gale_text_to_local(id->name),
+	             gale_text_to(gale_global->enc_console,id->name),
 	             status ? "found" : "not found");
 	return status;
 }
@@ -161,7 +161,7 @@ static int get_private(struct auth_id *id) {
 	if (gale_global->find_private && gale_global->find_private(id)) 
 		return 1;
 
-	argv[1] = gale_text_to_local(id->name);
+	argv[1] = gale_text_to(gale_global->enc_system,id->name);
 	pid = gale_exec("gkfetch",argv,NULL,&fd,nop);
 	status = open_priv_fd(id,fd,null_text);
 	gale_wait(pid);

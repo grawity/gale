@@ -33,12 +33,12 @@ void default_gsubrc(int do_beep) {
 		char tstr[80];
 		time_t when = time(NULL);
 		strftime(tstr,sizeof(tstr),"%Y-%m-%d %H:%M:%S",localtime(&when));
-		timecode = gale_text_from_local(tstr,-1);
+		timecode = gale_text_from(NULL,tstr,-1);
 	}
 
 	if (0 != gale_var(G_("GALE_DATA_SECURITY_ENCRYPTION")).l) {
 		gale_alert(GALE_WARNING,
-			gale_text_to_local(gale_text_concat(3,
+			gale_text_to(gale_global->enc_console,gale_text_concat(3,
 				G_("decryption error in \""),
 				cat,
 				G_("\""))),0);
@@ -164,12 +164,12 @@ void default_gsubrc(int do_beep) {
 				if (col >= termwid) {
 					/* Extra long word!  Output it verbatim. */
 					gale_print(stdout, gale_print_clobber_right, 
-										 gale_text_from_local(buf, quotelen));
+						 gale_text_from(gale_global->enc_console, buf, quotelen));
 					do {
 						for (; pos < bufloaded && !isspace(buf[pos]); ++pos)
 							col = gale_column(col, buf[pos]);
 						gale_print(stdout, 0, 
-						           gale_text_from_local(buf + quotelen, pos - quotelen));
+						           gale_text_from(gale_global->enc_console, buf + quotelen, pos - quotelen));
 
 						/* Read more, if necessary. */
 						if (pos == bufloaded) {
@@ -206,7 +206,7 @@ void default_gsubrc(int do_beep) {
 
 				/* Have we reached premature EOF? */
 				if (pos == bufloaded) {
-					gale_print(stdout, 0, gale_text_from_local(buf, prevend));
+					gale_print(stdout, 0, gale_text_from(gale_global->enc_console, buf, prevend));
 					goto done_premie;
 				}
 
@@ -215,7 +215,7 @@ void default_gsubrc(int do_beep) {
 					col = gale_column(col, buf[pos]);
 					if ('\n' == buf[pos] || col >= termwid) {
 						/* Wrap line! */
-						gale_print(stdout, 0, gale_text_from_local(buf, prevend));
+						gale_print(stdout, 0, gale_text_from(gale_global->enc_console, buf, prevend));
 						gale_print(stdout,0,G_("\n"));
 						/* Skip any more whitespace. */
 						for (; '\n' != buf[pos] && isspace(buf[pos]);)
@@ -239,7 +239,7 @@ void default_gsubrc(int do_beep) {
 
 				/* Have we reached premature EOF? */
 				if (pos == bufloaded) {
-					gale_print(stdout, 0, gale_text_from_local(buf, prevend));
+					gale_print(stdout, 0, gale_text_from(gale_global->enc_console, buf, prevend));
 					goto done_premie;
 				}
 
@@ -249,7 +249,7 @@ void default_gsubrc(int do_beep) {
 					col = gale_column(col, buf[pos++]);
 					if (col >= termwid) {
 						/* Wrap line! */
-						gale_print(stdout, 0, gale_text_from_local(buf, prevend));
+						gale_print(stdout, 0, gale_text_from(gale_global->enc_console, buf, prevend));
 						gale_print(stdout,0,G_("\n"));
 						memmove(buf + quotelen, buf + curstart, bufloaded - curstart);
 						bufloaded -= curstart - quotelen;
@@ -265,7 +265,7 @@ void default_gsubrc(int do_beep) {
 		end_line: ;
 	}
 	gale_print(stdout, gale_print_clobber_right, 
-	           gale_text_from_local(buf, buflen));
+	           gale_text_from(gale_global->enc_console, buf, buflen));
 	done_premie:
 	/* We must have got here via premature EOF, so add a newline. */
 	gale_print(stdout,0,G_("\n"));

@@ -118,7 +118,7 @@ void _ga_import_pub(struct auth_id **id,struct gale_data key,
 	} else {
 		const char *sz;
 		if (!gale_unpack_str(&key,&sz)) goto invalid;
-		init_auth_id(&try,gale_text_from_latin1(sz,-1));
+		init_auth_id(&try,gale_text_from(NULL,sz,-1));
 	}
 
 	/* stub key */
@@ -136,7 +136,7 @@ void _ga_import_pub(struct auth_id **id,struct gale_data key,
 		} else {
 			const char *sz;
 			if (!gale_unpack_str(&key,&sz)) goto invalid;
-			frag.value.text = gale_text_from_latin1(sz,-1);
+			frag.value.text = gale_text_from(NULL,sz,-1);
 		}
 		gale_group_add(&data,frag);
 
@@ -342,17 +342,17 @@ int _ga_trust_pub(struct auth_id *id) {
 
 	if (NULL == id) return 0;
 	gale_diprintf(10,2,"(auth) \"%s\": verifying trust of key\n",
-	             gale_text_to_local(id->name));
+	             gale_text_to(gale_global->enc_console,id->name));
 
 	if (gale_group_null(id->pub_data)) {
 		gale_diprintf(10,-2,"(auth) \"%s\": no public key to trust!\n",
-		             gale_text_to_local(id->name));
+		             gale_text_to(gale_global->enc_console,id->name));
 		return 0;
 	}
 
 	if (id->pub_trusted) {
 		gale_diprintf(10,-2,"(auth) \"%s\": implicitly trusted\n",
-		             gale_text_to_local(id->name));
+		             gale_text_to(gale_global->enc_console,id->name));
 		return 1;
 	}
 
@@ -360,7 +360,7 @@ int _ga_trust_pub(struct auth_id *id) {
 #if 0
 	while (NULL != id && !gale_group_null(id->pub_data)) {
 		gale_dprintf(12,"(auth) checking component \"%s\"\n",
-			     gale_text_to_local(id->name));
+			     gale_text_to(gale_global->enc_console,id->name));
 		if (bad_key(id)) {
 			_ga_warn_id(G_("\"%\": bad, old, insecure key"),id);
 			id = NULL;
@@ -392,11 +392,11 @@ int _ga_trust_pub(struct auth_id *id) {
 
 	if (auth_id_public(id->pub_signer)) {
 		gale_diprintf(10,-2,"(auth) \"%s\": everything checks out\n", 
-		              gale_text_to_local(id->name));
+		              gale_text_to(gale_global->enc_console,id->name));
 		return 1;
 	} else {
 		gale_diprintf(10,-2,"(auth) \"%s\": parent not trusted\n", 
-		              gale_text_to_local(id->name));
+		              gale_text_to(gale_global->enc_console,id->name));
 		return 0;
 	}
 #endif

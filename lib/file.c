@@ -59,7 +59,7 @@ struct inode _ga_read_inode(int fd,struct gale_text name) {
 
 int _ga_inode_changed(struct inode i) {
 	struct stat buf;
-	if (stat(gale_text_to_local(i.name),&buf)) return 1;
+	if (stat(gale_text_to(gale_global->enc_system,i.name),&buf)) return 1;
 	return (buf.st_dev != i.device || buf.st_ino != i.inode
 	   ||  buf.st_ctime != i.inode_time || buf.st_mtime != i.file_time);
 }
@@ -67,13 +67,15 @@ int _ga_inode_changed(struct inode i) {
 int _ga_erase_inode(struct inode file) {
 	struct stat buf;
 	int status = 0;
-	char *szname = gale_text_to_local(file.name);
+	char *szname = gale_text_to(gale_global->enc_system,file.name);
 
 	if (!szname || !*szname) return status;
 	if (!lstat(szname,&buf) 
 	&&  buf.st_dev == file.device
 	&&  buf.st_ino == file.inode) {
-		char *sztemp = gale_text_to_local(make_temp(file.name));
+		char *sztemp = gale_text_to(
+			gale_global->enc_system,
+			make_temp(file.name));
 		if (!rename(szname,sztemp)) {
 			if (!lstat(sztemp,&buf)
 			&&  buf.st_dev == file.device
@@ -90,7 +92,7 @@ int _ga_erase_inode(struct inode file) {
 
 int _ga_read_file(struct gale_text fn) {
 	struct stat buf,lbuf;
-	char *sz = gale_text_to_local(fn);
+	char *sz = gale_text_to(gale_global->enc_system,fn);
 	int fd = open(sz,O_RDWR);
 	if (fd < 0 && (errno == EACCES || errno == EPERM)) 
 		fd = open(sz,O_RDONLY);
@@ -102,14 +104,14 @@ int _ga_read_file(struct gale_text fn) {
 	}
 	if (buf.st_dev != lbuf.st_dev || buf.st_ino != lbuf.st_ino) {
 		char *sz = gale_malloc(fn.l + 64);
-		sprintf(sz,"\"%s\": symbolic link ignored",gale_text_to_local(fn));
+		sprintf(sz,"\"%s\": symbolic link ignored",gale_text_to(gale_global->enc_console,fn));
 		gale_alert(GALE_WARNING,sz,0);
 		gale_free(sz);
 		goto error;
 	}
 	if (!S_ISREG(buf.st_mode)) {
 		char *sz = gale_malloc(fn.l + 64);
-		sprintf(sz,"\"%s\": special file ignored",gale_text_to_local(fn));
+		sprintf(sz,"\"%s\": special file ignored",gale_text_to(gale_global->enc_console,fn));
 		gale_alert(GALE_WARNING,sz,0);
 		gale_free(sz);
 		goto error;
@@ -166,7 +168,7 @@ error:
 }
 
 int _ga_write_file(struct gale_text fn) {
-	char *sz = gale_text_to_local(fn);
+	char *sz = gale_text_to(gale_global->enc_system,fn);
 	int fd = open(sz,O_WRONLY | O_CREAT,0666);
 	if (fd < 0) {
 		gale_alert(GALE_WARNING,sz,errno);
@@ -209,16 +211,21 @@ int _ga_save_file(struct gale_text dir,
 
 	name = dir_file(dir,fn);
 	temp = make_temp(name);
-	fd = open(gale_text_to_local(temp),O_RDWR | O_CREAT | O_EXCL,0600);
+	fd = open(gale_text_to(gale_global->enc_system,temp),
+		O_RDWR | O_CREAT | O_EXCL,0600);
 	status = (fd >= 0 && _ga_save(fd,data));
 
 	if (fd < 0) 
-		gale_alert(GALE_WARNING,gale_text_to_local(temp),errno);
+		gale_alert(GALE_WARNING,gale_text_to(gale_global->enc_console,temp),errno);
 	else {
 		fchmod(fd,mode);
-		if (rename(gale_text_to_local(temp),gale_text_to_local(name))) {
-			gale_alert(GALE_WARNING,gale_text_to_local(name),errno);
-			unlink(gale_text_to_local(temp));
+		if (rename(
+			gale_text_to(gale_global->enc_system,temp),
+			gale_text_to(gale_global->enc_system,name))) {
+			gale_alert(GALE_WARNING,
+				gale_text_to(gale_global->enc_console,name),
+				errno);
+			unlink(gale_text_to(gale_global->enc_system,temp));
 			status = 0;
 		} else if (inode)
 			*inode = _ga_read_inode(fd,fn);

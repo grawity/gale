@@ -41,7 +41,8 @@ static void init_vars(struct passwd *pwd) {
 	if (uname(&un) < 0) gale_alert(GALE_ERROR,"uname",errno);
 
 	if (!gale_var(G_("HOST")).l)
-		gale_set(G_("HOST"),gale_text_from_local(un.nodename,-1));
+		gale_set(G_("HOST"),
+			gale_text_from(gale_global->enc_system,un.nodename,-1));
 
 	host = gethostbyname(un.nodename);
 	if (NULL == host) {
@@ -62,7 +63,8 @@ static void init_vars(struct passwd *pwd) {
 	}
 
 	if (!gale_var(G_("LOGNAME")).l)
-		gale_set(G_("LOGNAME"),gale_text_from_local(pwd->pw_name,-1));
+		gale_set(G_("LOGNAME"),gale_text_from(
+			gale_global->enc_system,pwd->pw_name,-1));
 
 	{
 		struct gale_text new = gale_text_concat(5,
@@ -81,11 +83,13 @@ static void init_vars(struct passwd *pwd) {
 	if (!gale_var(G_("GALE_FROM")).l) {
 		char *name = strtok(pwd->pw_gecos,",");
 		if (!name || !*name) name = "unknown";
-		gale_set(G_("GALE_FROM"),gale_text_from_local(name,-1));
+		gale_set(G_("GALE_FROM"),gale_text_from(
+			gale_global->enc_system,name,-1));
 	}
 
 	if (!gale_var(G_("GALE_ID")).l)
-		gale_set(G_("GALE_ID"),gale_text_from_local(pwd->pw_name,-1));
+		gale_set(G_("GALE_ID"),gale_text_from(
+			gale_global->enc_system,pwd->pw_name,-1));
 }
 
 void gale_restart(void) {
@@ -105,15 +109,18 @@ static void *on_report(oop_source *source,int sig,void *user) {
 	struct gale_text fn = dir_file(gale_global->dot_gale,
 		gale_text_concat(4,
 			G_("report."),
-			gale_text_from_local(gale_global->error_prefix,-1),
+			gale_text_from(
+				gale_global->enc_system,
+				gale_global->error_prefix,-1),
 			G_("."),
 			gale_text_from_number(getpid(),10,0)));
 
-	FILE *fp = fopen(gale_text_to_local(fn),"w");
+	FILE *fp = fopen(gale_text_to(gale_global->enc_system,fn),"w");
 	if (NULL == fp) 
-		gale_alert(GALE_WARNING,gale_text_to_local(fn),errno);
+		gale_alert(GALE_WARNING,
+			gale_text_to(gale_global->enc_console,fn),errno);
 	else {
-		fputs(gale_text_to_local(
+		fputs(gale_text_to(gale_global->enc_system,
 			gale_report_run(gale_global->report)),fp);
 		fclose(fp);
 	}
@@ -178,5 +185,4 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	/* Round out the environment. */
 
 	init_vars(pwd);
-	/* gale_global->user_id = lookup_id(gale_var(G_("GALE_ID"))); */
 }

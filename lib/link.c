@@ -1,3 +1,4 @@
+#include "gale/globals.h"
 #include "gale/misc.h"
 #include "gale/core.h"
 #include "buffer.h"
@@ -130,7 +131,8 @@ static void ifn_version(struct input_state *inp) {
 			gale_text_from_number(version,10,0),
 			G_(" > our protocol v"),
 			gale_text_from_number(PROTOCOL_VERSION,10,0));
-		gale_alert(GALE_WARNING,gale_text_to_local(error),0);
+		gale_alert(GALE_WARNING,
+			gale_text_to(gale_global->enc_console,error),0);
 		l->in_version = PROTOCOL_VERSION;
 	} else l->in_version = version;
 	l->in_length = 0;

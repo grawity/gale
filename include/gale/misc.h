@@ -20,7 +20,8 @@
 /* Safely output a string to the console. */
 void gale_print(FILE *fp,int attr,struct gale_text);
 /* Predict the column movement a character would cause. */
-int gale_column(int col,wch);
+int gale_column(int start,wch);
+int gale_text_width(struct gale_text);
 /* Beep. */
 void gale_beep(FILE *fp);
 /* Get the terminal width. */
@@ -92,6 +93,7 @@ void *gale_realloc(void *,size_t);
 /* -- text buffer manipulation --------------------------------------------- */
 
 extern const struct gale_text null_text;
+struct gale_encoding;
 
 #define G_(x) (_gale_text_literal(L##x,sizeof(L##x) / sizeof(wch) - 1))
 struct gale_text _gale_text_literal(const wchar_t *,size_t len);
@@ -108,11 +110,9 @@ struct gale_text gale_text_from_number(int n,int base,int pad);
 struct gale_data gale_text_as_data(struct gale_text);
 struct gale_text gale_text_from_data(struct gale_data);
 
-typedef struct gale_text gale_text_from(const char *,int len);
-typedef char *gale_text_to(struct gale_text);
-
-gale_text_from gale_text_from_local,gale_text_from_latin1,gale_text_from_utf8;
-gale_text_to gale_text_to_local,gale_text_to_latin1,gale_text_to_utf8;
+struct gale_encoding *gale_make_encoding(struct gale_text);
+struct gale_text gale_text_from(struct gale_encoding *,const char *,int len);
+char *gale_text_to(struct gale_encoding *,struct gale_text);
 
 /* -- binary trees --------------------------------------------------------- */
 

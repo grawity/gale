@@ -32,7 +32,9 @@ void gale_diprintf(int level,int indent,const char *fmt,...) {
 
 void gale_dmessage(int level,struct gale_message *msg) {
 	if (level >= gale_global->debug_level) return;
-	gale_dprintf(level,"  category is %s\n",gale_text_to_local(msg->cat));
+	gale_dprintf(level,"  category is %s\n",
+		gale_text_to(gale_global->enc_console,msg->cat));
 	gale_dprintf(level,"%s",
-	             gale_text_to_local(gale_print_group(msg->data,2)));
+		gale_text_to(gale_global->enc_console,
+			gale_print_group(msg->data,2)));
 }

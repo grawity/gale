@@ -72,7 +72,7 @@ void headers(void) {
 
 	tty = ttyname(0);
 	if (tty && strchr(tty,'/')) tty = strrchr(tty,'/') + 1;
-	gale_add_id(&msg->data,gale_text_from_local(tty,-1));
+	gale_add_id(&msg->data,gale_text_from(gale_global->enc_system,tty,-1));
 
 	if (do_rrcpt) {
 		frag.name = G_("question/receipt");
@@ -148,7 +148,8 @@ void usage(void) {
 		"With an id of \"name@domain\", category defaults to \"%s\".\n"
 		"You must specify one of -c, -C, or a recipient user.\n"
 		,GALE_BANNER
-		,gale_text_to_local(id_category(id,G_("user"),G_(""))));
+		,gale_text_to(gale_global->enc_console
+		,id_category(id,G_("user"),G_(""))));
 	exit(1);
 }
 
@@ -184,25 +185,24 @@ int main(int argc,char *argv[]) {
 	case 'D': gale_global->debug_level += 5; break;
 	case 'a': do_identify = 0; break;	/* Anonymous */
 	case 'c': if (!public.p) public =       /* Public message */
-	          gale_text_from_local(optarg,-1);
+	          gale_text_from(gale_global->enc_system,optarg,-1);
 	          else public = 
-	          gale_text_concat(3,public,G_(":"),gale_text_from_local(optarg,-1));
-	          break;
-	          gale_text_from_local(optarg,-1);
+	          gale_text_concat(3,public,G_(":"),
+			gale_text_from(gale_global->enc_system,optarg,-1));
 	          break;
 	case 'C': msg->cat =			/* Select a category */
-	          gale_text_from_local(optarg,-1); 
+	          gale_text_from(gale_global->enc_system,optarg,-1); 
 	          break;
 	case 's': subject =                     /* Set the subject */
-	          gale_text_from_local(optarg,-1);
+	          gale_text_from(gale_global->enc_system,optarg,-1);
 	          break;
 	case 'S': signer =      		/* Select an ID to sign with */
-	          lookup_id(gale_text_from_local(optarg,-1));
+	          lookup_id(gale_text_from(gale_global->enc_system,optarg,-1));
 	          break;
 	case 'p': do_rrcpt = 2; break;		/* Return receipt */
 	case 'P': do_rrcpt = 0; break;
 	case 't': parse_text(			/* User defined fragment */
-	          gale_text_from_local(optarg,-1));
+	          gale_text_from(gale_global->enc_system,optarg,-1));
 	          break;
 	case 'h':
 	case '?': usage();
@@ -214,7 +214,7 @@ int main(int argc,char *argv[]) {
 	gale_create_array(rcpt,argc - optind);
 	for (; argc != optind; ++optind) {
 		struct auth_id *id = 
-			lookup_id(gale_text_from_local(argv[optind],-1));
+			lookup_id(gale_text_from(gale_global->enc_system,argv[optind],-1));
 		if (!public.p) do_encrypt = 1;
 
 		if (!auth_id_public(id)) {
@@ -252,7 +252,7 @@ int main(int argc,char *argv[]) {
 	}
 
 	/* A silly little check for a common mistake. */
-	if (ttyin && getpwnam(gale_text_to_local(msg->cat))) {
+	if (ttyin && getpwnam(gale_text_to(gale_global->enc_system,msg->cat))) {
 		gale_beep(stderr);
 		gale_alert(GALE_WARNING,"*** DANGER! *** "
 		                        "Category is a username!",0);
@@ -320,7 +320,7 @@ int main(int argc,char *argv[]) {
 		/* Append the line.  This is inefficient! */
 		body = gale_text_concat(3,
 			body,
-			gale_text_from_local(line,-1),
+			gale_text_from(gale_global->enc_console,line,-1),
 			G_("\r\n"));
 	}
 

@@ -190,13 +190,13 @@ static void add_name(struct gale_connect *conn,struct gale_text name,int port) {
 #ifdef HAVE_ADNS
 	struct resolution *res;
 #else
-	struct hostent *he = gethostbyname(gale_text_to_latin1(name));
+	struct hostent *he = gethostbyname(gale_text_to(NULL,name));
 	struct sockaddr_in sin;
 	int i;
 #endif
 
 	gale_dprintf(4,"(connect) looking for \"%s\"\n",
-	             gale_text_to_local(name));
+	             gale_text_to(gale_global->enc_console,name));
 
 #ifdef HAVE_ADNS
 	if (conn->alloc_resolve == conn->num_resolve) {
@@ -210,7 +210,7 @@ static void add_name(struct gale_connect *conn,struct gale_text name,int port) {
 	res->name = name;
 	res->port = port;
 	res->query = oop_adns_submit(conn->adns,
-		gale_text_to_latin1(name),
+		gale_text_to(NULL,name),
 		adns_r_a,0,on_lookup,res);
 
 	if (NULL != res->query) conn->resolving[conn->num_resolve++] = res;
@@ -346,7 +346,7 @@ static void *on_lookup(oop_adapter_adns *adns,adns_answer *answer,void *data) {
 
 	if (adns_s_ok == answer->status) {
 		struct gale_text name = answer->cname 
-		     ? gale_text_from_latin1(answer->cname,-1) 
+		     ? gale_text_from(NULL,answer->cname,-1) 
 		     : res->name;
 		struct sockaddr_in sin;
 		assert(adns_r_a == answer->type);
@@ -394,7 +394,7 @@ struct gale_text gale_connect_text(
 	return gale_text_concat(6,
 		host,
 		G_(" ("),
-		gale_text_from_latin1(inet_ntoa(addr.sin_addr),-1),
+		gale_text_from(NULL,inet_ntoa(addr.sin_addr),-1),
 		G_(":"),
 		gale_text_from_number(ntohs(addr.sin_port),10,0),
 		G_(")"));

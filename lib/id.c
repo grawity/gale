@@ -20,10 +20,13 @@ static struct gale_text alias(struct gale_text spec,struct gale_wt *seen) {
 	if (NULL != gale_wt_find(seen,gale_text_as_data(spec))) return spec;
 	gale_wt_add(seen,gale_text_as_data(spec),&seen);
 	for (i = 0; i < sizeof(dirs) / sizeof(dirs[0]); ++i) {
-		const char *fn = gale_text_to_local(dir_file(dirs[i],spec));
+		const char *fn = gale_text_to(gale_global->enc_system,
+			dir_file(dirs[i],spec));
 		char buf[1024]; /* arbitrary limit! */
 		int num = readlink(fn,buf,sizeof(buf));
-		if (num > 0) return alias(gale_text_from_local(buf,num),seen);
+		if (num > 0) 
+			return alias(gale_text_from(
+				gale_global->enc_system,buf,num),seen);
 	}
 
 	next = _ga_signer(spec);

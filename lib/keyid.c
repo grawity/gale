@@ -23,7 +23,7 @@ void _ga_warn_id(struct gale_text text,...) {
 	}
 	va_end(ap);
 
-	gale_alert(GALE_WARNING,gale_text_to_local(out),0);
+	gale_alert(GALE_WARNING,gale_text_to(gale_global->enc_console,out),0);
 }
 
 void init_auth_id(struct auth_id **pid,struct gale_text name) {
@@ -36,7 +36,7 @@ void init_auth_id(struct auth_id **pid,struct gale_text name) {
 	gale_wt_find(gale_global->auth_tree,gale_text_as_data(name));
 	if (NULL == ptr) {
 		gale_dprintf(11,"(auth) new key: \"%s\"\n",
-		             gale_text_to_local(name));
+		             gale_text_to(gale_global->enc_console,name));
 		gale_create(ptr);
 		ptr->name = name;
 		ptr->priv_time_fast = gale_time_zero();

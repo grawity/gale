@@ -15,7 +15,7 @@ struct gale_message *gale_error_message(struct gale_text body) {
 	if (0 == msg->cat.l)
 		msg->cat = dom_category(null_text,
 			gale_text_concat(2,G_("server/"),
-			gale_text_from_local(gale_global->error_prefix,-1)));
+			gale_text_from(NULL,gale_global->error_prefix,-1)));
 	frag.name = G_("message/body");
 	frag.type = frag_text;
 	frag.value.text = body;
@@ -25,7 +25,7 @@ struct gale_message *gale_error_message(struct gale_text body) {
 	frag.type = frag_text;
 	frag.value.text = gale_text_concat(6,
 		gale_var(G_("HOST")),G_(" "),
-		gale_text_from_local(gale_global->error_prefix,-1),
+		gale_text_from(NULL,gale_global->error_prefix,-1),
 		G_(" ("),gale_var(G_("LOGNAME")),G_(")"));
 	gale_group_add(&msg->data,frag);
 	return msg;

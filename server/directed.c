@@ -4,6 +4,7 @@
 #include "server.h"
 
 #include "gale/misc.h"
+#include "gale/globals.h"
 
 #include "oop.h"
 
@@ -88,8 +89,8 @@ static struct gale_message *cat_filter(struct gale_message *msg,void *d) {
         /* strip leading colon */
         if (rewrite->cat.l > 0) rewrite->cat = gale_text_right(rewrite->cat,-1);
 	gale_dprintf(5,"*** \"%s\": rewrote categories to \"%s\"\n",
-	             gale_text_to_local(dir->host),
-	             gale_text_to_local(rewrite->cat));
+	             gale_text_to(gale_global->enc_console,dir->host),
+	             gale_text_to(gale_global->enc_console,rewrite->cat));
 	return rewrite;
 }
 

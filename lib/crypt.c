@@ -132,7 +132,7 @@ void _ga_decrypt(struct auth_id **id,
 			const char *sz;
 			if (!gale_unpack_str(&cipher,&sz))
 				gale_alert(GALE_WARNING,"malformed crypto",0);
-			name = gale_text_from_latin1(sz,-1);
+			name = gale_text_from(NULL,sz,-1);
 		}
 
 		if (!tmp) {

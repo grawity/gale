@@ -78,7 +78,7 @@ struct gale_message *slip(struct gale_text cat,
 	frag.value.text = presence;
 	gale_group_add(&msg->data,frag);
 
-	gale_add_id(&msg->data,gale_text_from_latin1(tty,-1));
+	gale_add_id(&msg->data,gale_text_from(gale_global->enc_system,tty,-1));
 	if (extra) gale_group_add(&msg->data,*extra);
 
 	/* Sign and encrypt the message, if appropriate. */
@@ -316,7 +316,7 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 			gale_time_to(&tv,frag.value.time);
 			when = tv.tv_sec;
 			strftime(buf,30,"%Y-%m-%d %H:%M:%S",localtime(&when));
-			time = gale_text_from_latin1(buf,-1);
+			time = gale_text_from(NULL,buf,-1);
 
 			if (!gale_text_compare(frag.name,G_("id/time")))
 				gale_set(G_("HEADER_TIME"),
@@ -343,7 +343,7 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 	}
 
 	/* Convert the message body to local format. */
-	szbody = gale_text_to_local(body);
+	szbody = gale_text_to(gale_global->enc_console,body);
 
 	/* Use the extended loaded gsubrc, if present. */
 	if (dl_gsubrc2) {
@@ -379,10 +379,10 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 		                gale_global->sys_dir,
 		                null_text);
 		if (rc.l) {
-			execl(gale_text_to_local(rc),
-			      gale_text_to_local(rcprog),
+			execl(gale_text_to(gale_global->enc_system,rc),
+			      gale_text_to(gale_global->enc_system,rcprog),
 			      NULL);
-			gale_alert(GALE_WARNING,gale_text_to_local(rc),errno);
+			gale_alert(GALE_WARNING,gale_text_to(gale_global->enc_console,rc),errno);
 			exit(1);
 		}
 
@@ -431,7 +431,7 @@ void usage(void) {
 	"       -l rclib    Use module (default gsubrc.so, if found)\n" 
 #endif
 	"       -p state    Announce presence state (eg. \"out/to/lunch\")\n"
-	,GALE_BANNER,gale_text_to_local(gale_var(G_("GALE_ID"))));
+	,GALE_BANNER,gale_text_to(gale_global->enc_console,gale_var(G_("GALE_ID"))));
 	exit(1);
 }
 
@@ -452,9 +452,9 @@ void load_gsubrc(struct gale_text name) {
 	}
 
 #ifdef RTLD_LAZY
-	lib = dlopen(gale_text_to_local(rc),RTLD_LAZY);
+	lib = dlopen(gale_text_to(gale_global->enc_system,rc),RTLD_LAZY);
 #else
-	lib = dlopen(gale_text_to_local(rc),0);
+	lib = dlopen(gale_text_to(gale_global->enc_system,rc),0);
 #endif
 
 	if (!lib) {
@@ -498,19 +498,19 @@ void add_other(struct gale_text *subs,struct gale_text add) {
 			G_("no private key for \""),
 			auth_id_name(id),
 			G_("\""));
-		gale_alert(GALE_ERROR,gale_text_to_local(err),0);
+		gale_alert(GALE_ERROR,gale_text_to(gale_global->enc_console,err),0);
 	}
 	add_subs(subs,id_category(id,G_("user"),G_("")));
 }
 
-/* set presence information */
+/* set presence information; TODO: accept gale_text instead */
 
 void set_presence(char *arg) {
 	if (strchr(arg,'.') || strchr(arg,'/'))
-		presence = gale_text_from_latin1(arg,-1);
+		presence = gale_text_from(gale_global->enc_system,arg,-1);
 	else
 		presence = gale_text_concat(2,G_("in/"),
-			gale_text_from_latin1(arg,-1));
+			gale_text_from(gale_global->enc_system,arg,-1));
 }
 
 /* notify the user when a connection is established */
@@ -520,7 +520,7 @@ void *on_connected(struct gale_server *server,
 	void *d) 
 {
 	gale_alert(GALE_NOTICE,
-		gale_text_to_local(gale_text_concat(2,
+		gale_text_to(gale_global->enc_console,gale_text_concat(2,
 			G_("connected to "),
 			gale_connect_text(host,addr))),0);
 	return OOP_CONTINUE;
@@ -574,14 +574,14 @@ int main(int argc,char **argv) {
 	case 'e': do_default = 0; break;        /* Do not include defaults */
 	case 'n': do_fork = do_kill = 0; break; /* Do not background */
 	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
-	case 'K': if (tty) gale_kill(gale_text_from_local(tty,-1),1);
+	case 'K': if (tty) gale_kill(gale_text_from(gale_global->enc_system,tty,-1),1);
 	          return 0;			/* only kill other gsubs */
 	case 'r': do_run_default = 1; break;	/* only run default_gsubrc */
-	case 'f': rcprog = gale_text_from_local(optarg,-1); break;       
+	case 'f': rcprog = gale_text_from(gale_global->enc_system,optarg,-1); break;       
 						/* Use a wacky gsubrc */
-	case 'l': rclib = gale_text_from_local(optarg,-1); break;	
+	case 'l': rclib = gale_text_from(gale_global->enc_system,optarg,-1); break;	
 						/* Use a wacky gsubrc.so */
-	case 'o': add_other(&serv,gale_text_from_local(optarg,-1)); break;
+	case 'o': add_other(&serv,gale_text_from(gale_global->enc_system,optarg,-1)); break;
 						/* Listen to a different id */
 	case 'p': do_presence = 1; set_presence(optarg); 
 	          break;			/* Presence */
@@ -615,7 +615,7 @@ int main(int argc,char **argv) {
 	/* One argument, at most (subscriptions) */
 	if (optind < argc - 1) usage();
 	if (optind == argc - 1) 
-		add_subs(&serv,gale_text_from_local(argv[optind],-1));
+		add_subs(&serv,gale_text_from(gale_global->enc_system,argv[optind],-1));
 
 	/* We need to subscribe to *something* */
 	if (0 == serv.l)
@@ -644,7 +644,7 @@ int main(int argc,char **argv) {
 	source->on_signal(source,SIGTERM,on_signal,NULL);
 	source->on_signal(source,SIGINT,on_signal,NULL);
 	if (tty) {
-		gale_kill(gale_text_from_local(tty,-1),do_kill);
+		gale_kill(gale_text_from(gale_global->enc_system,tty,-1),do_kill);
 		gale_watch_tty(source,1);
 	}
 

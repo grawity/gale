@@ -14,6 +14,9 @@
    Leave the following blank line there!!  Autoheader needs it.  */
 
 
+/* Character set translation functions */
+#undef HAVE_ICONV
+
 /* The dynamic loader library */
 #undef HAVE_LIBDL
 

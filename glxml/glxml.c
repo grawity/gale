@@ -7,6 +7,8 @@
 #include <errno.h>
 #include <ctype.h>
 
+struct gale_encoding *utf8;
+
 struct path {
 	struct path *next;
 	struct gale_text element;
@@ -28,7 +30,7 @@ struct gale_text format_date(struct gale_time t,int include_time) {
 	strftime(buf,sizeof(buf),
 		include_time ? "%Y-%m-%d %H:%M:%S" : "%Y-%m-%d",
 		gmtime(&tv.tv_sec));
-	return gale_text_from_local(buf,-1);
+	return gale_text_from(NULL,buf,-1);
 }
 
 static void i(FILE *fp,int indent) {
@@ -74,7 +76,7 @@ struct path *split_name(struct gale_text name) {
 static void enter_path(FILE *fp,int *indent,struct path *p) {
 	if (NULL == p) return;
 	i(fp,*indent);
-	fprintf(fp,"<f:%s",gale_text_to_local(p->element));
+	fprintf(fp,"<f:%s",gale_text_to(utf8,p->element));
 	if (NULL != p->next) fprintf(fp,">\n");
 	*indent += 2;
 	enter_path(fp,indent,p->next);
@@ -85,7 +87,7 @@ static void leave_path(FILE *fp,int *indent,struct path *p) {
 	leave_path(fp,indent,p->next);
 	*indent -= 2;
 	if (NULL != p->next) i(fp,*indent);
-	fprintf(fp,"</f:%s>\n",gale_text_to_local(p->element));
+	fprintf(fp,"</f:%s>\n",gale_text_to(utf8,p->element));
 }
 
 static struct path *set_path(
@@ -123,7 +125,7 @@ static void output_text(FILE *fp,int indent,struct gale_text t,int do_escape) {
 		if (do_escape)
 			escape(fp,trim);
 		else
-			fputs(gale_text_to_local(trim),fp);
+			fputs(gale_text_to(utf8,trim),fp);
 	}
 	if (has_lines) {
 		fputc('\n',fp);
@@ -134,7 +136,7 @@ static void output_text(FILE *fp,int indent,struct gale_text t,int do_escape) {
 static void write_text(FILE *fp,int indent,struct gale_text t) {
 	xmlSAXHandler sax;
 	xmlParserCtxtPtr ctxt;
-	const char *sz = gale_text_to_local(t);
+	const char *sz = gale_text_to(utf8,t);
 	const int len = strlen(sz);
 
 	memset(&sax,'\0',sizeof(sax));
@@ -200,7 +202,7 @@ static void *on_message(struct gale_link *l,struct gale_message *msg,void *x) {
 
 	struct gale_time when_received = gale_time_now();
 	struct auth_id *who_signed = auth_verify(&msg->data);
-	const char *fn = gale_text_to_local(format_date(when_received,0));
+	const char *fn = gale_text_to(gale_global->enc_system,format_date(when_received,0));
 	FILE *fp = fopen(fn,"r+");
 	if (NULL == fp) fp = fopen(fn,"w+");
 	if (NULL == fp) {
@@ -224,7 +226,7 @@ static void *on_message(struct gale_link *l,struct gale_message *msg,void *x) {
 	}
 
 	fprintf(fp,"<g:message>\n  <g:time-received>%s</g:time-received>\n",
-	        gale_text_to_local(format_date(when_received,1)));
+	        gale_text_to(utf8,format_date(when_received,1)));
 
 	fprintf(fp,"  <g:categories>\n");
 	while (gale_text_token(msg->cat,':',&tok)) {
@@ -253,6 +255,7 @@ int main(int argc,char *argv[]) {
 
 	gale_init("glxml",argc,argv);
 	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
+	utf8 = gale_make_encoding(G_("UTF-8"));
 
 	while ((arg = getopt(argc,argv,"hn")) != EOF) 
 	switch (arg) {
@@ -261,7 +264,7 @@ int main(int argc,char *argv[]) {
 	case '?': usage();
 	}
 	if (1 + optind != argc) usage();
-	subs = gale_text_from_local(argv[optind],-1);
+	subs = gale_text_from(gale_global->enc_system,argv[optind],-1);
 
 	link = new_link(source);
 	link_on_message(link,on_message,NULL);
@@ -272,7 +275,7 @@ int main(int argc,char *argv[]) {
 		char buf[PATH_MAX] = "(error)";
 		gale_daemon(source);
 		getcwd(buf,PATH_MAX);
-		gale_kill(gale_text_from_local(buf,-1),1);
+		gale_kill(gale_text_from(gale_global->enc_system,buf,-1),1);
 		gale_detach();
 	}
 

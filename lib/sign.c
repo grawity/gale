@@ -99,7 +99,7 @@ int _ga_verify(struct signature *sig,struct gale_data data) {
 	}
 
 	gale_diprintf(10,2,"(auth) \"%s\": verifying some signed data\n",
-	              gale_text_to_local(sig->id->name));
+	              gale_text_to(gale_global->enc_console,sig->id->name));
 
 	if (!_ga_pub_rsa(sig->id->pub_data,&pub)) {
 		_ga_warn_id(G_("\"%\": no key to verify signature"),sig->id);
@@ -114,6 +114,6 @@ int _ga_verify(struct signature *sig,struct gale_data data) {
 	}
 
 	gale_diprintf(10,-2,"(auth) \"%s\": successful verification\n",
-	              gale_text_to_local(sig->id->name));
+	              gale_text_to(gale_global->enc_console,sig->id->name));
 	return 1;
 }

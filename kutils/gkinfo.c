@@ -40,16 +40,16 @@ const char *do_indent(int indent) {
 void do_info(struct gale_group grp,const struct inode *i,int indent) {
 	if (0 != i->name.l)
 		printf("%sStored in \"%s\"\n",do_indent(indent),
-		       gale_text_to_local(i->name));
+		       gale_text_to(gale_global->enc_console,i->name));
 
-	printf("%s",gale_text_to_local(gale_print_group(grp,2)));
+	printf("%s",gale_text_to(gale_global->enc_console,gale_print_group(grp,2)));
 }
 
 void pub_info(struct auth_id *id,int indent) {
 	struct gale_fragment frag;
-	printf("<%s>",gale_text_to_local(id->name));
+	printf("<%s>",gale_text_to(gale_global->enc_console,id->name));
 	if (gale_group_lookup(id->pub_data,G_("key.owner"),frag_text,&frag))
-		printf(" (%s)",gale_text_to_local(frag.value.text));
+		printf(" (%s)",gale_text_to(gale_global->enc_console,frag.value.text));
 	if (id->pub_trusted)
 		printf(" [trusted]");
 	printf("\n");
@@ -57,13 +57,13 @@ void pub_info(struct auth_id *id,int indent) {
 	if (do_verbose) {
 		if (NULL != id->pub_signer)
 			printf("%sSigned by <%s>\n",do_indent(indent += 2),
-			       gale_text_to_local(id->pub_signer->name));
+			       gale_text_to(gale_global->enc_console,id->pub_signer->name));
 		do_info(id->pub_data,&id->pub_inode,indent);
 	}
 
 	if (gale_group_lookup(id->pub_data,G_("key.redirect"),frag_text,&frag))
 		printf("%sRedirector to <%s>\n",
-		       do_indent(indent),gale_text_to_local(frag.value.text));
+		       do_indent(indent),gale_text_to(gale_global->enc_console,frag.value.text));
 
 	if (do_verbose) {
 		putchar('\n');
@@ -90,7 +90,7 @@ void priv_key(struct auth_id *id) {
 	is_found = 1;
 	if (do_name_only) return;
 
-	printf("Private key: <%s>\n",gale_text_to_local(id->name));
+	printf("Private key: <%s>\n",gale_text_to(gale_global->enc_console,id->name));
 	if (do_verbose) {
 		do_info(id->priv_data,&id->priv_inode,2);
 		putchar('\n');
@@ -127,7 +127,7 @@ int main(int argc,char *argv[]) {
 	}
 
 	if (optind + 1 == argc) {
-		init_auth_id(&id,gale_text_from_local(argv[optind],-1));
+		init_auth_id(&id,gale_text_from(gale_global->enc_system,argv[optind],-1));
 		if (auth_id_private(id)) priv_key(id);
 		if (auth_id_public(id)) pub_key(id);
 	} else {
@@ -175,7 +175,7 @@ int main(int argc,char *argv[]) {
 	if (!is_found)
 		gale_alert(GALE_ERROR,"could not find key",0);
 	else if (do_name_only)
-		printf("%s\n",gale_text_to_local(auth_id_name(id)));
+		printf("%s\n",gale_text_to(gale_global->enc_console,auth_id_name(id)));
 
 	return 0;
 }

@@ -36,7 +36,7 @@ int main(int argc,char *argv[]) {
 	case '?': usage();
 	}
 
-	if (optind != argc) check = gale_text_from_local(argv[optind++],-1);
+	if (optind != argc) check = gale_text_from(gale_global->enc_system,argv[optind++],-1);
 	if (optind != argc || isatty(0) || isatty(1)) usage();
 
 	if (getuid() != geteuid()) {
@@ -46,7 +46,7 @@ int main(int argc,char *argv[]) {
 		if (check.l)
 			gale_alert(GALE_WARNING,"ignoring specified key name",0);
 		check = gale_text_concat(3,
-			gale_text_from_local(pwd->pw_name,-1),
+			gale_text_from(gale_global->enc_system,pwd->pw_name,-1),
 			G_("@"),domain);
 	}
 

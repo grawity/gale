@@ -1,6 +1,7 @@
 #include "gale/client.h"
 #include "gale/auth.h"
 #include "gale/misc.h"
+#include "gale/globals.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -93,7 +94,8 @@ int _gale_find_id(struct auth_id *id) {
 
 	/* notify the user */
 	tmp = gale_malloc(80 + name.l);
-	sprintf(tmp,"requesting key \"%s\"",gale_text_to_local(name));
+	sprintf(tmp,"requesting key \"%s\"",
+		gale_text_to(gale_global->enc_console,name));
 	gale_alert(GALE_NOTICE,tmp,0);
 
 	/* create the connection */

@@ -13,6 +13,10 @@
 #include <getopt.h>
 #endif
 
+#ifdef HAVE_ICONV
+#include <iconv.h>
+#endif
+
 #if defined(OS_HPUX)
 void syslog(int priority, const char *message, ...);
 void openlog(const char *ident, int option, int facility);

@@ -51,10 +51,11 @@ static void *on_retry(oop_source *source,struct timeval tv,void *user) {
 
 static void do_retry(struct gale_server *s,int do_alert) {
 	if (do_alert && 0 == s->retry_time)
-	{
-		gale_alert(GALE_WARNING,gale_text_to_local(gale_text_concat(3,
-			G_("link to "),s->host,G_(" failed, will retry"))),0);
-	}
+		gale_alert(GALE_WARNING,gale_text_to(
+			gale_global->enc_console,
+			gale_text_concat(3,
+				G_("link to "),s->host,
+				G_(" failed, will retry"))),0);
 
 	gettimeofday(&s->retry_when,NULL);
 	s->retry_when.tv_sec += s->retry_time;
@@ -79,8 +80,10 @@ static void *on_connect(int fd,
 		if (0 != s->retry_time) {
 			s->retry_time = 0;
 			gale_alert(GALE_NOTICE,
-			        gale_text_to_local(gale_text_concat(3,
-				G_("link to "),s->host,G_(" ok"))),0);
+			        gale_text_to(gale_global->enc_console,
+					gale_text_concat(3,
+						G_("link to "),s->host,
+						G_(" ok"))),0);
 		}
 		s->connect = NULL;
 		link_set_fd(s->link,fd);

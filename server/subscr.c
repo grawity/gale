@@ -1,5 +1,6 @@
 #include "gale/core.h"
 #include "gale/misc.h"
+#include "gale/globals.h"
 
 #include "subscr.h"
 #include "connect.h"
@@ -39,7 +40,7 @@ static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 
 	gale_dprintf(3,"[%p] subscribing to \"%s\"\n",
 		sub->connect->link,
-		gale_text_to_local(spec));
+		gale_text_to(gale_global->enc_console,spec));
 
 	if (spec.l == 0) {
 		gale_dprintf(4,"+++ adding connection to node\n");
@@ -59,7 +60,7 @@ static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 
 	if (child == NULL) {
 		gale_dprintf(4,"+++ new node \"%s\"\n",
-			gale_text_to_local(spec));
+			gale_text_to(gale_global->enc_console,spec));
 		gale_create(node);
 		node->spec = spec;
 		node->child = NULL;
@@ -77,8 +78,8 @@ static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 
 	if (i != child->spec.l) {
 		gale_dprintf(4,"+++ truncating \"%s\" node to \"%s\"\n",
-			gale_text_to_local(child->spec),
-			gale_text_to_local(gale_text_left(spec,i)));
+			gale_text_to(gale_global->enc_console,child->spec),
+			gale_text_to(gale_global->enc_console,gale_text_left(spec,i)));
 		gale_create(node);
 		node->spec = gale_text_right(child->spec,-i);
 		node->child = child->child;
@@ -92,7 +93,7 @@ static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 		child->spec = gale_text_left(child->spec,i);
 	} else
 		gale_dprintf(4,"+++ matched \"%s\"\n",
-			gale_text_to_local(child->spec));
+			gale_text_to(gale_global->enc_console,child->spec));
 
 	add(child,gale_text_right(spec,-i),sub);
 }
@@ -108,7 +109,7 @@ static void do_remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 
 	gale_dprintf(3,"[%p] unsubscribing from \"%s\"\n",
 		sub->connect->link,
-		gale_text_to_local(spec));
+		gale_text_to(gale_global->enc_console,spec));
 
 	while (spec.l != 0) {
 		parent = ptr;
@@ -122,7 +123,7 @@ static void do_remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 			!gale_text_compare(ptr->spec,
 				gale_text_left(spec,ptr->spec.l)));
 		gale_dprintf(4,"--- matched \"%s\"\n",
-			gale_text_to_local(ptr->spec));
+			gale_text_to(gale_global->enc_console,ptr->spec));
 		spec = gale_text_right(spec,-ptr->spec.l);
 	}
 
@@ -172,7 +173,7 @@ static void do_remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 
 	prev = ptr->child;
 	gale_dprintf(4,"--- merging with singleton child \"%s\"\n",
-		gale_text_to_local(prev->spec));
+		gale_text_to(gale_global->enc_console,prev->spec));
 
 	ptr->spec = gale_text_concat(2,ptr->spec,prev->spec);
 	ptr->array = prev->array;
@@ -196,7 +197,7 @@ static void subscr(oop_source *src,struct gale_text spec,struct connect *link,
 	if (!gale_text_compare(spec,G_("-"))) return;
 
 	gale_dprintf(3,"--- subscribing to all of \"%s\"\n",
-		gale_text_to_local(spec));
+		gale_text_to(gale_global->enc_console,spec));
 
 	while (gale_text_token(spec,':',&cat)) {
 		struct gale_text host,base;
@@ -257,7 +258,7 @@ static void transmit(struct node *ptr,struct gale_text spec,
 			gale_text_left(spec,ptr->spec.l))) 
 		{
 			gale_dprintf(4,"*** matched \"%s\"\n",
-				gale_text_to_local(ptr->spec));
+				gale_text_to(gale_global->enc_console,ptr->spec));
 			transmit(ptr,gale_text_right(spec,-ptr->spec.l),
 				 avoid,flag);
 		}
@@ -283,7 +284,7 @@ void subscr_transmit(
 		struct gale_text base,host;
 		int flag;
 		gale_dprintf(3,"*** transmitting \"%s\"\n",
-		             gale_text_to_local(cat));
+		             gale_text_to(gale_global->enc_console,cat));
 		is_directed(cat,&flag,&base,&host);
 		transmit(&root,base,avoid,flag);
 		base = category_escape(base,1);

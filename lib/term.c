@@ -1,5 +1,6 @@
 #include "gale/misc.h"
 #include "gale/config.h"
+#include "gale/globals.h"
 
 #include <assert.h>
 #include <unistd.h>
@@ -49,28 +50,53 @@ static void tmode(FILE *fp,char id[2]) {
 	assert(fp == out_fp);
 	out_fp = NULL;
 #else
+	(void) fp;
 	(void) id;
 #endif
 }
 
 static int okay(wch ch) {
-	return (ch >= 32 && ch < 256) || ch == '\t';
+	return (ch >= 32 || ch == '\t');
 }
 
 int gale_column(int col,wch ch) {
-	/* Hack: Fix up the results of someone passing us a signed char... */
-	if (ch < 0) ch += 256;
-
+	struct gale_text t;
 	switch (ch) {
 	case '\t':
-		return (1 + col / 8) * 8;
+		return 8*(1 + (col / 8));
 	case '\n':
-		return 0;
+	case '\r':
+		col = 0;
 	default:
-		if (okay(ch)) return col + 1;
-		if (ch < 32 && ch >= 0) return col + 2;
-		return col + 7;
+		if (ch < 32) {
+			ch += 64;
+			++col;
+		}
+		t.p = &ch;
+		t.l = 1;
+		return col + gale_width(t);
 	}
+}
+
+int gale_width(struct gale_text str) {
+	const char *cvt = gale_text_to(gale_global->enc_console,str);
+	struct gale_text out = gale_text_from(gale_global->enc_console,cvt,-1);
+	const wch *ptr = out.p,*end = out.l + out.p;
+	int count = 0;
+	for (; end != ptr; ++ptr)
+		switch (wcwidth(*ptr)) {
+		case -1:
+		case 0: break;
+		case 2: ++count;
+		case 1: ++count;
+			break;
+		}
+
+	return count;
+}
+
+static void rawout(FILE *fp,struct gale_text str) {
+	fputs(gale_text_to(gale_global->enc_console,str),fp);
 }
 
 void gale_print(FILE *fp,int attr,struct gale_text str) {
@@ -79,21 +105,23 @@ void gale_print(FILE *fp,int attr,struct gale_text str) {
 	while (gale_text_token(str,'\n',&each)) {
 		struct gale_text line = each;
 		if (num++) 
-			fputs(tty ? "\r\n" : "\n",fp);
+			rawout(fp,tty ? G_("\r\n") : G_("\n"));
 		else if (tty && (attr & gale_print_clobber_left)) 
-			fputc('\r',fp);
+			rawout(fp,G_("\r"));
 		if (attr & gale_print_bold) tmode(fp,"md");
 		while (line.l > 0) {
 			size_t p;
 			for (p = 0; p < line.l && okay(line.p[p]); ++p) ;
-			fputs(gale_text_to_local(gale_text_left(line,p)),fp);
+			rawout(fp,gale_text_left(line,p));
 			if (p > 0) line = gale_text_right(line,-p);
 			while (line.l > 0 && !okay(line.p[0])) {
+				wch escape[2];
+				struct gale_text t;
 				tmode(fp,"mr");
-				if (line.p[0] < 32 && line.p[0] >= 0)
-					fprintf(fp,"^%c",(char) line.p[0] + 64);
-				else
-					fprintf(fp,"[0x%04lX]",line.p[0]);
+				escape[0] = '^';
+				escape[1] = 64 + line.p[0];
+				t.p = escape; t.l = 2;
+				rawout(fp,t);
 				tmode(fp,"me");
 				if (attr & gale_print_bold) tmode(fp,"md");
 				line = gale_text_right(line,-1);
@@ -106,7 +134,7 @@ void gale_print(FILE *fp,int attr,struct gale_text str) {
 
 void gale_beep(FILE *fp) {
 	if (isatty(fileno(fp))) {
-		fputc('\a',fp);
+		rawout(fp,G_("\a"));
 		fflush(fp);
 	}
 }

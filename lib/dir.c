@@ -37,19 +37,20 @@ struct gale_text dir_search(struct gale_text fn,int f,struct gale_text t,...) {
 	struct gale_text r = null_text;
 
 	if (fn.l > 0 && fn.p[0] == '/') {
-		if (access(gale_text_to_local(fn),F_OK)) 
+		if (access(gale_text_to(gale_global->enc_system,fn),F_OK)) 
 			return null_text;
 		else
 			return fn;
 	}
 
-	if (f && !access(gale_text_to_local(fn),F_OK))
+	if (f && !access(gale_text_to(gale_global->enc_system,fn),F_OK))
 		return fn;
 
 	va_start(ap,t);
 	while (0 == r.l && 0 != t.l) {
 		r = dir_file(t,fn);
-		if (access(gale_text_to_local(r),F_OK)) r.l = 0;
+		if (access(gale_text_to(gale_global->enc_system,r),F_OK)) 
+			r.l = 0;
 		t = va_arg(ap,struct gale_text);
 	}
 	va_end(ap);
@@ -58,17 +59,24 @@ struct gale_text dir_search(struct gale_text fn,int f,struct gale_text t,...) {
 
 void make_dir(struct gale_text path,int mode) {
 	struct stat buf;
-	if (stat(gale_text_to_local(path),&buf) || !S_ISDIR(buf.st_mode))
-		if (mode && mkdir(gale_text_to_local(path),mode))
-			gale_alert(GALE_WARNING,gale_text_to_local(path),errno);
+	if (stat(gale_text_to(gale_global->enc_system,path),&buf) 
+	|| !S_ISDIR(buf.st_mode))
+		if (mode 
+		&&  mkdir(gale_text_to(gale_global->enc_system,path),mode))
+			gale_alert(GALE_WARNING,
+				gale_text_to(gale_global->enc_console,path),
+				errno);
 }
 
 struct gale_text sub_dir(struct gale_text path,struct gale_text sub,int mode) {
 	struct stat buf;
 	struct gale_text ret = dir_file(path,sub);
-	if ((stat(gale_text_to_local(ret),&buf) || !S_ISDIR(buf.st_mode)))
-		if (mkdir(gale_text_to_local(ret),mode))
-			gale_alert(GALE_WARNING,gale_text_to_local(ret),errno);
+	if ((stat(gale_text_to(gale_global->enc_system,ret),&buf) 
+	|| !S_ISDIR(buf.st_mode)))
+		if (mkdir(gale_text_to(gale_global->enc_system,ret),mode))
+			gale_alert(GALE_WARNING,
+				gale_text_to(gale_global->enc_console,ret),
+				errno);
 	return ret;
 }
 
