@@ -368,7 +368,10 @@ done:
 	return OOP_CONTINUE;
 }
 
-static void *on_packet(struct gale_link *link,struct gale_packet *pkt,void *data) {
+static void *on_packet(
+	struct gale_link *link,
+	struct gale_packet *pkt,void *data) 
+{
 	gale_unpack_message(source,pkt,on_message,data);
 	return OOP_CONTINUE;
 }

@@ -20,6 +20,7 @@ void gale_pack_message(oop_source *oop,
         gale_call_packet *call,void *user)
 {
 	struct gale_group data = msg->data;
+	const struct gale_time now = gale_time_now();
 
 	/* TODO: blah... private keys */
 	{
@@ -28,8 +29,19 @@ void gale_pack_message(oop_source *oop,
 		while (NULL != msg->from && NULL != msg->from[num_from]) 
 			++num_from;
 		gale_create_array(keys,num_from);
-		for (i = 0; i < num_from; ++i) 
-			keys[i] = gale_key_data(gale_key_private(msg->from[i]->key));
+		for (i = 0; i < num_from; ++i) {
+			keys[i] = gale_key_data(
+				gale_key_private(msg->from[i]->key));
+			if (msg->from[i]->at_part < 0) {
+				struct gale_fragment frag;
+				frag.type = frag_data;
+				frag.name = G_("key.source");
+				frag.value.data = gale_key_raw(
+					gale_key_public(msg->from[i]->key,now));
+				gale_group_replace(&keys[i],frag);
+			}
+		}
+
 		if (!gale_crypto_sign(num_from,keys,&data))
 			/* TODO: handle errors */;
 	}
@@ -53,7 +65,6 @@ void gale_pack_message(oop_source *oop,
 		}
 
 		if (!is_null && num_to > 0) {
-			const struct gale_time now = gale_time_now();
 			struct gale_group *keys;
 			int j = 0;
 
