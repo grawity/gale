@@ -21,6 +21,9 @@ char *dotfile,*rcprog = NULL;
 struct gale_client *client;
 char *tty;
 
+int pflag = 1,kflag = 0,gflag = 1;
+const char *Pflag = NULL;
+
 void *gale_malloc(int size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
@@ -28,14 +31,55 @@ void exitfunc(void) {
 	if (dotfile) unlink(dir_file(dot_gale,dotfile));
 }
 
-void hupfunc(int sig) {
-	exitfunc();
-	exit(0);
+void return_receipt(const char *cat,const char *from,
+                    const char *sign,const char *encrypt) 
+{
+	struct gale_message *msg;
+
+	msg = new_message();
+	msg->category = gale_strdup(cat);
+	msg->data = gale_malloc(128 + strlen(from) + strlen(Pflag));
+	sprintf(msg->data,
+	        "Receipt-from: %s\r\n"
+		"From: %s\r\n"
+	        "Time: %lu\r\n"
+	        "\r\n",from,Pflag,time(NULL));
+	msg->data_size = strlen(msg->data);
+
+	if (sign) {
+		char *tmp = sign_message(sign,msg->data,
+		                         msg->data + msg->data_size);
+		int len = strlen(tmp);
+		char *cp = gale_malloc(len + msg->data_size + 13);
+		sprintf(cp,"Signature: %s\r\n",tmp);
+		memcpy(cp + len + 13,msg->data,msg->data_size);
+		gale_free(tmp); gale_free(msg->data);
+		msg->data = cp;
+		msg->data_size = len + 13 + msg->data_size;
+	}
+
+	if (encrypt) {
+                char *crypt = gale_malloc(msg->data_size + ENCRYPTION_PADDING);
+                char *cend;
+                char *hdr = encrypt_message(encrypt,msg->data,msg->data
+                                            + msg->data_size,crypt,&cend);
+                int len = strlen(hdr) + 14;
+                char *tmp = gale_malloc(len + cend - crypt);
+                sprintf(tmp,"Encryption: %s\r\n",hdr);
+                memcpy(tmp + len,crypt,cend - crypt);
+                gale_free(msg->data); gale_free(hdr);
+                msg->data = tmp;
+                msg->data_size = len + cend - crypt;
+	}
+
+	link_put(client->link,msg);
+	release_message(msg);
 }
 
 void default_gsubrc(void) {
 	char *tmp,*tmp2,buf[80];
 	char *nl = isatty(1) ? "\r\n" : "\n";
+	int count = 0;
 
 	printf("[%s]",getenv("GALE_CATEGORY"));
 	if ((tmp = getenv("HEADER_TIME"))) {
@@ -44,6 +88,7 @@ void default_gsubrc(void) {
 		fputs(buf,stdout);
 	}
 	if ((tmp = getenv("HEADER_FROM"))) printf(" from %s",tmp);
+	if ((tmp = getenv("HEADER_RECEIPT_TO"))) printf(" [rcpt]");
 	fputs(nl,stdout);
 	tmp = getenv("GALE_SIGNED"); tmp2 = getenv("GALE_ENCRYPTED");
 	if (tmp || tmp2) {
@@ -62,8 +107,9 @@ void default_gsubrc(void) {
 			fputs(nl,stdout);
 		} else
 			fputs(buf,stdout);
+		++count;
 	}
-	fputs(nl,stdout);
+	if (count) fputs(nl,stdout);
 }
 
 void send_message(char *body,char *end,int fd) {
@@ -95,8 +141,17 @@ void send_message(char *body,char *end,int fd) {
 void present_message(struct gale_message *msg) {
 	int pfd[2];
 	char *next,**envp = NULL,*key,*data,*end,*decrypt = NULL;
+	char *id_encrypted = NULL,*id_signed = NULL;
 	int envp_global,envp_alloc,envp_len,first = 1;
 	pid_t pid;
+
+	if (gflag) {
+		end = msg->category;
+		while ((end = strstr(end,"/ping"))) {
+			end += 5;
+			if (!*end || *end == ':') return;
+		}
+	}
 
 	envp_global = 0;
 	for (envp = environ; *envp; ++envp) ++envp_global;
@@ -112,34 +167,46 @@ void present_message(struct gale_message *msg) {
 	next = msg->data;
 	end = msg->data + msg->data_size;
 	while (parse_header(&next,&key,&data,end)) {
-		char *id,*tmp;
+		char *tmp;
 
 		if (first) {
 			if (!decrypt && !strcasecmp(key,"Encryption")) {
 				decrypt = gale_malloc(end - next
 					+ DECRYPTION_PADDING);
-				id = decrypt_message(data,next,end,
+				id_encrypted = decrypt_message(data,next,end,
 					decrypt,&end);
-				if (!id) goto error;
+				if (!id_encrypted) goto error;
 				next = decrypt;
-				tmp = gale_malloc(strlen(id) + 16);
-				sprintf(tmp,"GALE_ENCRYPTED=%s",id);
-				gale_free(id);
+				tmp = gale_malloc(strlen(id_encrypted) + 16);
+				sprintf(tmp,"GALE_ENCRYPTED=%s",id_encrypted);
 				envp[envp_len++] = tmp;
 				continue;
 			}
 
 			if (!strcasecmp(key,"Signature")) {
-				id = verify_signature(data,next,end);
-				if (id) {
-					tmp = gale_malloc(strlen(id)+13);
-					sprintf(tmp,"GALE_SIGNED=%s",id);
-					gale_free(id);
+				id_signed = verify_signature(data,next,end);
+				if (id_signed) {
+					tmp = gale_malloc(strlen(id_signed)+13);
+					sprintf(tmp,"GALE_SIGNED=%s",id_signed);
 					envp[envp_len++] = tmp;
 				}
 			}
 
 			first = 0;
+		}
+
+		if (!strcasecmp(key,"Receipt-to")) {
+			const char *colon = data;
+			while (colon && *colon && !strncmp(colon,"receipt/",8))
+				colon = strchr(colon + 1,':');
+			if (colon && *colon) {
+				gale_alert(GALE_WARNING,
+				           "invalid receipt header",0);
+				continue;
+			}
+			if (pflag)
+				return_receipt(data,msg->category,
+				               id_encrypted,id_signed);
 		}
 
 		for (tmp = key; *tmp; ++tmp)
@@ -199,9 +266,11 @@ error:
 		gale_free(envp);
 	}
 	if (decrypt) gale_free(decrypt);
+	if (id_encrypted) gale_free(id_encrypted);
+	if (id_signed) gale_free(id_signed);
 }
 
-void startup(int kflag) {
+void startup(void) {
 	char *dir;
 	struct utsname un;
 	DIR *pdir;
@@ -233,15 +302,22 @@ void startup(int kflag) {
 		closedir(pdir);
 	}
 
+	if (!Pflag) {
+		char *tmp;
+		const char *id;
+		gale_id(&id);
+		tmp = gale_malloc(strlen(id) + 3);
+		sprintf(tmp,"<%s>",id);
+		Pflag = tmp;
+	}
+
 	if (fork()) exit(0);
 
-	signal(SIGHUP,hupfunc);
+	gale_cleanup(exitfunc);
 	signal(SIGINT,SIG_IGN);
 	signal(SIGQUIT,SIG_IGN);
 	signal(SIGTTOU,SIG_IGN);
 	signal(SIGPIPE,SIG_IGN);
-	signal(SIGTERM,hupfunc);
-	atexit(exitfunc);
 	sprintf(dotfile,"%s%d",dotfile,(int) getpid());
 	if ((fd = creat(dir_file(dot_gale,dotfile),0666)) >= 0)
 		close(fd);
@@ -249,26 +325,32 @@ void startup(int kflag) {
 
 void usage(void) {
 	fprintf(stderr,
-	"usage: gsub [-n] [-f rcprog] cat[:cat...][@[host][:[port]]]\n"
+	"usage: gsub [-gknpr] [-P str] [-f rcprog] cat@server\n"
 	"flags: -n          Do not fork (default unless stdout is a tty)\n"
 	"       -k          Do not kill other gsubs on this tty (ditto)\n"
 	"       -f rcprog   Use rcprog (default gsubrc, then built-in)\n"
-	"       -r          Terminate if connection fails (do not retry)\n");
+	"       -r          Terminate if connection fails (do not retry)\n"
+	"       -g          Do not ignore messages to /ping\n"
+	"       -P str      Use \"str\" for return-receipt ID\n"
+	"       -p          Suppress return-receipt processing altogether\n");
 	exit(1);
 }
 
 int main(int argc,char *argv[]) {
-	int opt,fflag = 0,kflag = 0,rflag = 1;
+	int opt,fflag = 0,rflag = 1;
 	struct gale_message *msg;
 
 	gale_init("gsub");
 	tty = ttyname(1);
 
-	while (EOF != (opt = getopt(argc,argv,"nkf:r"))) switch (opt) {
+	while (EOF != (opt = getopt(argc,argv,"gnkf:rpP:"))) switch (opt) {
 	case 'k': ++kflag; break;
 	case 'n': ++fflag; break;
 	case 'f': rcprog = optarg; break;
+	case 'g': gflag = 0; break;
 	case 'r': rflag = 0; break;
+	case 'p': pflag = 0; break;
+	case 'P': Pflag = optarg; break;
 	case '?': usage();
 	}
 
@@ -276,16 +358,16 @@ int main(int argc,char *argv[]) {
 
 	gale_keys();
 
-	if (!(client = gale_open(argv[optind],0,0))) exit(1);
+	if (!(client = gale_open(argv[optind],16,262144))) exit(1);
 	if (!rflag && gale_error(client)) {
 		fprintf(stderr,"error: could not connect to gale server\n");
 		exit(1);
 	}
 
-	if (!fflag) startup(kflag);
+	if (!fflag) startup();
 
 	do {
-		while (!gale_next(client)) {
+		while (!gale_send(client) && !gale_next(client)) {
 			if (tty && !isatty(1)) return 0;
 			if ((msg = link_get(client->link))) {
 				present_message(msg);
