@@ -1,5 +1,6 @@
 #include "attach.h"
 #include "server.h"
+#include "report.h"
 
 #include "gale/client.h"
 #include "gale/misc.h"
@@ -14,11 +15,25 @@ struct attach {
 	struct gale_server *server;
 	struct connect *connect;
 	struct gale_link *link;
-	struct gale_text name;
+	struct gale_text name,in_subs,out_subs;
 
 	attach_empty_call *func;
 	void *data;
 };
+
+static struct gale_text attach_report(void *d) {
+	struct attach *att = (struct attach *) d;
+	return gale_text_concat(9,
+		G_("["),
+		gale_text_from_number((unsigned int) att->link,16,8),
+		G_("] attach: to "),
+		att->name,
+		G_(", pull ["),
+		att->in_subs,
+		G_("], push ["),
+		att->out_subs,
+		G_("]\n"));
+}
 
 void *on_connect(struct gale_server *server,
                  struct gale_text name,struct sockaddr_in addr,
@@ -60,8 +75,11 @@ struct attach *new_attach(
 	att->name = server;
 	att->link = link;
 	att->connect = new_connect(source,link,out);
+	att->in_subs = in;
+	att->out_subs = out;
 	/* This overrides the default on_error ... */
 	att->server = gale_open(source,link,in,server,server_port);
+	report_add(server_report,attach_report,att);
 	gale_on_connect(att->server,on_connect,att);
 	gale_on_disconnect(att->server,on_disconnect,att);
 	if (NULL != func) connect_filter(att->connect,func,data);
@@ -69,6 +87,7 @@ struct attach *new_attach(
 }
 
 void close_attach(struct attach *att) {
+	report_remove(server_report,attach_report,att);
 	gale_close(att->server);
 	close_connect(att->connect);
 }

@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/signal.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/utsname.h>
@@ -20,10 +21,12 @@
 #include "subscr.h"
 #include "server.h"
 #include "directed.h"
+#include "report.h"
 
 #include "oop.h"
 
 int server_port;
+struct report *server_report; 
 
 static void *on_error_message(oop_source *src,struct gale_message *msg,void *user) {
 	subscr_transmit(src,msg,NULL);
@@ -51,6 +54,24 @@ static void *on_incoming(oop_source *source,int fd,oop_event ev,void *user) {
 	link = new_link(source);
 	link_set_fd(link,newfd);
 	conn = new_connect(source,link,G_("-"));
+
+	return OOP_CONTINUE;
+}
+
+static void *on_report(oop_source *source,int sig,void *d) {
+	struct report *rep = (struct report *) d;
+	struct gale_text fn = dir_file(gale_global->dot_gale,
+		gale_text_concat(2,
+			G_("report.galed."),
+			gale_text_from_number(getpid(),10,0)));
+
+	FILE *fp = fopen(gale_text_to_local(fn),"w");
+	if (NULL == fp)
+		gale_alert(GALE_WARNING,gale_text_to_local(fn),errno);
+	else {
+		fputs(gale_text_to_local(report_run(rep)),fp);
+		fclose(fp);
+	}
 
 	return OOP_CONTINUE;
 }
@@ -140,10 +161,13 @@ static void make_listener(oop_source *source,int port) {
 int main(int argc,char *argv[]) {
 	int opt;
 	oop_source_sys *sys;
+	oop_source *source;
 
 	gale_init("galed",argc,argv);
-	sys = oop_sys_new();
-	gale_init_signals(oop_sys_source(sys));
+	source = oop_sys_source(sys = oop_sys_new());
+	gale_init_signals(source);
+	server_report = make_report();
+	source->on_signal(source,SIGUSR2,on_report,server_report);
 
 	srand48(time(NULL) ^ getpid());
 
@@ -156,7 +180,7 @@ int main(int argc,char *argv[]) {
 	case '?': usage();
 	}
 
-	add_links(oop_sys_source(sys));
+	add_links(source);
 
 	if (optind != argc) usage();
 
@@ -164,11 +188,11 @@ int main(int argc,char *argv[]) {
 	openlog(argv[0],LOG_PID,LOG_LOCAL5);
 
 	gale_dprintf(1,"now listening, entering main loop\n");
-	gale_daemon(oop_sys_source(sys));
+	gale_daemon(source);
 	gale_kill(gale_text_from_number(server_port,10,0),1);
-	make_listener(oop_sys_source(sys),server_port);
+	make_listener(source,server_port);
 	gale_detach();
-	gale_on_error_message(oop_sys_source(sys),on_error_message,NULL);
+	gale_on_error_message(source,on_error_message,NULL);
 	oop_sys_run(sys);
 	return 0;
 }

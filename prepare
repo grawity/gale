@@ -1,0 +1,9 @@
+#!/bin/sh
+
+if [ ! -x prepare ]; then
+	echo "$0: must run from root of source tree."
+	exit 1
+fi
+
+               aclocal && autoheader && libtoolize && automake -a && autoconf
+( cd liboop && aclocal && autoheader && libtoolize && automake -a && autoconf )

@@ -8,5 +8,6 @@
 #define QUEUE_AGE 600       /* maximum age of an outgoing queue */
 
 extern int server_port;
+extern struct report *server_report;
 
 #endif

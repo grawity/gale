@@ -2,6 +2,7 @@
 #include "connect.h"
 #include "subscr.h"
 #include "server.h"
+#include "report.h"
 
 #include <assert.h>
 #include <syslog.h>
@@ -24,6 +25,19 @@ struct connect {
 
 static struct gale_message *null_filter(struct gale_message *msg,void *d) {
 	return msg;
+}
+
+static struct gale_text connect_report(void *d) {
+	struct connect *conn = (struct connect *) d;
+	if (AF_INET != conn->peer.sin_family) return null_text;
+	return gale_text_concat(7,
+		G_("["),
+		gale_text_from_number((unsigned int) conn->link,16,8),
+		G_("] connect: to "),
+		gale_text_from_local(inet_ntoa(conn->peer.sin_addr),-1),
+		G_(", push ["),
+		conn->subscr,
+		G_("]\n"));
 }
 
 static void *on_will(struct gale_link *l,struct gale_message *will,void *d) {
@@ -85,6 +99,7 @@ struct connect *new_connect(
 	|| AF_INET != conn->peer.sin_family)
 		memset(&conn->peer,0,sizeof(conn->peer));
 
+	report_add(server_report,connect_report,conn);
 	link_on_will(conn->link,on_will,conn);
 	link_on_message(conn->link,on_message,conn);
 	link_on_subscribe(conn->link,on_subscribe,conn);
@@ -126,6 +141,7 @@ void send_connect(struct connect *conn,struct gale_message *msg) {
 }
 
 void close_connect(struct connect *conn) {
+	report_remove(server_report,connect_report,conn);
 	remove_subscr(conn->source,conn->subscr,conn);
 	conn->subscr = G_("-");
 	delete_link(conn->link);

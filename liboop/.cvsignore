@@ -1,2 +1,7 @@
 test-oop
 confdefs.h
+aclocal.m4
+acconfig.h
+Makefile.in
+config.h.in
+configure
