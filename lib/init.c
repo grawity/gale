@@ -18,6 +18,10 @@ struct gale_id *user_id;
 static int main_argc;
 static char * const *main_argv;
 
+static sigset_t blocked;
+
+extern char **environ;
+
 static void init_vars(struct passwd *pwd) {
 	char *tmp;
 	struct utsname un;
@@ -37,6 +41,27 @@ static void init_vars(struct passwd *pwd) {
 		tmp = gale_malloc(strlen(pwd->pw_name) + 30);
 		sprintf(tmp,"LOGNAME=%s",pwd->pw_name);
 		putenv(tmp);
+	}
+
+	{
+		char *buf,*old = getenv("PATH");
+		int len = 5 + (old ? strlen(old) : 0);
+
+		len += strlen(dir_file(dot_gale,"bin")) + 1;
+		len += strlen(dir_file(sys_dir,"bin")) + 1;
+		len += strlen(dir_file(dot_gale,".")) + 1;
+
+		buf = gale_malloc(len + 1);
+		strcpy(buf,"PATH=");
+		strcat(buf,dir_file(dot_gale,"bin")); strcat(buf,":");
+		strcat(buf,dir_file(sys_dir,"bin")); strcat(buf,":");
+		strcat(buf,dir_file(dot_gale,".")); 
+		if (old && *old) strcat(buf,":");
+
+		if (!old || strncmp(buf + 5,old,strlen(buf) - 5)) {
+			if (old) strcat(buf,old);
+			putenv(buf);
+		}
 	}
 
 	tmp = getenv("GALE_ID");
@@ -118,6 +143,7 @@ static void read_conf(const char *fn) {
 }
 
 void gale_restart(void) {
+	sigprocmask(SIG_SETMASK,&blocked,NULL);
 	assert(main_argv[main_argc] == NULL);
 	execvp(main_argv[0],main_argv);
 	gale_alert(GALE_WARNING,main_argv[0],errno);
@@ -138,9 +164,18 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	struct passwd *pwd = NULL;
 	char *user,*dir;
 	struct sigaction act;
+	sigset_t empty;
+
+	if (getuid() != geteuid()) {
+		environ = malloc(sizeof(*environ));
+		environ[0] = NULL;
+	}
 
 	main_argc = argc;
 	main_argv = argv;
+
+	sigemptyset(&empty);
+	sigprocmask(SIG_BLOCK,&empty,&blocked);
 
 	sigaction(SIGUSR1,NULL,&act);
 	act.sa_handler = sig_usr1;
@@ -152,7 +187,7 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	sigaction(SIGPIPE,&act,NULL);
 
 	if ((user = getenv("LOGNAME"))) pwd = getpwnam(user);
-	if (!pwd) pwd = getpwuid(getuid());
+	if (!pwd) pwd = getpwuid(geteuid());
 	if (!pwd) gale_alert(GALE_ERROR,"you do not exist",0);
 
 	gale_error_prefix = s;

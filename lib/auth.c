@@ -19,7 +19,7 @@ static R_RSA_PRIVATE_KEY priv_key;
 
 static void rsa_err(char *s) {
 	(void) s;
-	gale_alert(GALE_ERROR,"RSAREF failure.",0); /* XXX */
+	gale_alert(GALE_ERROR,/*"RSAREF failure."*/ s,0); /* XXX */
 	exit(1);
 }
 
@@ -221,7 +221,9 @@ char *sign_data(struct gale_id *id,const char *data,const char *end) {
 	ptr = (unsigned char *) data;
 	if (R_SignInit(&ctx,DA_MD5)) rsa_err("R_SignInit");
 	if (R_SignUpdate(&ctx,ptr,end - data)) rsa_err("R_SignUpdate");
-	if (R_SignFinal(&ctx,sig,&len,&priv_key)) rsa_err("R_SignFinal");
+
+	i = R_SignFinal(&ctx,sig,&len,&priv_key);
+	if (i) rsa_err("R_SignFinal");
 
 	i = strlen(id->name);
 	ret = gale_malloc(ENCODED_CONTENT_LEN(len) + i + 10);
