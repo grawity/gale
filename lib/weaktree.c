@@ -8,20 +8,20 @@ struct wt_node {
 	struct wt_node *left,*right;
 };
 
-struct gale_wt {
+struct gale_map {
 	struct wt_node *root;
 	int weak;
 };
 
-struct gale_wt *gale_make_wt(int weak) {
-	struct gale_wt *wt;
+struct gale_map *gale_make_map(int weak) {
+	struct gale_map *wt;
 	gale_create(wt);
 	wt->root = NULL;
 	wt->weak = weak;
 	return wt;
 }
 
-static struct wt_node **find(struct gale_wt *wt,struct gale_data key) {
+static struct wt_node **find(struct gale_map *wt,struct gale_data key) {
 	struct wt_node **p = &wt->root;
 	while (*p) {
 		int x = gale_data_compare(key,(*p)->key);
@@ -36,7 +36,7 @@ static struct wt_node **find(struct gale_wt *wt,struct gale_data key) {
 	return p;
 }
 
-void gale_wt_add(struct gale_wt *wt,struct gale_data key,void *data) {
+void gale_map_add(struct gale_map *wt,struct gale_data key,void *data) {
 	struct wt_node *new = NULL,**p;
 
 	if (NULL != data) gale_create(new); /* This must happen first! */
@@ -56,7 +56,7 @@ void gale_wt_add(struct gale_wt *wt,struct gale_data key,void *data) {
 	else new->data = gale_make_ptr(data);
 }
 
-void *gale_wt_find(struct gale_wt *wt,struct gale_data key) {
+void *gale_map_find(struct gale_map *wt,struct gale_data key) {
 	struct wt_node *n = *(find(wt,key));
 	return n ? gale_get_ptr(n->data) : NULL;
 }
@@ -96,8 +96,8 @@ static int walk(struct wt_node *node,const struct gale_data *after,
 	return 0;
 }
 
-int gale_wt_walk(struct gale_wt *wt,const struct gale_data *after,
-                 struct gale_data *key,void **data) {
+int gale_map_walk(struct gale_map *wt,const struct gale_data *after,
+                  struct gale_data *key,void **data) {
 	if (NULL == wt->root) return 0;
 	if (walk(wt->root,after,key,data)) return 1;
 	if (empty(wt->root)) wt->root = NULL;

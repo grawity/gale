@@ -7,6 +7,7 @@ pkginclude_HEADERS = \
 sysdepinc_HEADERS = config.h
 
 DISTCLEANFILES = config.h
+EXTRA_DIST = config.h.dox
 
 dist-hook:
 	rm $(distdir)/config.h

@@ -26,8 +26,8 @@
 
 int server_port;
 
-static void *on_error_message(oop_source *src,struct gale_message *msg,void *user) {
-	subscr_transmit(src,msg,NULL);
+static void *on_error_message(oop_source *src,struct old_gale_message *msg,void *user) {
+	subscr_transmit(src,gale_transmit(msg),NULL);
 	return OOP_CONTINUE;
 }
 
@@ -56,19 +56,22 @@ static void *on_incoming(oop_source *source,int fd,oop_event ev,void *user) {
 	return OOP_CONTINUE;
 }
 
-static struct gale_message *link_filter(struct gale_message *msg,void *x) {
-	struct gale_message *rewrite = new_message();
+static struct gale_packet *link_filter(struct gale_packet *msg,void *x) {
+	struct gale_packet *rewrite;
 	struct gale_text cat = null_text;
 	int do_transmit = 0;
 
-	rewrite->data = msg->data;
-	while (gale_text_token(msg->cat,':',&cat)) {
+	gale_create(rewrite);
+	rewrite->routing = null_text;
+	rewrite->content = msg->content;
+	while (gale_text_token(msg->routing,':',&cat)) {
 		struct gale_text base;
 		int orig_flag;
 		int flag = !is_directed(cat,&orig_flag,&base,NULL) && orig_flag;
 		base = category_escape(base,flag);
 		do_transmit |= flag;
-		rewrite->cat = gale_text_concat(3,rewrite->cat,G_(":"),base);
+		rewrite->routing = 
+			gale_text_concat(3,rewrite->routing,G_(":"),base);
 	}
 
 	if (!do_transmit) {
@@ -77,9 +80,11 @@ static struct gale_message *link_filter(struct gale_message *msg,void *x) {
 	}
 
 	/* strip leading colon */
-	if (rewrite->cat.l > 0) rewrite->cat = gale_text_right(rewrite->cat,-1);
-		gale_dprintf(5,"*** rewrote categories to \"%s\"\n",
-		gale_text_to(gale_global->enc_console,rewrite->cat));
+	if (rewrite->routing.l > 0)
+		rewrite->routing = gale_text_right(rewrite->routing,-1);
+
+	gale_dprintf(5,"*** rewrote categories to \"%s\"\n",
+		gale_text_to(gale_global->enc_console,rewrite->routing));
 	return rewrite;
 }
 

@@ -14,41 +14,35 @@
    Leave the following blank line there!!  Autoheader needs it.  */
 
 
-/* Character set translation functions */
+/** Character set translation functions are available. */
 #undef HAVE_ICONV
 
-/* The dynamic loader library */
+/** The dynamic loader library is available. */
 #undef HAVE_LIBDL
 
-/* The GNU readline library */
+/** The GNU readline library is available. */
 #undef HAVE_LIBREADLINE
 
-/* Veillard's XML parser library */
+/** Veillard's XML parser library is available. */
 #undef HAVE_LIBXML
 
-/* The SOCKS firewall proxy */
+/** The SOCKS firewall proxy is available. */
 #undef HAVE_SOCKS
 
-/* The ADNS resolver library */
+/** The ADNS resolver library is available. */
 #undef HAVE_ADNS
 
-/* BSD-based operating systems */
+/** This is a BSD-based operating system. */
 #undef OS_BSD
 
-/* Hewlett-Packard HPUX */
+/** This is Hewlett-Packard HP-UX. */
 #undef OS_HPUX
 
-/* SGI IRIX */
+/** This is SGI IRIX. */
 #undef OS_IRIX
 
-/* Sun Solaris */
+/** This is Sun Solaris. */
 #undef OS_SOLARIS
-
-/* Package name */
-#undef PACKAGE
-
-/* Version */
-#undef VERSION
 
 
 /* Leave that blank line there!!  Autoheader needs it.

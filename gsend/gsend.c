@@ -14,7 +14,7 @@
 #include "readline/readline.h"
 #endif
 
-struct gale_message *msg;               /* The message we're building. */
+struct old_gale_message *msg;               /* The message we're building. */
 int num = 0,alloc = 0;
 
 /* Various flags. */
@@ -175,7 +175,7 @@ int main(int argc,char *argv[]) {
 	gale_init("gsend",argc,argv);
 
 	/* Create a new message object to send. */
-	msg = new_message();
+	msg = gale_make_message();
 	msg->data = gale_group_empty();
 
 	/* Parse command line options. */
@@ -338,7 +338,7 @@ int main(int argc,char *argv[]) {
 		gale_alert(GALE_ERROR,G_("encryption failure"),0);
 
 	/* Add the message to the outgoing queue. */
-	link_put(link,msg);
+	link_put(link,gale_transmit(msg));
 	link_on_empty(link,on_empty,NULL);
 	link_shutdown(link);
 

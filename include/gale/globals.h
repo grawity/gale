@@ -53,8 +53,8 @@ extern struct gale_global_data {
 	char **environ;
 
 	/* System internals. */
-	struct gale_wt *auth_tree;
-	struct gale_wt *cache_tree;
+	struct gale_map *auth_tree;
+	struct gale_map *cache_tree;
 	struct gale_cleanup *cleanup_list;
 	struct gale_errors *error;
 	struct in_addr *local_addrs; /* terminated by 0 */

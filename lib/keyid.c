@@ -30,10 +30,10 @@ void init_auth_id(struct auth_id **pid,struct gale_text name) {
 	struct auth_id *ptr;
 
 	if (NULL == gale_global->auth_tree)
-		gale_global->auth_tree = gale_make_wt(1);
+		gale_global->auth_tree = gale_make_map(1);
 
 	ptr = (struct auth_id *) 
-	gale_wt_find(gale_global->auth_tree,gale_text_as_data(name));
+	gale_map_find(gale_global->auth_tree,gale_text_as_data(name));
 	if (NULL == ptr) {
 		gale_dprintf(11,"(auth) new key: \"%s\"\n",
 		             gale_text_to(gale_global->enc_console,name));
@@ -52,7 +52,7 @@ void init_auth_id(struct auth_id **pid,struct gale_text name) {
 		ptr->pub_inode = _ga_init_inode();
 		ptr->pub_trusted = 0;
 
-		gale_wt_add(gale_global->auth_tree,gale_text_as_data(name),ptr);
+		gale_map_add(gale_global->auth_tree,gale_text_as_data(name),ptr);
 	}
 
 	*pid = ptr;

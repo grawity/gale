@@ -42,7 +42,7 @@ void append(int len,const char *s) {
 }
 
 void to_g(ZNotice_t *notice) {
-	struct gale_message *msg;
+	struct old_gale_message *msg;
 	char *ptr;
 	struct gale_fragment frag;
 
@@ -114,7 +114,7 @@ void *z_to_g(oop_source *source,int sock,oop_event event,void *d) {
 	return OOP_CONTINUE;
 }
 
-void *to_z(struct gale_link *conn,struct gale_message *msg,void *data) {
+void *to_z(struct gale_link *conn,struct old_gale_message *msg,void *data) {
 	ZNotice_t notice;
 	char instance[256] = "(invalid)";
 	char *sig = NULL,*body = NULL;

@@ -43,7 +43,6 @@ AC_PROG_INSTALL
 AC_PROG_YACC
 PROG_LDCONFIG=:
 
-test yes = "$GCC" && CFLAGS="-Wall $CFLAGS"
 test NONE != "$exec_prefix" && LDFLAGS="$LDFLAGS -L${exec_prefix}/lib"
 if test NONE != "$prefix" ; then
   CPPFLAGS="$CPPFLAGS -I${prefix}/include"
@@ -224,6 +223,7 @@ dnl Checks for library functions.
 
 dnl Output.
 
+test yes = "$GCC" && CFLAGS="-Wall -Wno-comment -Werror $CFLAGS"
 INCLUDES="-I\${top_srcdir}/include -I\${top_builddir}/include $INCLUDES"
 INCLUDES="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $INCLUDES"
 

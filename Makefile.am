@@ -2,7 +2,7 @@
 
 AUTOMAKE_OPTIONS = foreign 1.2
 bin_SCRIPTS = gale-config gale-install
-EXTRA_DIST = gale.spec iconvtest.c
+EXTRA_DIST = gale.spec iconvtest.c prepare
 
 if BUILD_GZGW
 gzgw_dir = gzgw

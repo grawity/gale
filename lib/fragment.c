@@ -330,11 +330,12 @@ struct gale_text gale_print_fragment(struct gale_fragment frag) {
 		if (20 >= frag.value.data.l)
 		{
 			int i;
+			r = gale_text_concat(2,r,G_("["));
 			for (i = 0; i < frag.value.data.l; ++i)
 				r = gale_text_concat(3,r,
-					i ? G_(" ") : G_("["),
+					i ? G_(" ") : G_(""),
 					gale_text_from_number(frag.value.data.p[i],16,2));
-			r = gale_text_concat(2,t,G_("]"));
+			r = gale_text_concat(2,r,G_("]"));
 		}
 		else
 		{

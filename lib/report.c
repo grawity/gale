@@ -13,7 +13,7 @@ static struct gale_text meta(void *d) {
 }
 
 struct gale_report *gale_make_report(struct gale_report *outer) {
-	struct gale_report *ret = (struct gale_report *) gale_make_wt(0);
+	struct gale_report *ret = (struct gale_report *) gale_make_map(0);
 	if (NULL != outer) gale_report_add(outer,meta,ret);
 	return ret;
 }
@@ -29,7 +29,7 @@ void gale_report_add(struct gale_report *rep,gale_report_call *func,void *data) 
 
 	ent->func = func;
 	ent->data = data;
-	gale_wt_add((struct gale_wt *) rep,key,rep);
+	gale_map_add((struct gale_map *) rep,key,rep);
 }
 
 void gale_report_remove(struct gale_report *rep,gale_report_call *func,void *data) {
@@ -42,18 +42,18 @@ void gale_report_remove(struct gale_report *rep,gale_report_call *func,void *dat
 
 	ent.func = func;
 	ent.data = data;
-	gale_wt_add((struct gale_wt *) rep,key,NULL);
+	gale_map_add((struct gale_map *) rep,key,NULL);
 }
 
 struct gale_text gale_report_run(struct gale_report *rep) {
-	struct gale_wt *tree = (struct gale_wt *) rep;
+	struct gale_map *tree = (struct gale_map *) rep;
 	struct gale_data key,*after = NULL;
 	struct gale_text ret;
 	int alloc = 0,len = 0;
 	wch *buffer = 0;
 	void *data;
 
-	while (gale_wt_walk(tree,after,&key,&data))
+	while (gale_map_walk(tree,after,&key,&data))
 	{
 		struct entry *ent = (struct entry *) key.p;
 		struct gale_text text = ent->func(ent->data);

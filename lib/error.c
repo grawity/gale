@@ -16,7 +16,7 @@ struct gale_errors {
 };
 
 struct error_message {
-	gale_error severity;
+	enum gale_error severity;
 	struct gale_text text;
 };
 

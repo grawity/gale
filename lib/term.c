@@ -19,6 +19,8 @@
 /* This needs to be here for Solaris. */
 #include <termios.h>
 
+extern int wcwidth(wchar_t);
+
 static FILE *out_fp = NULL;
 static int term_cols = 0;
 
@@ -97,6 +99,10 @@ int gale_text_width(struct gale_text str) {
 
 static void rawout(FILE *fp,struct gale_text str) {
 	fputs(gale_text_to(gale_global->enc_console,str),fp);
+}
+
+void gale_print_line(FILE *fp,int attr,struct gale_text str) {
+	gale_print(fp,attr,gale_text_concat(2,str,G_("\n")));
 }
 
 void gale_print(FILE *fp,int attr,struct gale_text str) {

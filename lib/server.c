@@ -20,6 +20,8 @@ static void *on_ignore(oop_source *source,int sig,void *data) {
 	return OOP_CONTINUE;
 }
 
+/** Daemonize (go into the background).
+ *  \param source Liboop event source to use for signals. */
 void gale_daemon(oop_source *source) {
 	if (!gale_global->debug_level) {
 		if (0 != fork()) exit(0);
@@ -28,6 +30,7 @@ void gale_daemon(oop_source *source) {
 	}
 }
 
+/** Detach from the terminal (like galed but unlike gsub). */
 void gale_detach() {
 	if (!gale_global->debug_level) {
 		int fd = open("/dev/null",O_RDWR);

@@ -8,8 +8,8 @@ struct collector {
 	int active;
 };
 
-struct gale_message *gale_error_message(struct gale_text body) {
-	struct gale_message *msg = new_message();
+struct old_gale_message *gale_error_message(struct gale_text body) {
+	struct old_gale_message *msg = gale_make_message();
 	struct gale_fragment frag;
 	msg->cat = gale_var(G_("GALE_ERRORS"));
 	if (0 == msg->cat.l)
@@ -33,12 +33,12 @@ struct gale_message *gale_error_message(struct gale_text body) {
 
 static void *on_collect(oop_source *source,struct timeval now,void *data) {
 	struct collector *c = (struct collector *) data;
-	struct gale_message *msg = gale_error_message(c->buffer);
+	struct old_gale_message *msg = gale_error_message(c->buffer);
 	c->active = 0;
 	return c->call(c->source,msg,c->data);
 }
 
-static void *on_error(gale_error severity,struct gale_text msg,void *data) {
+static void *on_error(int severity,struct gale_text msg,void *data) {
 	struct collector *c = (struct collector *) data;
 	if (!c->active) {
 		c->buffer = null_text;
@@ -65,9 +65,9 @@ void gale_on_error_message(
 	}
 }
 
-static void *send_message(oop_source *oop,struct gale_message *msg,void *data) {
+static void *send_message(oop_source *oop,struct old_gale_message *msg,void *data) {
 	struct gale_link *l = (struct gale_link *) data;
-	link_put(l,msg);
+	link_put(l,gale_transmit(msg));
 	return OOP_CONTINUE;
 }
 

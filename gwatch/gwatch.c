@@ -8,7 +8,7 @@
 #include <signal.h>
 
 struct gale_text *subs = NULL;
-struct gale_message **pings = NULL;
+struct old_gale_message **pings = NULL;
 int count_subs = 0,count_pings = 0;
 
 struct gale_text tty,gwatchrc,receipt;
@@ -33,7 +33,7 @@ void watch_cat(struct gale_text cat) {
 }
 
 void watch_ping(struct gale_text cat,struct auth_id *id) {
-	struct gale_message *msg = new_message();
+	struct old_gale_message *msg = gale_make_message();
 	struct gale_fragment frag;
 
 	if (!receipt.l) {
@@ -110,7 +110,7 @@ void read_file(struct gale_text fn) {
 
 void send_pings(struct gale_link *link) {
 	int i;
-	for (i = 0; i < count_pings; ++i) link_put(link,pings[i]);
+	for (i = 0; i < count_pings; ++i) link_put(link,gale_transmit(pings[i]));
 }
 
 void incoming(
@@ -151,7 +151,8 @@ void incoming(
 	fflush(stdout);
 }
 
-void *on_message(struct gale_link *link,struct gale_message *msg,void *d) {
+void *on_message(struct gale_link *link,struct gale_packet *pkt,void *d) {
+	struct old_gale_message *msg = gale_receive(pkt);
 	struct auth_id *id_sign = NULL,*id_encrypt = NULL;
 	struct gale_text from = null_text,status = null_text;
 	struct gale_text class = null_text,instance = null_text;

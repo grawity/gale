@@ -15,14 +15,14 @@ struct connect {
 	oop_source *source;
 	struct gale_link *link;
 	struct gale_text subscr;
-	struct gale_message *will;
+	struct gale_packet *will;
 	struct sockaddr_in peer;
 	struct timeval expire;
 	filter *func;
 	void *data;
 };
 
-static struct gale_message *null_filter(struct gale_message *msg,void *d) {
+static struct gale_packet *null_filter(struct gale_packet *msg,void *d) {
 	return msg;
 }
 
@@ -43,14 +43,14 @@ static struct gale_text connect_report(void *d) {
 		G_("]\n"));
 }
 
-static void *on_will(struct gale_link *l,struct gale_message *will,void *d) {
+static void *on_will(struct gale_link *l,struct gale_packet *will,void *d) {
 	struct connect *conn = (struct connect *) d;
 	assert(l == conn->link);
 	conn->will = will;
 	return OOP_CONTINUE;
 }
 
-static void *on_message(struct gale_link *l,struct gale_message *msg,void *d) {
+static void *on_message(struct gale_link *l,struct gale_packet *msg,void *d) {
 	struct connect *conn = (struct connect *) d;
 	assert(l == conn->link);
 	msg = conn->func(msg,conn->data);
@@ -137,7 +137,7 @@ static void *on_expire(oop_source *source,struct timeval when,void *v) {
 	return OOP_CONTINUE;
 }
 
-void send_connect(struct connect *conn,struct gale_message *msg) {
+void send_connect(struct connect *conn,struct gale_packet *msg) {
 	msg = conn->func(msg,conn->data);
 	if (NULL == msg) return;
 	link_put(conn->link,msg);

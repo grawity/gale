@@ -1,4 +1,5 @@
-/* all.h -- include all the other gale headers. */
+/** \file
+ *  This file just includes all the other Gale header files. */
 
 #include "gale/globals.h"
 #include "gale/auth.h"

@@ -27,7 +27,7 @@
 #define CID_LENGTH 20
 
 struct link {
-	struct gale_message *msg;
+	struct gale_packet *msg;
 	struct link *next;
 	struct gale_time when;
 };
@@ -49,10 +49,10 @@ struct gale_link {
 	void *(*on_empty)(struct gale_link *,void *);
 	void *on_empty_data;
 
-	void *(*on_message)(struct gale_link *,struct gale_message *,void *);
+	void *(*on_message)(struct gale_link *,struct gale_packet *,void *);
 	void *on_message_data;
 
-	void *(*on_will)(struct gale_link *,struct gale_message *,void *);
+	void *(*on_will)(struct gale_link *,struct gale_packet *,void *);
 	void *on_will_data;
 
 	void *(*on_subscribe)(struct gale_link *,struct gale_text,void *);
@@ -62,7 +62,7 @@ struct gale_link {
 
 	struct input_buffer *input;                     /* version 0 */
 	u32 in_opcode,in_length;
-	struct gale_message *in_msg,*in_puff,*in_will;
+	struct gale_packet *in_msg,*in_puff,*in_will;
 	struct gale_text in_gimme,*in_text;
 	int in_version;
 
@@ -75,7 +75,7 @@ struct gale_link {
 	/* output stuff */
 
 	struct output_buffer *output;                   /* version 0 */
-	struct gale_message *out_msg,*out_will;
+	struct gale_packet *out_msg,*out_will;
 	struct gale_text out_text,out_gimme;
 	struct link *out_queue;
 	enum { no_shutdown, do_shutdown, done_shutdown } out_shutdown;
@@ -83,21 +83,20 @@ struct gale_link {
 	size_t queue_mem;
 
 	struct gale_text out_publish;			/* version 1 */
-	struct gale_wt *out_watch,*out_complete,*out_assert;
-	struct gale_wt *out_fetch,*out_supply;
+	struct gale_map *out_watch,*out_complete,*out_assert;
+	struct gale_map *out_fetch,*out_supply;
 	struct gale_data out_cid,out_data;
 };
 
 static void * const st_yes = (void *) 0x1;
 static void * const st_no = (void *) 0x2;
 
-static size_t message_size(struct gale_message *m) {
-	return gale_u32_size() + gale_group_size(m->data) 
-	     + m->cat.l * gale_wch_size();
+static size_t message_size(struct gale_packet *m) {
+	return gale_u32_size() + m->content.l + m->routing.l * gale_wch_size();
 }
 
-static struct gale_message *dequeue(struct gale_link *l) {
-	struct gale_message *m = NULL;
+static struct gale_packet *dequeue(struct gale_link *l) {
+	struct gale_packet *m = NULL;
 	if (NULL != l->out_queue) {
 		struct link *link = l->out_queue->next;
 		if (l->out_queue == link)
@@ -109,7 +108,6 @@ static struct gale_message *dequeue(struct gale_link *l) {
 		m = link->msg;
 		gale_free(link);
 		gale_dprintf(7,"<- dequeueing message [%p]\n",m);
-		gale_dmessage(19,m);
 	}
 	return m;
 }
@@ -192,8 +190,13 @@ static void ifn_message_body(struct input_state *inp) {
 	assert(0 == l->in_length);
 	assert(NULL != l->in_msg);
 
-	if (!gale_unpack_u32(&inp->data,&zero) || 0 != zero 
-	||  !gale_unpack_group(&inp->data,&l->in_msg->data))
+	if (!gale_unpack_u32(&inp->data,&zero) || 0 != zero)
+		gale_alert(GALE_WARNING,G_("unknown message format"),0);
+
+	l->in_msg->content.l = inp->data.l;
+	gale_create_array(l->in_msg->content.p,l->in_msg->content.l);
+	if (!gale_unpack_copy(&inp->data,l->in_msg->content.p,inp->data.l)
+	||  0 != inp->data.l)
 		gale_alert(GALE_WARNING,G_("invalid message ignored"),0);
 	else switch (l->in_opcode) {
 	case opcode_puff:
@@ -216,10 +219,11 @@ static void ifn_message_category(struct input_state *inp) {
 	assert(inp->data.l <= l->in_length);
 	l->in_length -= inp->data.l;
 
-	l->in_msg = new_message();
+	gale_create(l->in_msg);
+	l->in_msg->content = null_data;
 	if (gale_unpack_text_len(&inp->data,
 	                         inp->data.l / gale_wch_size(),
-	                         &l->in_msg->cat)) 
+	                         &l->in_msg->routing)) 
 	{
 		inp->next = ifn_message_body;
 		inp->data.l = l->in_length;
@@ -421,9 +425,11 @@ static void ost_version(struct output_state *out) {
 static void ofn_msg_data(struct output_state *out,struct output_context *ctx) {
 	struct gale_link *l = (struct gale_link *) out->private;
 	struct gale_data data;
-	send_space(ctx,gale_u32_size() + gale_group_size(l->out_msg->data),&data);
+	send_space(ctx,
+		gale_u32_size() + gale_copy_size(l->out_msg->content.l),
+		&data);
 	gale_pack_u32(&data,0);
-	gale_pack_group(&data,l->out_msg->data);
+	gale_pack_copy(&data,l->out_msg->content.p,l->out_msg->content.l);
 	l->out_msg = NULL;
 	ost_idle(out);
 }
@@ -431,10 +437,10 @@ static void ofn_msg_data(struct output_state *out,struct output_context *ctx) {
 static void ofn_message(struct output_state *out,struct output_context *ctx) {
 	struct gale_link *l = (struct gale_link *) out->private;
 	struct gale_data data;
-	size_t len = gale_text_len_size(l->out_msg->cat);
+	size_t len = gale_text_len_size(l->out_msg->routing);
 	send_space(ctx,gale_u32_size() + len,&data);
 	gale_pack_u32(&data,len);
-	gale_pack_text_len(&data,l->out_msg->cat);
+	gale_pack_text_len(&data,l->out_msg->routing);
 	out->next = ofn_msg_data;
 }
 
@@ -474,17 +480,17 @@ static void ofn_idle(struct output_state *out,struct output_context *ctx) {
 
 	/* version 1 */
 
-	       if (gale_wt_walk(l->out_watch,NULL,&key,&ptr)) {
+	       if (gale_map_walk(l->out_watch,NULL,&key,&ptr)) {
 		out->next = ofn_text;
 		l->out_text = gale_text_from_data(key);
-		gale_wt_add(l->out_watch,key,NULL);
+		gale_map_add(l->out_watch,key,NULL);
 		if (ptr == st_yes) gale_pack_u32(&data,opcode_watch);
 		else { 
 			gale_pack_u32(&data,opcode_forget);
 			assert(ptr == st_no); 
 		}
 		gale_pack_u32(&data,l->out_text.l * gale_wch_size());
-	} else if (gale_wt_walk(l->out_fetch,NULL,&key,&ptr)) {
+	} else if (gale_map_walk(l->out_fetch,NULL,&key,&ptr)) {
 		assert(st_yes == ptr);
 		out->next = ofn_cid;
 		l->out_cid = key;
@@ -498,7 +504,7 @@ static void ofn_idle(struct output_state *out,struct output_context *ctx) {
 		l->out_publish = null_text;
 		gale_pack_u32(&data,opcode_publish);
 		gale_pack_u32(&data,l->out_text.l * gale_wch_size());
-	} else if (gale_wt_walk(l->out_supply,NULL,&key,&ptr)) {
+	} else if (gale_map_walk(l->out_supply,NULL,&key,&ptr)) {
 		out->next = ofn_cid;
 		l->out_cid = key;
 		assert(ptr != st_yes);
@@ -511,7 +517,7 @@ static void ofn_idle(struct output_state *out,struct output_context *ctx) {
 		}
 		gale_pack_u32(&data,l->out_cid.l + l->out_data.l);
 		assert(CID_LENGTH == l->out_cid.l);
-	} else if (gale_wt_walk(l->out_assert,NULL,&key,&ptr)) {
+	} else if (gale_map_walk(l->out_assert,NULL,&key,&ptr)) {
 		out->next = ofn_cid;
 		l->out_cid = key;
 		l->out_data = null_data;
@@ -521,11 +527,11 @@ static void ofn_idle(struct output_state *out,struct output_context *ctx) {
 			assert(st_no == ptr);
 		}
 		gale_pack_u32(&data,l->out_cid.l + l->out_data.l);
-	} else if (gale_wt_walk(l->out_complete,NULL,&key,&ptr)) {
+	} else if (gale_map_walk(l->out_complete,NULL,&key,&ptr)) {
 		assert(ptr == st_yes);
 		out->next = ofn_text;
 		l->out_text = gale_text_from_data(key);
-		gale_wt_add(l->out_complete,key,NULL);
+		gale_map_add(l->out_complete,key,NULL);
 		gale_pack_u32(&data,opcode_complete);
 		gale_pack_u32(&data,l->out_text.l * gale_wch_size());
 	} else 
@@ -544,26 +550,28 @@ static void ofn_idle(struct output_state *out,struct output_context *ctx) {
 		l->out_will = NULL;
 		gale_pack_u32(&data,opcode_will);
 		gale_pack_u32(&data,gale_u32_size() 
-			+ l->out_msg->cat.l * gale_wch_size() 
-			+ gale_u32_size() + gale_group_size(l->out_msg->data));
+			+ l->out_msg->routing.l * gale_wch_size() 
+			+ gale_u32_size() 
+			+ gale_copy_size(l->out_msg->content.l));
 	} else if (NULL != l->out_queue) {
 		out->next = ofn_message;
 		l->out_msg = dequeue(l);
 		gale_pack_u32(&data,opcode_puff);
 		gale_pack_u32(&data,gale_u32_size() 
-			+ l->out_msg->cat.l * gale_wch_size() 
-			+ gale_u32_size() + gale_group_size(l->out_msg->data));
+			+ l->out_msg->routing.l * gale_wch_size() 
+			+ gale_u32_size() 
+			+ gale_copy_size(l->out_msg->content.l));
 	} else assert(0);
 }
 
 static int ofn_idle_ready(struct output_state *out) {
 	struct gale_link *l = (struct gale_link *) out->private;
 	return l->out_will || l->out_gimme.l || l->out_queue || l->out_publish.l
-	    || gale_wt_walk(l->out_watch,NULL,NULL,NULL)
-	    || gale_wt_walk(l->out_complete,NULL,NULL,NULL)
-	    || gale_wt_walk(l->out_assert,NULL,NULL,NULL)
-	    || gale_wt_walk(l->out_fetch,NULL,NULL,NULL)
-	    || gale_wt_walk(l->out_supply,NULL,NULL,NULL);
+	    || gale_map_walk(l->out_watch,NULL,NULL,NULL)
+	    || gale_map_walk(l->out_complete,NULL,NULL,NULL)
+	    || gale_map_walk(l->out_assert,NULL,NULL,NULL)
+	    || gale_map_walk(l->out_fetch,NULL,NULL,NULL)
+	    || gale_map_walk(l->out_supply,NULL,NULL,NULL);
 }
 
 static void ost_idle(struct output_state *out) {
@@ -611,11 +619,16 @@ static void activate(struct gale_link *l) {
 	}
 }
 
-struct gale_link *new_link(struct oop_source *source) {
+/** Create a new link.
+ *  The link will be detached when it is created.  Use link_set_fd() to
+ *  associate the link with a physical connection to a Gale server.
+ *  \param oop The liboop event source to use for processing messages.
+ *  \return A new gale_link structure, ready to handle protocol traffic. */
+struct gale_link *new_link(struct oop_source *oop) {
 	struct gale_link *l;
 	gale_create(l);
 
-	l->source = source;
+	l->source = oop;
 	l->fd = -1;
 
 	l->on_error = NULL;
@@ -645,15 +658,18 @@ struct gale_link *new_link(struct oop_source *source) {
 	l->queue_mem = 0;
 
 	l->out_publish = null_text;
-	l->out_watch = gale_make_wt(0);
-	l->out_complete = gale_make_wt(0);
-	l->out_assert = gale_make_wt(0);
-	l->out_fetch = gale_make_wt(0);
-	l->out_supply = gale_make_wt(0);
+	l->out_watch = gale_make_map(0);
+	l->out_complete = gale_make_map(0);
+	l->out_assert = gale_make_map(0);
+	l->out_fetch = gale_make_map(0);
+	l->out_supply = gale_make_map(0);
 
 	return l;
 }
 
+/** Close a link immediately (closes the file descriptor in use, if any). 
+ *  \param l The link to close. 
+ *  \sa link_shutdown() */
 void delete_link(struct gale_link *l) {
 	link_set_fd(l,-1);
 	deactivate(l);
@@ -664,7 +680,7 @@ static void *on_process(oop_source *source,struct timeval tv,void *user) {
 	assert(source == l->source);
 
 	if (NULL != l->in_puff && NULL != l->on_message) {
-		struct gale_message *puff = l->in_puff;
+		struct gale_packet *puff = l->in_puff;
 		l->in_puff = NULL;
 		if (NULL != l->input) input_buffer_more(l->input);
 		activate(l);
@@ -672,7 +688,7 @@ static void *on_process(oop_source *source,struct timeval tv,void *user) {
 	}
 
 	if (NULL != l->in_will && NULL != l->on_will) {
-		struct gale_message *will = l->in_will;
+		struct gale_packet *will = l->in_will;
 		l->in_will = NULL;
 		activate(l);
 		return l->on_will(l,will,l->on_will_data);
@@ -759,6 +775,11 @@ static void *on_write(oop_source *source,int fd,oop_event event,void *user) {
 	return OOP_CONTINUE;
 }
 
+/** Attach a protocol link to a physical file descriptor.
+ *  The link will reset its state and use the supplied file descriptor for I/O.
+ *  \param l The link to associate with a file descriptor.
+ *  \param fd The file descriptor to use, or -1 to detach the link. 
+ *  \sa link_get_fd() */
 void link_set_fd(struct gale_link *l,int fd) {
 	if (-1 != l->fd) {
 		/* reset temporary fields and protocol state machine */
@@ -777,21 +798,42 @@ void link_set_fd(struct gale_link *l,int fd) {
 	activate(l);
 }
 
+/** Get the file descriptor in use by a link (if any).
+ *  \param l The link to examine.
+ *  \return The file descriptor in use by the link, or -1 if detached. 
+ *  \sa link_set_fd() */
 int link_get_fd(struct gale_link *l) {
 	return l->fd;
 }
 
+/** Close a link gracefully.
+ *  Unlike delete_link(), this function closes the outgoing half of the
+ *  connection and waits for the other end to finish sending.  When the link
+ *  is fully shut down, the function (if any) registered via link_on_empty()
+ *  will be called. 
+ *  \param l The link to shut down. 
+ *  \sa delete_link() */
 void link_shutdown(struct gale_link *l) {
 	l->out_shutdown = 1;
 	activate(l);
 }
 
+/** Subscribe to messages.
+ *  You will not receive messages on a link until you subscribe.
+ *  \param l The link to subscribe to messages with.
+ *  \param spec The subscription.
+ *  \sa link_on_subscribe(), link_on_message(). */
 void link_subscribe(struct gale_link *l,struct gale_text spec) {
 	l->out_gimme = spec;
 	activate(l);
 }
 
-void link_put(struct gale_link *l,struct gale_message *m) {
+/** Transmit a message.
+ *  \param l The link to send the message with.
+ *  \param m The message to enqueue on the link.  It will be sent in the
+ *           background (using liboop). 
+ *  \sa link_on_message() */
+void link_put(struct gale_link *l,struct gale_packet *m) {
 	struct link *link;
 
 	gale_create(link);
@@ -808,70 +850,113 @@ void link_put(struct gale_link *l,struct gale_message *m) {
 	++l->queue_num;
 	l->queue_mem += message_size(m);
 	gale_dprintf(7,"-> enqueueing message [%p]\n",m);
-	gale_dmessage(19,m);
 	activate(l);
 }
 
-void link_will(struct gale_link *l,struct gale_message *m) {
+/** Register a 'will' message.
+ *  A 'will' is a message that is sent to the server, but is only transmitted
+ *  when the link is broken.  This can be used to notify others when you lose
+ *  connectivity.
+ *  \param l The link to register a 'will' message with.
+ *  \param m The 'will' message to register.  It will be sent in the background
+ *           (using liboop).
+ *  \sa link_on_will() */
+void link_will(struct gale_link *l,struct gale_packet *m) {
 	l->out_will = m;
 	activate(l);
 }
 
+/** Count the unsent messages in a link's outgoing queue. */
 int link_queue_num(struct gale_link *l) {
 	return l->queue_num;
 }
 
+/** Count the total memory size of the unsent messages in a link's outgoing queue. */
 size_t link_queue_mem(struct gale_link *l) {
 	return l->queue_mem;
 }
 
+/** Return the time when the oldest unsent message in a link's outgoing queue
+    was sent. */
 struct gale_time link_queue_time(struct gale_link *l) {
 	if (NULL == l->out_queue) return gale_time_forever();
 	return l->out_queue->next->when;
 }
 
+/** Drop the oldest unsent message from a link's outgoing queue. */
 void link_queue_drop(struct gale_link *l) {
 	if (NULL != l->out_queue) dequeue(l);
 	activate(l);
 }
 
+/** Set the event handler for I/O errors.
+ *  \param l The link to monitor for errors.
+ *  \param call The function to call when an I/O error occurs.  When it is 
+ *         called, the link will be detached; the function can reattach it
+ *         to a new connection, close the link, or whatever.
+ *  \param user User-specified parameter. */
 void link_on_error(struct gale_link *l,
-     void *(*call)(struct gale_link *,int,void *),
-     void *data) {
+     void *(*call)(struct gale_link *l,int,void *user),
+     void *user) {
 	l->on_error = call;
-	l->on_error_data = data;
+	l->on_error_data = user;
 	activate(l);
 }
 
+/** Set the event handler for when a link's outgoing queue is empty.
+ *  \param l The link to monitor.
+ *  \param call The function to call when the link's outgoing queue becomes
+ *         empty.  This function can add more messages to the queue, or
+ *         whatever.
+ *  \param user User-specified parameter. 
+ *  \sa link_shutdown(), link_queue_num() */
 void link_on_empty(struct gale_link *l,
-     void *(*call)(struct gale_link *,void *),
-     void *data) {
+     void *(*call)(struct gale_link *l,void *user),
+     void *user) {
 	l->on_empty = call;
-	l->on_empty_data = data;
+	l->on_empty_data = user;
 	activate(l);
 }
 
+/** Set the event handler for when a message arrives on a link.
+ *  \param l The link to monitor for incoming messages.
+ *  \param call The function to call when a message arrives on the link.
+ *  \param msg The message that was received.
+ *  \param user User-specified parameter. 
+ *  \sa link_put(), link_subscribe() */
 void link_on_message(struct gale_link *l,
-     void *(*call)(struct gale_link *,struct gale_message *,void *),
-     void *data) {
+     void *(*call)(struct gale_link *l,struct gale_packet *msg,void *user),
+     void *user) {
 	l->on_message = call;
-	l->on_message_data = data;
+	l->on_message_data = user;
 	activate(l);
 }
 
+/** Set the event handler for when the other end of a link registers a 'will'.
+ *  \param l The link to monitor for 'will' registration.
+ *  \param call The function to call when a will is registered.
+ *  \param msg The 'will' message.
+ *  \param user User-specified parameter. 
+ *  \sa link_will() */
 void link_on_will(struct gale_link *l,
-     void *(*call)(struct gale_link *,struct gale_message *,void *),
-     void *data) {
+     void *(*call)(struct gale_link *l,struct gale_packet *msg,void *user),
+     void *user) {
 	l->on_will = call;
-	l->on_will_data = data;
+	l->on_will_data = user;
 	activate(l);
 }
 
+/** Set the event handler for when the other end subscribes to messages.
+ *  \param l The link to monitor for subscriptions.
+ *  \param call The function to call when the other end wants to subscribe.
+ *  \param spec The subscription text sent by the other end.
+ *  \param user User-specified parameter.
+ *  \sa link_subscribe() */
 void link_on_subscribe(struct gale_link *l,
-     void *(*call)(struct gale_link *,struct gale_text,void *),
-     void *data) {
+     void *(*call)(struct gale_link *l,struct gale_text spec,void *user),
+     void *user) {
 	l->on_subscribe = call;
-	l->on_subscribe_data = data;
+	l->on_subscribe_data = user;
 	activate(l);
 }
 
@@ -894,44 +979,44 @@ void ltx_publish(struct gale_link *l,struct gale_text spec) {
 
 void ltx_watch(struct gale_link *l,struct gale_text category) {
 	assert(l->in_version > 0);
-	gale_wt_add(l->out_watch,gale_text_as_data(category),st_yes);
+	gale_map_add(l->out_watch,gale_text_as_data(category),st_yes);
 }
 
 void ltx_forget(struct gale_link *l,struct gale_text category) {
 	assert(l->in_version > 0);
-	gale_wt_add(l->out_watch,gale_text_as_data(category),st_no);
+	gale_map_add(l->out_watch,gale_text_as_data(category),st_no);
 }
 
 void ltx_complete(struct gale_link *l,struct gale_text category) {
 	assert(l->in_version > 0);
-	gale_wt_add(l->out_complete,gale_text_as_data(category),st_yes);
+	gale_map_add(l->out_complete,gale_text_as_data(category),st_yes);
 }
 
 void ltx_assert(struct gale_link *l,struct gale_text cat,struct gale_data cid) {
 	assert(l->in_version > 0);
-	gale_wt_add(l->out_assert,combine(cat,cid),st_yes);
+	gale_map_add(l->out_assert,combine(cat,cid),st_yes);
 }
 
 void ltx_retract(struct gale_link *l,struct gale_text cat,struct gale_data id) {
 	assert(l->in_version > 0);
-	gale_wt_add(l->out_assert,combine(cat,id),st_no);
+	gale_map_add(l->out_assert,combine(cat,id),st_no);
 }
 
 void ltx_fetch(struct gale_link *l,struct gale_data cid) {
 	assert(l->in_version > 0);
-	gale_wt_add(l->out_fetch,cid,st_yes);
+	gale_map_add(l->out_fetch,cid,st_yes);
 }
 
 void ltx_miss(struct gale_link *l,struct gale_data cid) {
 	assert(l->in_version > 0);
-	gale_wt_add(l->out_supply,cid,st_no);
+	gale_map_add(l->out_supply,cid,st_no);
 }
 
 void ltx_supply(struct gale_link *l,struct gale_data id,struct gale_data data) {
 	struct gale_data *pdata;
 	assert(l->in_version > 0);
 	*(gale_create(pdata)) = data;
-	gale_wt_add(l->out_supply,id,pdata);
+	gale_map_add(l->out_supply,id,pdata);
 }
 
 int lrx_publish(struct gale_link *l,struct gale_text *spec) {

@@ -194,7 +194,8 @@ static void write_group(FILE *fp,int indent,struct gale_group gr) {
 	set_path(fp,&indent,last,null_text);
 }
 
-static void *on_message(struct gale_link *l,struct gale_message *msg,void *x) {
+static void *on_message(struct gale_link *l,struct gale_packet *pkt,void *x) {
+	struct old_gale_message *msg = gale_receive(pkt);
 	struct gale_text tok = null_text;
 	const char * const trailer = "\n</g:log>\n";
 	const int trailer_len = strlen(trailer);

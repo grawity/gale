@@ -18,12 +18,12 @@ struct directed {
 	struct timeval timeout;
 };
 
-static struct gale_wt *dirs = NULL;
+static struct gale_map *dirs = NULL;
 
 static struct directed *get_dir(struct gale_text host) {
 	struct directed *dir;
-	if (NULL == dirs) dirs = gale_make_wt(0);
-	dir = (struct directed *) gale_wt_find(dirs,gale_text_as_data(host));
+	if (NULL == dirs) dirs = gale_make_map(0);
+	dir = (struct directed *) gale_map_find(dirs,gale_text_as_data(host));
 	if (NULL == dir) {
 		gale_create(dir);
 		/* initialize dir */
@@ -33,7 +33,7 @@ static struct directed *get_dir(struct gale_text host) {
 		dir->is_old = 0;
 		dir->is_empty = 0;
 		dir->attach = NULL;
-		gale_wt_add(dirs,gale_text_as_data(host),dir);
+		gale_map_add(dirs,gale_text_as_data(host),dir);
 	}
 	return dir;
 }
@@ -44,7 +44,7 @@ static void check_done(struct directed *dir) {
 		close_attach(dir->attach);
 		dir->attach = NULL;
 		assert(0 == dir->ref);
-		gale_wt_add(dirs,gale_text_as_data(dir->host),NULL);
+		gale_map_add(dirs,gale_text_as_data(dir->host),NULL);
 		dir->is_busy = 0;
 	}
 }
@@ -64,21 +64,24 @@ static void *on_empty(struct attach *att,void *d) {
 	return OOP_CONTINUE;
 }
 
-static struct gale_message *cat_filter(struct gale_message *msg,void *d) {
+static struct gale_packet *cat_filter(struct gale_packet *msg,void *d) {
 	struct directed *dir = (struct directed *) d;
-	struct gale_message *rewrite = new_message();
+	struct gale_packet *rewrite;
 	struct gale_text cat = null_text;
 	int do_transmit = 0;
 
-	rewrite->data = msg->data;
-	while (gale_text_token(msg->cat,':',&cat)) {
+	gale_create(rewrite);
+	rewrite->routing = null_text;
+	rewrite->content = msg->content;
+	while (gale_text_token(msg->routing,':',&cat)) {
 		struct gale_text base,host;
 		int orig_flag;
 		int flag = is_directed(cat,&orig_flag,&base,&host) && orig_flag
 			&& !gale_text_compare(host,dir->host);
 		base = category_escape(base,flag);
 		do_transmit |= flag;
-                rewrite->cat = gale_text_concat(3,rewrite->cat,G_(":"),base);
+                rewrite->routing = 
+			gale_text_concat(3,rewrite->routing,G_(":"),base);
         }
 
 	if (!do_transmit) {
@@ -87,10 +90,11 @@ static struct gale_message *cat_filter(struct gale_message *msg,void *d) {
 	}
 
         /* strip leading colon */
-        if (rewrite->cat.l > 0) rewrite->cat = gale_text_right(rewrite->cat,-1);
+        if (rewrite->routing.l > 0) 
+		rewrite->routing = gale_text_right(rewrite->routing,-1);
 	gale_dprintf(5,"*** \"%s\": rewrote categories to \"%s\"\n",
 	             gale_text_to(gale_global->enc_console,dir->host),
-	             gale_text_to(gale_global->enc_console,rewrite->cat));
+	             gale_text_to(gale_global->enc_console,rewrite->routing));
 	return rewrite;
 }
 

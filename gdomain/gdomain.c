@@ -16,15 +16,15 @@ void usage() {
 	exit(1);
 }
 
-struct gale_message *slip(struct auth_id *id,struct gale_fragment frag) {
-	struct gale_message *msg = new_message();
+struct old_gale_message *slip(struct auth_id *id,struct gale_fragment frag) {
+	struct old_gale_message *msg = gale_make_message();
 	gale_add_id(&msg->data,null_text);
 	gale_group_add(&msg->data,frag);
 	msg->cat = id_category(id,G_("auth/key"),G_(""));
 	return msg;
 }
 
-struct gale_message *success(struct auth_id *id) {
+struct old_gale_message *success(struct auth_id *id) {
 	struct gale_fragment frag;
 	frag.name = G_("answer/key");
 	frag.type = frag_data;
@@ -32,7 +32,7 @@ struct gale_message *success(struct auth_id *id) {
 	return slip(id,frag);
 }
 
-struct gale_message *failure(struct auth_id *id) {
+struct old_gale_message *failure(struct auth_id *id) {
 	struct gale_fragment frag;
 	frag.name = G_("answer/key/error");
 	frag.type = frag_text;
@@ -42,14 +42,15 @@ struct gale_message *failure(struct auth_id *id) {
 }
 
 void request(struct gale_link *link,struct auth_id *id) {
-	struct gale_message *reply;
+	struct old_gale_message *reply;
 	gale_check_mem();
 	reply = auth_id_public(id) ? success(id) : failure(id);
 	auth_sign(&reply->data,domain,AUTH_SIGN_SELF);
-	if (reply) link_put(link,reply);
+	if (reply) link_put(link,gale_transmit(reply));
 }
 
-void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
+void *on_message(struct gale_link *link,struct gale_packet *pkt,void *data) {
+	struct old_gale_message *msg = gale_receive(pkt);
 	struct auth_id *encrypted = NULL,*signature = NULL;
 	struct gale_fragment frag;
 

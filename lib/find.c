@@ -36,7 +36,8 @@ static void *on_timeout(oop_source *source,struct timeval tv,void *user) {
 	return OOP_HALT;
 }
 
-static void *on_message(struct gale_link *l,struct gale_message *msg,void *d) {
+static void *on_message(struct gale_link *l,struct gale_packet *pkt,void *d) {
+	struct old_gale_message *msg = gale_receive(pkt);
 	struct akd_request *req = (struct akd_request *) d;
 	struct auth_id *encrypted,*signature;
 	struct gale_group group;
@@ -74,7 +75,7 @@ int _gale_find_id(struct auth_id *id) {
 	oop_source *source;
 	struct akd_request req;
 	struct gale_server *server;
-	struct gale_message *msg;
+	struct old_gale_message *msg;
 	struct gale_link *link;
 	struct gale_text tok,name,category;
 	struct gale_fragment frag;
@@ -107,14 +108,15 @@ int _gale_find_id(struct auth_id *id) {
 	server = gale_open(source,link,category,null_text,0);
 
 	/* enqueue the request */
-	msg = new_message();
+	msg = gale_make_message();
 	msg->cat = id_category(id,G_("auth/query"),G_(""));
+	msg->data = gale_group_empty();
 	gale_add_id(&msg->data,G_("AKD"));
 	frag.name = G_("question/key");
 	frag.type = frag_text;
 	frag.value.text = name;
 	gale_group_add(&msg->data,frag);
-	link_put(link,msg);
+	link_put(link,gale_transmit(msg));
 
 	/* set up the timeout handler */
 	gettimeofday(&timeout,NULL);

@@ -266,11 +266,11 @@ static void transmit(struct node *ptr,struct gale_text spec,
 
 void subscr_transmit(
 	oop_source *src,
-	struct gale_message *msg,struct connect *avoid) 
+	struct gale_packet *msg,struct connect *avoid) 
 {
 	struct gale_text cat = null_text;
-	struct gale_message *rewrite = new_message();
-	while (gale_text_token(msg->cat,':',&cat)) {
+	struct gale_packet *rewrite;
+	while (gale_text_token(msg->routing,':',&cat)) {
 		struct gale_text host;
 		if (is_directed(cat,NULL,NULL,&host)) 
 			send_directed(src,host);
@@ -279,8 +279,10 @@ void subscr_transmit(
 	++stamp;
 	assert(list == NULL);
 	cat = null_text;
-	rewrite->data = msg->data;
-	while (gale_text_token(msg->cat,':',&cat)) {
+	gale_create(rewrite);
+	rewrite->routing = null_text;
+	rewrite->content = msg->content;
+	while (gale_text_token(msg->routing,':',&cat)) {
 		struct gale_text base,host;
 		int flag;
 		gale_dprintf(3,"*** transmitting \"%s\"\n",
@@ -288,11 +290,13 @@ void subscr_transmit(
 		is_directed(cat,&flag,&base,&host);
 		transmit(&root,base,avoid,flag);
 		base = category_escape(base,1);
-		rewrite->cat = gale_text_concat(3,rewrite->cat,G_(":"),base);
+		rewrite->routing = 
+			gale_text_concat(3,rewrite->routing,G_(":"),base);
 	}
 
 	/* strip leading colon */
-	if (rewrite->cat.l > 0) rewrite->cat = gale_text_right(rewrite->cat,-1);
+	if (rewrite->routing.l > 0) 
+		rewrite->routing = gale_text_right(rewrite->routing,-1);
 
 	while (list != NULL) {
 		if (list->flag) {

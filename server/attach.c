@@ -42,10 +42,10 @@ void *on_connect(struct gale_server *server,
 		G_("connected to "),
 		gale_connect_text(name,addr)),0);
 	att->name = name;
-	link_will(att->link,gale_error_message(
+	link_will(att->link,gale_transmit(gale_error_message(
 		gale_text_concat(3,
 			G_("galed will: disconnected from "),
-			gale_connect_text(name,addr),G_("\n"))));
+			gale_connect_text(name,addr),G_("\n")))));
 	return OOP_CONTINUE;
 }
 

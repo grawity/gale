@@ -13,12 +13,12 @@
 static const int seen = 0;
 static struct gale_text dirs[2];
 
-static struct gale_text alias(struct gale_text spec,struct gale_wt *seen) {
+static struct gale_text alias(struct gale_text spec,struct gale_map *seen) {
 	struct gale_text next,next_alias;
 	int i;
 
-	if (NULL != gale_wt_find(seen,gale_text_as_data(spec))) return spec;
-	gale_wt_add(seen,gale_text_as_data(spec),&seen);
+	if (NULL != gale_map_find(seen,gale_text_as_data(spec))) return spec;
+	gale_map_add(seen,gale_text_as_data(spec),&seen);
 	for (i = 0; i < sizeof(dirs) / sizeof(dirs[0]); ++i) {
 		const char *fn = gale_text_to(gale_global->enc_filesys,
 			dir_file(dirs[i],spec));
@@ -41,14 +41,14 @@ static struct gale_text alias(struct gale_text spec,struct gale_wt *seen) {
 		seen);
 }
 
-static void redirect(struct auth_id **id,struct gale_wt *seen) {
+static void redirect(struct auth_id **id,struct gale_map *seen) {
 	struct gale_fragment f;
 	struct gale_data name = gale_text_as_data(auth_id_name(*id));
-	if (NULL != gale_wt_find(seen,name)) {
+	if (NULL != gale_map_find(seen,name)) {
 		_ga_warn_id(G_("\"%\": redirection loop"),*id);
 		return;
 	}
-	gale_wt_add(seen,name,&seen);
+	gale_map_add(seen,name,&seen);
 
 	if (auth_id_public(*id)
 	&& gale_group_lookup((*id)->pub_data,G_("key.redirect"),frag_text,&f)) {
@@ -63,7 +63,7 @@ struct auth_id *lookup_id(struct gale_text spec) {
 
 	dirs[0] = dir_file(gale_global->dot_gale,G_("auth/aliases"));
 	dirs[1] = dir_file(gale_global->sys_dir,G_("auth/aliases"));
-	spec = alias(spec,gale_make_wt(0));
+	spec = alias(spec,gale_make_map(0));
 
 	/* If we already have an '@' or a '.', leave as-is. */
 	if ((gale_text_token(spec,'.',&dot) && gale_text_token(spec,'\0',&dot))
@@ -75,7 +75,7 @@ struct auth_id *lookup_id(struct gale_text spec) {
 			G_("@"),
 			gale_var(G_("GALE_DOMAIN"))));
 
-	redirect(&id,gale_make_wt(0));
+	redirect(&id,gale_make_map(0));
 	return id;
 }
 

@@ -56,16 +56,16 @@ int is_done = 0;			/* Ready to terminate? */
 
 /* Generate a trivial little message with the given category.  Used for
    return receipts, login/logout notifications, and such. */
-struct gale_message *slip(struct gale_text cat,
+struct old_gale_message *slip(struct gale_text cat,
                           struct gale_text presence,
                           struct gale_fragment *extra,
                           struct auth_id *sign,struct auth_id *encrypt)
 {
-	struct gale_message *msg;
+	struct old_gale_message *msg;
 	struct gale_fragment frag;
 
 	/* Create a new message. */
-	msg = new_message();
+	msg = gale_make_message();
 	msg->cat = cat;
 
 	frag.name = G_("message/sender");
@@ -97,10 +97,10 @@ void notify(int in,struct gale_text presence) {
 
 	if (in) {
 		cat = id_category(user_id,G_("notice"),G_("login"));
-		link_put(conn,slip(cat,presence,NULL,user_id,NULL));
+		link_put(conn,gale_transmit(slip(cat,presence,NULL,user_id,NULL)));
 	} else {
 		cat = id_category(user_id,G_("notice"),G_("logout"));
-		link_will(conn,slip(cat,presence,NULL,user_id,NULL));
+		link_will(conn,gale_transmit(slip(cat,presence,NULL,user_id,NULL)));
 	}
 }
 
@@ -145,7 +145,7 @@ void *on_disconnect(struct gale_server *server,void *data) {
 
 /* Reply to an AKD request: post our key. */
 
-struct gale_message *send_key(void) {
+struct old_gale_message *send_key(void) {
 	struct gale_fragment frag;
 
 	frag.name = G_("answer/key");
@@ -196,7 +196,8 @@ void send_message(char *body,char *end,int fd) {
 
 /* Take the message passed as an argument and show it to the user, running
    their gsubrc if present, using the default formatter otherwise. */
-void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
+void *on_message(struct gale_link *link,struct gale_packet *pkt,void *data) {
+	struct old_gale_message *msg = gale_receive(pkt);
 	int pfd[2];             /* Pipe file descriptors. */
 
 	/* Lots of crap.  Discussed below, where they're used. */
@@ -204,7 +205,7 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 	struct gale_group group;
 	struct gale_text body = null_text;
 	struct auth_id *id_encrypted = NULL,*id_sign = NULL;
-	struct gale_message *rcpt = NULL,*akd = NULL;
+	struct old_gale_message *rcpt = NULL,*akd = NULL;
 	int status = 0;
 	pid_t pid;
 	char *szbody = NULL;
@@ -336,7 +337,7 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 
 	/* Give them our key, if they wanted it. */
 	if (akd) {
-		link_put(conn,akd);
+		link_put(conn,gale_transmit(akd));
 		rcpt = NULL;
 		status = 0;
 		goto done;
@@ -403,7 +404,7 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 
 done:
 	/* Put the receipt on the queue, if we have one. */
-	if (rcpt && !status) link_put(conn,rcpt);
+	if (rcpt && !status) link_put(conn,gale_transmit(rcpt));
 	gale_restore_environ(save);
 	return OOP_CONTINUE;
 }

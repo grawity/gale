@@ -247,9 +247,23 @@ static void last_name(struct gale_connect *conn) {
 #endif
 }
 
+/** Start attempting to establish a TCP connection.
+ *  This function accepts a list of hostnames in \a serv and starts
+ *  attempting to connect to all of them.  The connection attempts will
+ *  proceed in the background after the function returns (scheduled by
+ *  liboop); the function \a call will be invoked when one of them
+ *  succeeds or all of them fail.  If the port is not specified with the
+ *  \a serv string, the default Gale port will be used.
+ *  \param src Liboop event source to use for connection.
+ *  \param serv Comma-separated list of one or more hostnames.
+ *  \param avoid_local_port If nonzero, avoid reconnecting to ourselves.
+ *  \param call Callback to invoke when connected attempt completes.
+ *  \param user User-supplied parameter, passed to \a call.
+ *  \return Connection handle for use with gale_abort_connect().
+ *  \sa gale_abort_connect() */
 struct gale_connect *gale_make_connect(
 	oop_source *src,struct gale_text serv,int avoid_local_port,
-	gale_connect_call *call,void *data)
+	gale_connect_call *call,void *user)
 {
 	struct gale_connect *conn;
 	struct gale_text spec = null_text;
@@ -268,7 +282,7 @@ struct gale_connect *gale_make_connect(
 	ADNS_ONLY(conn->all_names = 0);
 
 	conn->call = call;
-	conn->data = data;
+	conn->data = user;
 
 	while (gale_text_token(serv,',',&spec)) {
 		struct gale_text part = null_text;
@@ -372,6 +386,11 @@ static void *on_lookup(oop_adapter_adns *adns,adns_answer *answer,void *data) {
 }
 #endif
 
+/** Abort a connection attempt.
+ *  This function stops attempting to establish a connection and releases
+ *  all resources associated with the connection attempt.
+ *  \param conn Connection handle from gale_make_connect().
+ *  \sa gale_make_connect() */
 void gale_abort_connect(struct gale_connect *conn) {
 	ADNS_ONLY(while (conn->num_resolve) del_name(conn,0);)
 	while (conn->num_address) {
@@ -387,6 +406,10 @@ void gale_abort_connect(struct gale_connect *conn) {
 	conn->source->cancel_time(conn->source,OOP_TIME_NOW,on_abort,conn);
 }
 
+/** Return a description of the connected host.
+ *  \param host Hostname (usually as passed to ::gale_make_connect).
+ *  \param addr IP address (usually as passed to ::gale_make_connect).
+ *  \return Human-readable text string describing the remote host. */
 struct gale_text gale_connect_text(
 	struct gale_text host,
 	struct sockaddr_in addr) 
