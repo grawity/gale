@@ -33,7 +33,7 @@ install-data-local:
 		"$(DESTDIR)$(sysconfdir)/gale/auth/trusted/ROOT"
 	$(INSTALL_DATA) "$(srcdir)/COPYING" \
 		"$(DESTDIR)$(sysconfdir)/gale/COPYING"
-	-chmod -R a+rX "$(DESTDIR)$(sysconfdir)/gale"
+	-chmod -R a+rX "$(DESTDIR)$(sysconfdir)/gale" 2>/dev/null
 	@echo ""
 	@echo "*** now run $(DESTDIR)$(bindir)/gale-install ... even for an upgrade ***"
 
