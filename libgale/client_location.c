@@ -17,22 +17,13 @@ struct find {
 };
 
 static gale_key_call on_key;
-
-static void *on_graph(oop_source *o,struct gale_map *map,int has_null,void *x) {
-	struct find *find = (struct find *) x;
-	find->loc->members = map;
-	find->loc->members_null = has_null;
-	gale_map_add(find->loc->members,
-		gale_text_as_data(gale_key_name(find->loc->key)),
-		find->loc->key);
-	return find->func(gale_location_name(find->loc),find->loc,find->user);
-}
+static void *on_graph(oop_source *,struct gale_map *,int,int,void *);
 
 static void find_key(oop_source *oop,struct find *find) {
 	int i;
 	++(find->count);
 	for (i = find->loc->at_part - 1; i >= 0; i -= 2) {
-		++(find->count);
+		if (0 != find->count) ++(find->count);
 		gale_key_search(oop,
 			gale_key_handle(gale_text_concat(3,
 				gale_text_concat_array(i,find->loc->parts),
@@ -55,7 +46,8 @@ static void follow_key(oop_source *oop,const struct find *find) {
 	struct gale_text name = gale_key_name(find->loc->key);
 	struct gale_data name_data = gale_text_as_data(name);
 
-	assert(NULL != find->func);
+	assert(NULL != find->func && 0 == find->count);
+
 	if (!gale_group_lookup(
 		gale_key_data(gale_key_public(find->loc->key,find->now)),
 		G_("key.redirect"),frag_text,&frag)
@@ -63,7 +55,7 @@ static void follow_key(oop_source *oop,const struct find *find) {
 	{
 		key_i_graph(oop,
 			find->loc->key,
-			search_all, /* ~search_private ? */
+			find->flags,
 			G_("key.member"),
 			on_graph,(void *) find);
 		return;
@@ -71,7 +63,6 @@ static void follow_key(oop_source *oop,const struct find *find) {
 
 	gale_create(next);
 	*next = *find;
-	next->count = 0;
 
 	if (NULL == next->map) next->map = gale_make_map(0);
 	gale_map_add(next->map,name_data,find->loc->key);
@@ -100,10 +91,27 @@ static void follow_key(oop_source *oop,const struct find *find) {
 	find_key(oop,next);
 }
 
+static void *on_graph(oop_source *oop,
+	struct gale_map *map,
+	int is_complete,int has_null,void *x) 
+{
+	struct find *find = (struct find *) x;
+	if (!is_complete && (find->flags | search_slow) != find->flags) {
+		find->flags |= search_slow;
+		follow_key(oop,find);
+		return OOP_CONTINUE;
+	}
+
+	find->loc->members = map;
+	find->loc->members_null = has_null;
+	gale_map_add(find->loc->members,
+		gale_text_as_data(gale_key_name(find->loc->key)),
+		find->loc->key);
+	return find->func(gale_location_name(find->loc),find->loc,find->user);
+}
+
 static void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 	struct find *find = (struct find *) user;
-	--(find->count);
-
 	assert(NULL != key);
 
 	if (NULL != gale_key_public(key,find->now)) {
@@ -119,27 +127,22 @@ static void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 			find->loc->key = key;
 		}
 
-		if (find->loc->key == key && find->func != NULL) {
+		if (find->loc->key == key && 0 != find->count) {
+			find->count = 0;
 			follow_key(oop,find);
-			find->func = NULL;
 		}
 	}
 
-	if (0 == find->count && NULL != find->func) {
-		const int new_flags = find->flags | search_slow;
-		if (new_flags != find->flags) {
-			find->flags = new_flags;
-			find_key(oop,find);
-		} else {
-			gale_call_location *func = find->func;
-			find->func = NULL;
-			return func(
-				gale_location_name(find->loc),
-				NULL,find->user);
-		}
+	if (0 == find->count || 0 != --(find->count))
+		return OOP_CONTINUE;
+
+	if ((find->flags | search_slow) != find->flags) {
+		find->flags |= search_slow;
+		find_key(oop,find);
+		return OOP_CONTINUE;
 	}
 
-	return OOP_CONTINUE;
+	return find->func(gale_location_name(find->loc),NULL,find->user);
 }
 
 /** Look up a Gale location address without alias expansion.
