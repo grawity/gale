@@ -581,7 +581,7 @@ int main(int argc,char **argv) {
 
 	/* Open a connection to the server. */
 	conn = new_link(source);
-	server = gale_open(source,conn,serv);
+	server = gale_open(source,conn,serv,null_text);
 
 	/* Fork ourselves into the background, unless we shouldn't. */
 	if (do_fork) gale_daemon(source,1);

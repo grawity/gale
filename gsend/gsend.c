@@ -276,7 +276,7 @@ int main(int argc,char *argv[]) {
 	/* Open a connection to the server; don't subscribe to anything. */
 	sys = oop_sys_new();
 	link = new_link(oop_sys_source(sys));
-	gale_open(oop_sys_source(sys),link,G_("-"));
+	gale_open(oop_sys_source(sys),link,G_("-"),null_text);
 
 	/* If stdin is a TTY, prompt the user. */
 	if (ttyin) {

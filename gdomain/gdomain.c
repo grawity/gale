@@ -7,7 +7,6 @@
 #include "gale/all.h"
 
 struct gale_text category;
-struct gale_client *client;
 struct auth_id *domain;
 
 void usage() {
@@ -42,11 +41,11 @@ struct gale_message *failure(struct auth_id *id) {
 	return slip(id,frag);
 }
 
-void request(struct auth_id *id) {
+void request(struct gale_link *link,struct auth_id *id) {
 	struct gale_message *reply;
 	reply = auth_id_public(id) ? success(id) : failure(id);
 	reply = _sign_message(domain,reply);
-	if (reply) link_put(client->link,reply);
+	if (reply) link_put(link,reply);
 }
 
 int prefix(struct gale_text x,struct gale_text prefix) {
@@ -57,13 +56,13 @@ int suffix(struct gale_text x,struct gale_text suffix) {
 	return !gale_text_compare(gale_text_right(x,suffix.l),suffix);
 }
 
-void incoming(struct gale_message *msg) {
+void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 	struct auth_id *encrypted = NULL,*signature = NULL;
 	struct gale_text user = null_text;
 	struct gale_group group;
 
 	encrypted = decrypt_message(msg,&msg);
-	if (!msg) return;
+	if (!msg) return OOP_CONTINUE;
 	signature = verify_message(msg,&msg);
 
 	/* Figure out what we can from the headers. */
@@ -87,14 +86,21 @@ void incoming(struct gale_message *msg) {
 		gale_alert(GALE_WARNING,"cannot determine the key wanted",0);
 	else {
 		struct auth_id *key = lookup_id(user);
-		if (key) request(key);
+		if (key) request(link,key);
 	}
+
+	return OOP_CONTINUE;
 }
 
 int main(int argc,char *argv[]) {
+	struct gale_link *link;
+	struct gale_server *server;
+	oop_source_sys *sys;
+	oop_source *source;
 	int arg;
 
 	gale_init("gdomain",argc,argv);
+	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
 	disable_gale_akd();
 
 	while ((arg = getopt(argc,argv,"dDh")) != EOF)
@@ -111,16 +117,12 @@ int main(int argc,char *argv[]) {
 		gale_alert(GALE_ERROR,"no access to domain private key",0);
 
 	category = dom_category(auth_id_name(domain),G_("auth/query"));
-	client = gale_open(category);
+	link = new_link(source);
+	server = gale_open(source,link,category,null_text);
 
-	gale_daemon(0);
-
-	for (;;) {
-		struct gale_message *msg;
-		while (gale_send(client)) gale_retry(client);
-		while (gale_next(client)) gale_retry(client);
-		while ((msg = link_get(client->link))) incoming(msg);
-	}
+	gale_daemon(source,0);
+	link_on_message(link,on_message,NULL);
+	oop_sys_run(sys);
 
 	return 0;
 }

@@ -13,14 +13,14 @@
 ZSubscription_t sub;
 
 u_short port;
-struct gale_client *client;
+struct gale_link *conn;
 const char *myname;
 struct gale_text cat;
 
 char *buf = NULL;
 int buf_len = 0,buf_alloc = 0;
 
-void cleanup(void) {
+void cleanup(void *d) {
 	ZCancelSubscriptions(port);
 }
 
@@ -95,10 +95,10 @@ void to_g(ZNotice_t *notice) {
 
 	msg->cat = gale_text_concat(2,cat,
 		gale_text_from_latin1(notice->z_class_inst,-1));
-	link_put(client->link,msg);
+	link_put(conn,msg);
 }
 
-void z_to_g(void) {
+void *z_to_g(oop_source *source,int sock,oop_event event,void *d) {
 	ZNotice_t notice;
 	int retval;
 
@@ -110,9 +110,11 @@ void z_to_g(void) {
 		to_g(&notice);
 		ZFreeNotice(&notice);
 	}
+
+	return OOP_CONTINUE;
 }
 
-void to_z(struct gale_message *msg) {
+void *to_z(struct gale_link *conn,struct gale_message *msg,void *data) {
 	ZNotice_t notice;
 	char instance[256] = "(invalid)";
 	char *sig = NULL,*body = NULL;
@@ -190,15 +192,6 @@ void to_z(struct gale_message *msg) {
 		com_err(myname,retval,"while sending notice");
 }
 
-void g_to_z(void) {
-	struct gale_message *msg;
-
-	while ((msg = link_get(client->link))) {
-		gale_dprintf(2,"received gale message\n");
-		to_z(msg);
-	}
-}
-
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
@@ -210,10 +203,14 @@ void usage(void) {
 }
 
 int main(int argc,char *argv[]) {
+	struct gale_server *server;
+	oop_source_sys *sys;
+	oop_source *source;
 	int retval,opt;
 	fd_set fds;
 
 	gale_init("gzgw",argc,argv);
+	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
 
 	openlog(argv[0],LOG_PID,LOG_DAEMON);
 
@@ -245,7 +242,8 @@ int main(int argc,char *argv[]) {
 	if (optind < argc) usage();
 
 	gale_dprintf(2,"subscribing to gale: \"%s\"\n",gale_text_to_local(cat));
-	client = gale_open(cat);
+	conn = new_link(source);
+	server = gale_open(source,conn,cat,null_text);
 
 	gale_dprintf(2,"subscribing to Zephyr\n");
 	gale_dprintf(3,"... triple %s,%s,%s\n",
@@ -269,28 +267,12 @@ int main(int argc,char *argv[]) {
 	}
 
 	gale_dprintf(1,"starting\n");
-	gale_daemon(0);
+	gale_daemon(source,0);
 
-	gale_cleanup(cleanup);
+	gale_cleanup(cleanup,NULL);
+	link_on_message(conn,to_z,NULL);
+	source->on_fd(source,ZGetFD(),OOP_READ,z_to_g,NULL);
 
-	for (;;) {
-		while (gale_send(client)) gale_retry(client);
-
-		FD_ZERO(&fds);
-		FD_SET(client->socket,&fds);
-		FD_SET(ZGetFD(),&fds);
-
-		gale_dprintf(2,"waiting for incoming messages ...\n");
-		retval = select(FD_SETSIZE,
-		                (SELECT_ARG_2_T) &fds,NULL,NULL,NULL);
-		if (retval < 0) {
-			com_err(myname,retval,"in select()");
-			exit(1);
-		}
-
-		if (FD_ISSET(client->socket,&fds))
-			if (gale_next(client)) gale_retry(client);
-		g_to_z();
-		z_to_g();
-	}
+	oop_sys_run(sys);
+	return 0;
 }

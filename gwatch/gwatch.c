@@ -7,8 +7,6 @@
 #include <string.h>
 #include <signal.h>
 
-struct gale_client *client;
-
 struct gale_text *subs = NULL;
 struct gale_message **pings = NULL;
 int count_subs = 0,count_pings = 0;
@@ -18,9 +16,15 @@ struct gale_text tty,gwatchrc,receipt;
 int max_num = 0;
 int so_far = 0;
 
-void bye(int x) {
-	(void) x;
-	exit(0);
+void *on_alarm(oop_source *source,struct timeval tv,void *d) {
+	return OOP_HALT;
+}
+
+void set_alarm(oop_source *source,int sec) {
+	struct timeval tv;
+	gettimeofday(&tv,NULL);
+	tv.tv_sec += sec;
+	source->on_time(source,tv,on_alarm,NULL);
 }
 
 void watch_cat(struct gale_text cat) {
@@ -106,17 +110,9 @@ void read_file(struct gale_text fn) {
 	fclose(fp);
 }
 
-void open_client(void) {
-	struct gale_text spec = subs[0];
+void send_pings(struct gale_link *link) {
 	int i;
-	for (i = 1; i < count_subs; ++i)
-		spec = gale_text_concat(3,spec,G_(":"),subs[i]);
-	client = gale_open(spec);
-}
-
-void send_pings(void) {
-	int i;
-	for (i = 0; i < count_pings; ++i) link_put(client->link,pings[i]);
+	for (i = 0; i < count_pings; ++i) link_put(link,pings[i]);
 }
 
 void incoming(
@@ -157,7 +153,7 @@ void incoming(
 	fflush(stdout);
 }
 
-void process_message(struct gale_message *msg) {
+void *on_message(struct gale_link *link,struct gale_message *msg,void *d) {
 	struct auth_id *id_sign = NULL,*id_encrypt = NULL;
 	struct gale_text from = null_text,status = null_text;
 	struct gale_text class = null_text,instance = null_text;
@@ -165,7 +161,7 @@ void process_message(struct gale_message *msg) {
 	struct gale_group group;
 
 	id_encrypt = decrypt_message(msg,&msg);
-	if (!msg) return;
+	if (!msg) return OOP_CONTINUE;
 
 	id_sign = verify_message(msg,&msg);
 
@@ -213,7 +209,8 @@ void process_message(struct gale_message *msg) {
 	}
 
 	incoming(id_sign,status,from,class,instance,when);
-	if (max_num != 0 && ++so_far == max_num) bye(0);
+	if (max_num != 0 && ++so_far == max_num) return OOP_HALT;
+	return OOP_CONTINUE;
 }
 
 void usage(void) {
@@ -236,8 +233,13 @@ void usage(void) {
 }
 
 int main(int argc,char *argv[]) {
-	int arg,do_fork = 0,do_kill = 0;
+	int i,arg,do_fork = 0,do_kill = 0;
 	struct sigaction act;
+	oop_source_sys *sys;
+	oop_source *source;
+	struct gale_link *link;
+	struct gale_server *server;
+	struct gale_text spec;
 
 	gwatchrc = G_("spylist");
 	tty = gale_text_from_local(ttyname(1),-1);
@@ -248,11 +250,8 @@ int main(int argc,char *argv[]) {
 	}
 
 	gale_init("gwatch",argc,argv);
+	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
 	receipt = null_text;
-
-	sigaction(SIGALRM,NULL,&act);
-	act.sa_handler = bye;
-	sigaction(SIGALRM,&act,NULL);
 
 	while ((arg = getopt(argc,argv,"hnkKi:d:p:m:s:w:f:")) != EOF) 
 	switch (arg) {
@@ -263,7 +262,7 @@ int main(int argc,char *argv[]) {
 	case 'd': watch_domain(gale_text_from_local(optarg,-1)); break;
 	case 'p': watch_ping(gale_text_from_local(optarg,-1),NULL); break;
 	case 'm': max_num = atoi(optarg); do_fork = 0; break;
-	case 's': alarm(atoi(optarg)); do_fork = 0; break;
+	case 's': set_alarm(source,atoi(optarg)); do_fork = 0; break;
 	case 'w': read_file(gale_text_from_local(optarg,-1)); break;
 	case 'f': gwatchrc = gale_text_from_local(optarg,-1); break;
 	case 'h':
@@ -281,24 +280,21 @@ int main(int argc,char *argv[]) {
 		usage();
 	}
 
-	open_client();
+	spec = subs[0];
+	for (i = 1; i < count_subs; ++i)
+		spec = gale_text_concat(3,spec,G_(":"),subs[i]);
+	link = new_link(source);
+	server = gale_open(source,link,spec,null_text);
 
-	if (do_fork) gale_daemon(1);
+	if (do_fork) gale_daemon(source,1);
 	if (tty.l) {
 		gale_kill(tty,do_kill);
-		gale_watch_tty(1);
+		gale_watch_tty(source,1);
 	}
 
-	send_pings();
-	for (;;) {
-		while (!gale_send(client) && !gale_next(client)) {
-			struct gale_message *msg;
-			while ((msg = link_get(client->link)))
-				process_message(msg);
-		}
-		gale_retry(client);
-	}
-
-	gale_close(client);
+	send_pings(link);
+	link_on_message(link,on_message,NULL);
+	oop_sys_run(sys);
+	gale_close(server);
 	return 0;
 }
