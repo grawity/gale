@@ -8,47 +8,70 @@
 
 #include "gale/all.h"
 
-struct auth_id *lookup_id(const char *spec) {
-	char *at = strchr(spec,'@');
+struct auth_id *lookup_id(struct gale_text spec) {
+	struct gale_text tok = null_text;
 	struct auth_id *id;
 
-	if (at) init_auth_id(&id,spec);
+	if (gale_text_token(spec,'@',&tok) && gale_text_token(spec,'\0',&tok))
+		init_auth_id(&id,spec);
 	else {
-		const char *domain = getenv("GALE_DOMAIN");
-		char *tmp = gale_malloc(strlen(domain) + strlen(spec) + 2);
-		sprintf(tmp,"%s@%s",spec,domain);
-		init_auth_id(&id,tmp);
-		gale_free(tmp);
+		struct gale_text domain = 
+			gale_text_from_local(getenv("GALE_DOMAIN"),-1);
+		struct gale_text text = new_gale_text(spec.l + 1 + domain.l);
+		gale_text_append(&text,spec);
+		gale_text_append(&text,_G("@"));
+		gale_text_append(&text,domain);
+		init_auth_id(&id,text);
+		free_gale_text(text);
+		free_gale_text(domain);
 	}
 
 	return id;
 }
 
-struct gale_text id_category(struct gale_id *id,const char *pfx,const char *sfx)
+struct gale_text id_category(struct gale_id *id,
+                             struct gale_text pfx,struct gale_text sfx)
 {
-	const char *name = auth_id_name(id);
-	char *tmp = gale_malloc(strlen(name) + strlen(pfx) + strlen(sfx) + 4);
-	const char *at = strchr(name,'@');
-	struct gale_text text;
+	struct gale_text user,name = auth_id_name(id);
+	struct gale_text text = new_gale_text(name.l + pfx.l + sfx.l + 3);
+	struct gale_text tok = null_text;
 
-	if (at)
-		sprintf(tmp,"@%s/%s/%.*s/%s",at+1,pfx,at - name,name,sfx);
-	else
-		sprintf(tmp,"@%s/%s/",name,pfx);
-	text = gale_text_from_local(tmp,-1);
-	gale_free(tmp);
+	gale_text_append(&text,_G("@"));
+	gale_text_token(name,'@',&tok);
+	user = tok;
+	if (gale_text_token(name,'@',&tok)) {
+		gale_text_append(&text,tok);
+		gale_text_append(&text,_G("/"));
+		gale_text_append(&text,pfx);
+		gale_text_append(&text,_G("/"));
+		gale_text_append(&text,user);
+		gale_text_append(&text,_G("/"));
+		gale_text_append(&text,sfx);
+	} else {
+		gale_text_append(&text,user);
+		gale_text_append(&text,_G("/"));
+		gale_text_append(&text,pfx);
+		gale_text_append(&text,_G("/"));
+	}
+
 	return text;
 }
 
-struct gale_text dom_category(const char *dom,const char *pfx) {
-	char *tmp;
-	struct gale_text text;
+struct gale_text dom_category(struct gale_text dom,struct gale_text pfx) {
+	struct gale_text text,domain;
 
-	if (!dom) dom = getenv("GALE_DOMAIN");
-	tmp = gale_malloc(strlen(pfx) + strlen(dom) + 4);
-	sprintf(tmp,"@%s/%s/",dom,pfx);
+	if (dom.p) 
+		domain = dom;
+	else
+		domain = gale_text_from_local(getenv("GALE_DOMAIN"),-1);
 
-	text = gale_text_from_local(tmp,-1);
-	gale_free(tmp);
+	text = new_gale_text(dom.l + pfx.l + 3);
+	gale_text_append(&text,_G("@"));
+	gale_text_append(&text,dom);
+	gale_text_append(&text,_G("/"));
+	gale_text_append(&text,pfx);
+	gale_text_append(&text,_G("/"));
+
+	if (!dom.p) free_gale_text(domain);
 	return text;
 }

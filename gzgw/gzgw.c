@@ -130,11 +130,10 @@ void z_to_g(void) {
 void to_z(struct gale_message *_msg) {
 	ZNotice_t notice;
 	char instance[256] = "(invalid)";
-	char *key,*data,*next,*end;
-	const char *sig;
+	char *key,*data,*next,*end,*sig;
 	struct gale_message *msg;
 	struct auth_id *signature,*encryption;
-	struct gale_text token = { NULL,0 };
+	struct gale_text token = null_text;
 	int retval;
 
 	encryption = decrypt_message(_msg,&msg);
@@ -148,8 +147,11 @@ void to_z(struct gale_message *_msg) {
 	notice.z_class_inst = instance;
 	notice.z_opcode = "gale";
 	notice.z_default_format = "";
-	notice.z_sender = signature ? (char*) auth_id_name(signature) : "gale";
 	notice.z_recipient = "";
+	if (signature)
+		notice.z_sender = gale_text_to_latin1(auth_id_name(signature));
+	else
+		notice.z_sender = gale_strdup("gale");
 
 	while (gale_text_token(msg->cat,':',&token)) {
 		if (!gale_text_compare(cat,gale_text_left(token,cat.l))) {
@@ -164,15 +166,22 @@ void to_z(struct gale_message *_msg) {
 	end = msg->data.p + msg->data.l;
 	next = msg->data.p;
 	while (parse_header(&next,&key,&data,end)) {
-		if (!strcasecmp(key,"From"))
-			sig = data;
+		if (!strcasecmp(key,"From")) {
+			if (sig) gale_free(sig);
+			sig = gale_strdup(data);
+		}
 	}
 
-	if (sig == NULL && signature) sig = auth_id_comment(signature);
-	if (sig == NULL) sig = "Gale User";
+	if (sig == NULL) {
+		if (signature) 
+			sig = gale_text_to_latin1(auth_id_comment(signature));
+		else
+			sig = gale_strdup("Gale User");
+	}
 
 	reset();
 	append(strlen(sig) + 1,sig); 
+	gale_free(sig);
 
 	while (next != end) {
 		key = memchr(next,'\r',end - next);
@@ -196,6 +205,7 @@ void to_z(struct gale_message *_msg) {
 
 	if (signature) free_auth_id(signature);
 	if (encryption) free_auth_id(encryption);
+	gale_free(notice.z_sender);
 	release_message(msg);
 }
 

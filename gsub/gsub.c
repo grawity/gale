@@ -42,6 +42,7 @@ struct gale_client *client;             /* Connection to server. */
 char *tty,*agent;                       /* TTY device, user-agent string. */
 
 int do_ping = 1;			/* Should we answer Receipt-To's? */
+int do_beep = 1;			/* Should we beep? */
 int do_termcap = 0;                     /* Should we highlight headers? */
 int sequence = 0;
 
@@ -100,9 +101,9 @@ struct gale_message *send_key(void) {
 	struct gale_data data;
 	struct gale_message *key = new_message();
 	export_auth_id(user_id,&data,0);
-	key->cat = id_category(user_id,"auth/key","");
+	key->cat = id_category(user_id,_G("auth/key"),_G(""));
 	key->data.p = gale_malloc(256 
-	            + strlen(auth_id_name(user_id)) 
+	            + auth_id_name(user_id).l
 	            + strlen(getenv("GALE_FROM"))
 	            + data.l);
 
@@ -114,7 +115,7 @@ struct gale_message *send_key(void) {
 		"Subject: success %s\r\n"
 		"\r\n",
 	        getenv("GALE_FROM"),time(NULL),agent,sequence++,
-		auth_id_name(user_id));
+		gale_text_hack(auth_id_name(user_id)));
 	key->data.l = strlen(key->data.p);
 	memcpy(key->data.p + key->data.l,data.p,data.l);
 	key->data.l += data.l;
@@ -214,7 +215,7 @@ void default_gsubrc(void) {
 
 		putchar(':');
 		fputs(nl,stdout);
-		if (tty && to_id) putchar('\a');
+		if (tty && to_id && do_beep) putchar('\a');
 	}
 
 	/* Print the message body.  Make sure to escape unprintables. */
@@ -318,16 +319,18 @@ void present_message(struct gale_message *_msg) {
 	}
 
 	if (id_encrypted) {
-		tmp = gale_malloc(strlen(auth_id_name(id_encrypted)) + 16);
-		sprintf(tmp,"GALE_ENCRYPTED=%s",auth_id_name(id_encrypted));
+		tmp = gale_malloc(auth_id_name(id_encrypted).l + 16);
+		sprintf(tmp,"GALE_ENCRYPTED=%s",
+			gale_text_hack(auth_id_name(id_encrypted)));
 		envp[envp_len++] = tmp;
 	}
 
 	/* Verify a signature, if possible. */
 	id_sign = verify_message(msg);
 	if (id_sign) {
-		tmp = gale_malloc(strlen(auth_id_name(id_sign))+13);
-		sprintf(tmp,"GALE_SIGNED=%s",auth_id_name(id_sign));
+		tmp = gale_malloc(auth_id_name(id_sign).l + 13);
+		sprintf(tmp,"GALE_SIGNED=%s",
+			gale_text_hack(auth_id_name(id_sign)));
 		envp[envp_len++] = tmp;
 	}
 
@@ -347,13 +350,15 @@ void present_message(struct gale_message *_msg) {
 		}
 
 		if (do_ping && !strcasecmp(key,"Request-Key")) {
-			if (strcmp(data,auth_id_name(user_id)))
+			struct gale_text text = gale_text_from_latin1(data,-1);
+			if (gale_text_compare(text,auth_id_name(user_id)))
 				gale_alert(GALE_WARNING,
 				           "invalid key request",0);
 			else {
 				if (akd) release_message(akd);
 				akd = send_key();
 			}
+			free_gale_text(text);
 		}
 
 		/* Create a HEADER_... environment entry for this. */
@@ -376,8 +381,8 @@ void present_message(struct gale_message *_msg) {
 
 #ifndef NDEBUG
 	/* In debug mode, restart if we get a properly authorized message. */
-	if (!gale_text_compare(msg->cat,restart) &&
-	    id_sign && !strcmp(auth_id_name(id_sign),"egnor@ofb.net")) {
+	if (!gale_text_compare(msg->cat,restart) && id_sign 
+	&&  !gale_text_compare(auth_id_name(id_sign),_G("egnor@ofb.net"))) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
 		gale_restart();
 	}
@@ -479,14 +484,14 @@ void notify(void) {
 	struct gale_text tmp;
 
 	/* Login: send it right away. */
-	tmp = id_category(user_id,"notice","login");
+	tmp = id_category(user_id,_G("notice"),_G("login"));
 	msg = slip(tmp,user_id,NULL);
 	free_gale_text(tmp);
 	link_put(client->link,msg);
 	release_message(msg);
 
 	/* Logout: "will" it to happen when we disconnect. */
-	tmp = id_category(user_id,"notice","logout");
+	tmp = id_category(user_id,_G("notice"),_G("logout"));
 	msg = slip(tmp,user_id,NULL);
 	free_gale_text(tmp);
 	link_will(client->link,msg);
@@ -511,12 +516,12 @@ void set_agent(void) {
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gsub [-enkKrpa] [-f rcprog] [-l rclib] cat\n"
-	"flags: -e          Do not include default subscriptions\n"
+	"usage: gsub [-benkKpa] [-f rcprog] [-l rclib] cat\n"
+	"flags: -b          Do not beep (normally personal messages beep)\n"
+	"       -e          Do not include default subscriptions\n"
 	"       -n          Do not fork (default if stdout redirected)\n"
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
-	"       -r          Do not retry server connection\n"
 	"       -f rcprog   Use rcprog (default gsubrc, if found)\n"
 #ifdef HAVE_DLOPEN
 	"       -l rclib    Use module (default gsubrc.so, if found)\n" 
@@ -565,28 +570,25 @@ void load_gsubrc(const char *name) {
 
 /* add subscriptions to a list */
 
-void add_subs_text(char **subs,const char *add) {
-	if (add == NULL) return;
-	if (*subs) {
-		char *n = gale_malloc(strlen(*subs) + strlen(add) + 2);
-		sprintf(n,"%s:%s",*subs,add);
-		gale_free(*subs);
-		*subs = n;
-	} else *subs = gale_strdup(add);
-}
-
-void add_subs(char **subs,struct gale_text add) {
+void add_subs(struct gale_text *subs,struct gale_text add) {
+	struct gale_text n;
 	if (add.p == NULL) return;
-	add_subs_text(subs,gale_text_hack(add));
+	n = new_gale_text(subs->l + add.l + 1);
+	gale_text_append(&n,*subs);
+	gale_text_append(&n,_G(":"));
+	gale_text_append(&n,add);
+	free_gale_text(*subs);
+	*subs = n;
 }
 
 /* main */
 
 int main(int argc,char **argv) {
 	/* Various flags. */
-	int opt,do_retry = 1,do_notify = 1,do_fork = 0,do_kill = 0;
+	int opt,do_notify = 1,do_fork = 0,do_kill = 0;
 	const char *rclib = NULL;
-	char *serv = NULL;	/* Subscription list. */
+	/* Subscription list. */
+	struct gale_text serv = null_text;
 
 	/* Initialize the gale libraries. */
 	gale_init("gsub",argc,argv);
@@ -608,19 +610,20 @@ int main(int argc,char **argv) {
 	}
 
 	/* Default subscriptions. */
-	add_subs_text(&serv,getenv("GALE_SUBS"));
-	add_subs_text(&serv,getenv("GALE_GSUB"));
+	add_subs(&serv,gale_text_from_local(getenv("GALE_SUBS"),-1));
+	add_subs(&serv,gale_text_from_local(getenv("GALE_GSUB"),-1));
 
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"enkKrpaf:l:h"))) switch (opt) {
-	case 'e': serv = NULL; break; 		/* Do not include defaults */
+	while (EOF != (opt = getopt(argc,argv,"benkKpaf:l:h"))) switch (opt) {
+	case 'b': do_beep = 0; break;		/* Do not beep */
+	case 'e': free_gale_text(serv);		/* Do not include defaults */
+	          serv.l = 0; serv.p = NULL; break;
 	case 'n': do_fork = 0; break;           /* Do not go into background */
 	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
 	case 'K': if (tty) gale_kill(tty,1);    /* *only* kill other gsubs */
 	          return 0;
 	case 'f': rcprog = optarg; break;       /* Use a wacky gsubrc */
 	case 'l': rclib = optarg; break;	/* Use a wacky gsubrc.so */
-	case 'r': do_retry = 0; break;          /* Do not retry */
 	case 'p': do_ping = 0; break;           /* Do not honor Receipt-To: */
 	case 'a': do_notify = 0; break;         /* Do not send login/logout */
 	case 'h':                               /* Usage message */
@@ -629,16 +632,12 @@ int main(int argc,char **argv) {
 
 	/* One argument, at most (subscriptions) */
 	if (optind < argc - 1) usage();
-	if (optind == argc - 1) add_subs_text(&serv,argv[optind]);
+	if (optind == argc - 1) 
+		add_subs(&serv,gale_text_from_local(argv[optind],-1));
 
 	/* We need to subscribe to *something* */
-	if (serv == NULL) 
+	if (0 == serv.l)
 		gale_alert(GALE_ERROR,"No subscriptions specified.",0);
-
-	if (strstr(serv,":user/") || !strncmp(serv,"user/",5)) {
-		gale_alert(GALE_WARNING,
-		           "** NOTE **\a You use \"user/...\" (http://ofb.net/gale/warning.html)",0);
-	}
 
 	/* Look for a gsubrc.so */
 	load_gsubrc(rclib);
@@ -647,17 +646,16 @@ int main(int argc,char **argv) {
 	gale_keys();
 
 	/* Act as AKD proxy for this particular user. */
-	if (do_ping) add_subs(&serv,id_category(user_id,"auth/query",""));
+	if (do_ping)
+		add_subs(&serv,id_category(user_id,_G("auth/query"),_G("")));
 
 #ifndef NDEBUG
 	/* If in debug mode, listen to debug/ for restart messages. */
-	add_subs_text(&serv,"debug/");
+	add_subs(&serv,_G("debug/"));
 #endif
 
 	/* Open a connection to the server. */
-	client = gale_open(gale_text_from_local(serv,-1));
-	if (!do_retry && gale_error(client))
-		gale_alert(GALE_ERROR,"Could not connect to server.",0);
+	client = gale_open(serv);
 
 	/* Fork ourselves into the background, unless we shouldn't. */
 	if (do_fork) gale_daemon(1);
@@ -668,7 +666,7 @@ int main(int argc,char **argv) {
 
 	/* Send a login message, as needed. */
 	if (do_notify) notify();
-	do {
+	for (;;) {
 		int r = 0;
 
 		while (!gale_error(client) && r >= 0 && !gale_send(client)) {
@@ -698,11 +696,9 @@ int main(int argc,char **argv) {
 		}
 
 		/* Retry the server connection, unless we shouldn't. */
-		if (do_retry) {
-			gale_retry(client);
-			if (do_notify) notify();
-		}
-	} while (do_retry);
+		gale_retry(client);
+		if (do_notify) notify();
+	}
 
 	gale_alert(GALE_ERROR,"connection lost",0);
 	return 0;

@@ -2,7 +2,7 @@
 
 lib_LIBRARIES = libgale.a
 libgale_a_SOURCES = \
-	auth.c authmsg.c client.c connect.c find.c header.c id.c init.c \
-	input.c kill.c libgale.c link.c link_old.c message.c output.c pack.c
+	authmsg.c client.c connect.c find.c header.c id.c init.c \
+	input.c kill.c libgale.c link.c link_old.c message.c output.c
 
-noinst_HEADERS = auth.h buffer.h link_old.h
+noinst_HEADERS = buffer.h link_old.h

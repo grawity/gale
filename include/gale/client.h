@@ -72,13 +72,15 @@ void disable_gale_akd(); /* Increases the "suppress count" */
 void enable_gale_akd();  /* Decreases the "suppress count" */
 
 /* Look up an ID by the local naming conventions. */
-struct auth_id *lookup_id(const char *);
+struct auth_id *lookup_id(struct gale_text);
 
 /* Return @ domain / pfx / user / sfx in a newly allocated string. */
-struct gale_text id_category(struct auth_id *,const char *pfx,const char *sfx);
+/*owned*/ struct gale_text 
+id_category(struct auth_id *,struct gale_text pfx,struct gale_text sfx);
 
 /* Return @ dom / pfx / in a newly allocated string.  NULL dom = default */
-struct gale_text dom_category(const char *dom,const char *pfx);
+/*owned*/ struct gale_text 
+dom_category(struct gale_text dom,struct gale_text pfx);
 
 /* For compatibility.  Deprecated. */
 #define gale_id auth_id

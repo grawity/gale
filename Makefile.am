@@ -4,8 +4,8 @@ SUBDIRS = @BUILD@
 AUTOMAKE_OPTIONS = foreign 1.2
 noinst_SCRIPTS = common.sh config.sh domain.sh
 DIST_SUBDIRS = \
-	auth gdomain gkeys gsend gsub gwatch include lib rsaref server \
-	gzgw glog glsql
+	auth gdomain gkeys gsend gsub gwatch lib rsaref server \
+	gzgw glog glsql include
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

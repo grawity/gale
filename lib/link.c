@@ -35,7 +35,7 @@ struct gale_link {
 };
 
 static size_t message_size(struct gale_message *m) {
-	return m->data.l + m->cat.l * sizeof(wch);
+	return m->data.l + m->cat.l * gale_wch_size();
 }
 
 static struct gale_message *dequeue(struct gale_link *l) {
@@ -122,11 +122,23 @@ static void ifn_message_category(struct input_state *inp) {
 	struct gale_link *l = (struct gale_link *) inp->private;
 	assert(inp->data.l <= l->in_length);
 	l->in_length -= inp->data.l;
-	inp->next = ifn_message_body;
-	inp->data.l = l->in_length;
-	inp->data.p = gale_malloc(inp->data.l);
-	l->in_msg->data = inp->data;
-	inp->ready = input_always_ready;
+
+	l->in_msg = new_message();
+	l->in_msg->cat = new_gale_text(inp->data.l / gale_wch_size());
+	if (gale_unpack_text_len(&inp->data,
+	                         inp->data.l / gale_wch_size(),
+	                         &l->in_msg->cat)) 
+	{
+		inp->next = ifn_message_body;
+		inp->data.l = l->in_length;
+		inp->data.p = gale_malloc(inp->data.l);
+		l->in_msg->data = inp->data;
+		inp->ready = input_always_ready;
+	} else {
+		release_message(l->in_msg);
+		l->in_msg = NULL;
+		ist_unknown(inp);
+	}
 }
 
 static void ifn_category_len(struct input_state *inp) {
@@ -145,10 +157,7 @@ static void ifn_category_len(struct input_state *inp) {
 
 	inp->next = ifn_message_category;
 	inp->data.l = u;
-	inp->data.p = gale_malloc(inp->data.l);
-	l->in_msg = new_message();
-	l->in_msg->cat.p = (wch*) inp->data.p;
-	l->in_msg->cat.l = inp->data.l / sizeof(wch);
+	inp->data.p = NULL;
 }
 
 static int ifn_message_ready(struct input_state *inp) {
@@ -179,12 +188,19 @@ static void ist_message(struct input_state *inp) {
 
 static void ifn_subscribe_category(struct input_state *inp) {
 	struct gale_link *l = (struct gale_link *) inp->private;
+	size_t len = inp->data.l / gale_wch_size();
 	assert(opcode_gimme == l->in_opcode);
 	assert(l->in_length == inp->data.l);
 	assert(NULL == l->in_gimme.p);
-	l->in_gimme.p = (wch*) inp->data.p;
-	l->in_gimme.l = inp->data.l / sizeof(wch);
-	ist_idle(inp);
+	l->in_gimme = new_gale_text(len);
+	if (gale_unpack_text_len(&inp->data,len,&l->in_gimme))
+		ist_idle(inp);
+	else {
+		free_gale_text(l->in_gimme);
+		l->in_gimme.p = NULL;
+		l->in_gimme.l = 0;
+		ist_unknown(inp);
+	}
 }
 
 static int ifn_subscribe_ready(struct input_state *inp) {
@@ -195,7 +211,7 @@ static void ist_subscribe(struct input_state *inp) {
 	inp->next = ifn_subscribe_category;
 	inp->ready = ifn_subscribe_ready;
 	inp->data.l = ((struct gale_link *) inp->private)->in_length;
-	inp->data.p = gale_malloc(inp->data.l);
+	inp->data.p = NULL;
 }
 
 static void ifn_unknown(struct input_state *inp) {
@@ -247,31 +263,25 @@ static void ofn_msg_data(struct output_state *out,struct output_context *ctx) {
 	ost_idle(out);
 }
 
-static void ofn_msg_cat(struct output_state *out,struct output_context *ctx) {
-	struct gale_link *l = (struct gale_link *) out->private;
-	struct gale_data data;
-	data.p = (byte *) l->out_msg->cat.p;
-	data.l = l->out_msg->cat.l * sizeof(wch);
-	send_buffer(ctx,data,rel_message,l->out_msg);
-	addref_message(l->out_msg);
-	out->next = ofn_msg_data;
-}
-
 static void ofn_message(struct output_state *out,struct output_context *ctx) {
 	struct gale_link *l = (struct gale_link *) out->private;
 	struct gale_data data;
-	send_space(ctx,gale_u32_size(),&data);
-	gale_pack_u32(&data,l->out_msg->cat.l * sizeof(wch));
-	out->next = ofn_msg_cat;
+	size_t len = gale_text_len_size(l->out_msg->cat);
+	send_space(ctx,gale_u32_size() + len,&data);
+	gale_pack_u32(&data,len);
+	gale_pack_text_len(&data,l->out_msg->cat);
+	out->next = ofn_msg_data;
 }
 
 static void ofn_text(struct output_state *out,struct output_context *ctx) {
 	struct gale_link *l = (struct gale_link *) out->private;
 	struct gale_data data;
-	data.p = (byte *) l->out_text.p;
-	data.l = l->out_text.l * sizeof(wch);
+	size_t len = gale_text_len_size(l->out_text);
+	send_space(ctx,len,&data);
+	gale_pack_text_len(&data,l->out_text);
+	free_gale_text(l->out_text);
 	l->out_text.p = NULL;
-	send_buffer(ctx,data,output_release_free,NULL);
+	l->out_text.l = 0;
 	ost_idle(out);
 }
 
@@ -289,21 +299,21 @@ static void ofn_idle(struct output_state *out,struct output_context *ctx) {
 		l->out_text = l->out_gimme;
 		l->out_gimme.p = NULL;
 		gale_pack_u32(&data,opcode_gimme);
-		gale_pack_u32(&data,l->out_text.l * sizeof(wch));
+		gale_pack_u32(&data,l->out_text.l * gale_wch_size());
 	} else if (NULL != l->out_will) {
 		out->next = ofn_message;
 		l->out_msg = l->out_will;
 		l->out_will = NULL;
 		gale_pack_u32(&data,opcode_will);
 		gale_pack_u32(&data,gale_u32_size() 
-			+ l->out_msg->cat.l * sizeof(wch) 
+			+ l->out_msg->cat.l * gale_wch_size() 
 			+ l->out_msg->data.l);
 	} else if (NULL != l->out_queue) {
 		out->next = ofn_message;
 		l->out_msg = dequeue(l);
 		gale_pack_u32(&data,opcode_puff);
 		gale_pack_u32(&data,gale_u32_size() 
-			+ l->out_msg->cat.l * sizeof(wch) 
+			+ l->out_msg->cat.l * gale_wch_size() 
 			+ l->out_msg->data.l);
 	} else assert(0);
 }
@@ -498,7 +508,7 @@ struct gale_message *link_willed(struct gale_link *l) {
 }
 
 struct gale_text link_subscribed(struct gale_link *l) {
-	struct gale_text text = { NULL,0 };
+	struct gale_text text = null_text;
 
 	if (l->old) {
 		char *ch = link_subscribed_old(l->old);

@@ -21,7 +21,7 @@ int main(int argc,char *argv[]) {
 	if (argc > 2) usage();
 	if (argc > 1) {
 		if (argv[1][0] == '-') usage();
-		user_id = lookup_id(argv[1]);
+		user_id = lookup_id(gale_text_from_local(argv[1],-1));
 	}
 	gale_keys();
 	return 0;

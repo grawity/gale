@@ -18,7 +18,7 @@ void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
 struct gale_message *msg;               /* The message we're building. */
-int do_sign = 1,do_encrypt = 0,do_rrcpt = 1;
+int do_encrypt = 0,do_rrcpt = 1;
 size_t alloc = 0;
 
 /* Whether we have collected any replacements for default headers. */
@@ -55,7 +55,7 @@ void headers(void) {
 	}
 
 	/* Most of these are fairly obvious. */
-	if (do_sign && !have_from) {
+	if (signer && !have_from) {
 		const char *from = getenv("GALE_FROM");
 		reserve(20 + strlen(from));
 		sprintf(msg->data.p + msg->data.l,"From: %s\r\n",from);
@@ -64,13 +64,8 @@ void headers(void) {
 	if (!have_to && num_rcpt) {
 		/* Build a comma-separated list of encryption recipients. */
 		int i,size = 30;
-		const char **n = gale_malloc(sizeof(const char *) * num_rcpt);
-		for (i = 0; i < num_rcpt; ++i) {
-			const char *comment = auth_id_comment(rcpt[i]);
-			const char *name = auth_id_name(rcpt[i]);
-			n[i] = (comment && *comment) ? comment : name;
-			size += strlen(n[i]) + 2;
-		}
+		for (i = 0; i < num_rcpt; ++i)
+			size += auth_id_comment(rcpt[i]).l + 2;
 		reserve(size);
 
 		strcpy(msg->data.p + msg->data.l,"To: ");
@@ -78,7 +73,8 @@ void headers(void) {
 
 		for (i = 0; i < num_rcpt; ++i) {
 			strcpy(msg->data.p + msg->data.l,i ? ", " : "");
-			strcat(msg->data.p + msg->data.l,n[i]);
+			strcat(msg->data.p + msg->data.l,
+				gale_text_hack(auth_id_comment(rcpt[i])));
 			msg->data.l += strlen(msg->data.p + msg->data.l);
 		}
 
@@ -91,7 +87,8 @@ void headers(void) {
 		msg->data.l += strlen(msg->data.p + msg->data.l);
 	}
 	if (do_rrcpt) {
-		struct gale_text cat = id_category(user_id,"user","receipt");
+		struct gale_text cat = 
+			id_category(user_id,_G("user"),_G("receipt"));
 		char *pch = gale_text_to_latin1(cat);
 		reserve(20 + strlen(pch));
 		sprintf(msg->data.p + msg->data.l,"Receipt-To: %s\r\n",pch);
@@ -154,30 +151,32 @@ char *get_line(int tty)
 
 /* Output usage information, exit. */
 void usage(void) {
-	struct gale_id *id = lookup_id("name@domain");
+	struct gale_id *id = lookup_id(_G("name@domain"));
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-aruUpP] [-S id] [-c cat] [id [id ...]]\n"
-		"flags: -c category Send message on category <cat>\n"
+		"usage: gsend [-auUpP] [-S id] [-cC cat] [id [id ...]]\n"
+		"flags: -c cat      Add public category <cat> to recipients\n"
+		"       -C cat      Only use category <cat> for message\n"
 		"       -S id       Sign message with a specific <id>\n"
 		"       -a          Do not sign message (anonymous)\n"
-		"       -r          Do not retry server connection\n"
 		"       -p          Always request a return receipt\n"
 		"       -P          Never request a return receipt\n"
 		"       -u          Expect user-supplied headers\n"
 		"       -U          Ditto, and don't supply default headers\n"
 		"With an id of \"name@domain\", category defaults to \"%s\".\n"
+		"You must specify one of -c, -C, or a recipient user.\n"
 		,GALE_BANNER
-		,gale_text_hack(id_category(id,"user","")));
+		,gale_text_hack(id_category(id,_G("user"),_G(""))));
 	exit(1);
 }
 
 /* I think you know what main does. */
 int main(int argc,char *argv[]) {
 	struct gale_client *client;		/* The client structure */
-	int arg,uflag = 0,do_retry = 1;		/* Command line flags */
+	int arg,uflag = 0;			/* Command line flags */
 	int ttyin = isatty(0);	  		/* Input options */
-	char *line,*sign = NULL;		/* Various temporary strings */
+	char *line = NULL;			/* Various temporary strings */
+	struct gale_text public = null_text;	/* Public cateogry */
 
 	/* Initialize the gale libraries. */
 	gale_init("gsend",argc,argv);
@@ -185,19 +184,24 @@ int main(int argc,char *argv[]) {
 	/* Create a new message object to send. */
 	msg = new_message();
 
+	/* Default is to sign with our key. */
+	signer = user_id;
+
 	/* Parse command line options. */
-	while ((arg = getopt(argc,argv,"hac:t:PpS:ruU")) != EOF) 
+	while ((arg = getopt(argc,argv,"hac:C:t:PpS:uU")) != EOF) 
 	switch (arg) {
-	case 'a': do_sign = 0; break;		/* Anonymous (no signature) */
-	case 'c': msg->cat =			/* Select a category */
+	case 'a': signer = NULL; break;		/* Anonymous (no signature) */
+	case 'c': public = 			/* Public message */
+	          gale_text_from_local(optarg,-1);
+	          break;
+	case 'C': msg->cat =			/* Select a category */
 	          gale_text_from_local(optarg,-1); 
 	          break;
-	case 'S': sign = optarg;		/* Select an ID to sign with */
-	          do_sign = 1; 
+	case 'S': signer =      		/* Select an ID to sign with */
+	          lookup_id(gale_text_from_local(optarg,-1));
 	          break;
 	case 'p': do_rrcpt = 2; break;		/* Return receipt */
 	case 'P': do_rrcpt = 0; break;
-	case 'r': do_retry = 0; break;		/* Don't retry */
 	case 'u': uflag = 1; break;		/* User-supplied headers */
 	case 'U': uflag = 2; break;		/* Don't supply headers */
 	case 'h':
@@ -206,10 +210,9 @@ int main(int argc,char *argv[]) {
 
 	rcpt = gale_malloc(sizeof(*rcpt) * (argc - optind));
 	for (; argc != optind; ++optind) {
-		struct auth_id *id = lookup_id(argv[optind]);
-		do_encrypt = 1;
-
-		if (!id) continue;
+		struct auth_id *id = 
+			lookup_id(gale_text_from_local(argv[optind],-1));
+		if (!public.p) do_encrypt = 1;
 
 		if (!auth_id_public(id)) {
 			char *buf = gale_malloc(strlen(argv[optind]) + 30);
@@ -225,39 +228,34 @@ int main(int argc,char *argv[]) {
 	if (do_encrypt && !num_rcpt) 
 		gale_alert(GALE_ERROR,"No valid recipients.",0);
 
-	if (do_sign) {
-		if (sign)
-			signer = lookup_id(sign);
-		else
-			signer = user_id;
-	}
-
 	/* Generate keys. */
-	if (do_encrypt || do_sign) gale_keys();
+	if (do_encrypt || signer) gale_keys();
 
-	if (do_sign && !auth_id_private(signer))
+	if (signer && !auth_id_private(signer))
 		gale_alert(GALE_ERROR,"No private key to sign with.",0);
 
-	if (!msg->cat.p && do_encrypt) {  /* Default category... */
+	if (!msg->cat.p && !public.p && !num_rcpt) usage();
+	if (!do_encrypt && do_rrcpt == 1) do_rrcpt = 0;
+
+	if (!msg->cat.p) {  /* Select default category... */
 		struct gale_text *n = gale_malloc(sizeof(*n) * num_rcpt);
 		struct gale_text colon = gale_text_from_latin1(":",1);
 		int i;
 		size_t size = 0;
+		if (public.p) size += public.l + 1;
 		for (i = 0; i < num_rcpt; ++i) {
-			n[i] = id_category(rcpt[i],"user","");
+			n[i] = id_category(rcpt[i],_G("user"),_G(""));
 			size += n[i].l + 1;
 		}
 		msg->cat = new_gale_text(size);
+		if (public.p) gale_text_append(&msg->cat,public);
 		for (i = 0; i < num_rcpt; ++i) {
-			if (i) gale_text_append(&msg->cat,colon);
+			if (msg->cat.l) gale_text_append(&msg->cat,colon);
 			gale_text_append(&msg->cat,n[i]);
 		}
 		for (i = 0; i < num_rcpt; ++i) free_gale_text(n[i]);
 		free_gale_text(colon);
 		gale_free(n);
-	} else {
-		if (!msg->cat.p) usage(); /* Wrong # arguments */
-		if (do_rrcpt == 1) do_rrcpt = 0;
 	}
 
 	/* A silly little check for a common mistake. */
@@ -281,12 +279,7 @@ int main(int argc,char *argv[]) {
 	client = gale_open(gale_text_from_latin1(NULL,0));
 
 	/* Retry as long as necessary to get the connection open. */
-	while (gale_error(client)) {
-		/* (Well, don't if they told us not to.) */
-		if (!do_retry) 
-			gale_alert(GALE_ERROR,"could not contact server",0);
-		gale_retry(client);
-	}
+	while (gale_error(client)) gale_retry(client);
 
 	/* If stdin is a TTY, prompt the user. */
 	if (ttyin) {
@@ -302,7 +295,8 @@ int main(int argc,char *argv[]) {
 					else 
 						printf(" and ");
 				}
-				printf("%s",auth_id_name(rcpt[i]));
+				printf("%s",
+				gale_text_hack(auth_id_name(rcpt[i])));
 			}
 		}
 		putchar(num_rcpt > 1 ? '\n' : ' ');
@@ -349,7 +343,7 @@ int main(int argc,char *argv[]) {
 	}
 
 	/* Sign the message, unless we shouldn't. */
-	if (do_sign) {
+	if (signer) {
 		struct gale_message *new = sign_message(signer,msg);
 		if (new) {
 			release_message(msg);
@@ -370,7 +364,6 @@ int main(int argc,char *argv[]) {
 	while (1) {
 		/* Flush out the queue. */
 		if (!gale_send(client)) break;
-		if (!do_retry) gale_alert(GALE_ERROR,"transmission failed",0);
 		/* Retry as necessary; put the message back on the queue
 		   if it went away during the failure. */
 		gale_retry(client);

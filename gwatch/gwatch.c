@@ -14,7 +14,7 @@ struct gale_message **pings = NULL;
 int count_subs = 0,count_pings = 0;
 
 const char *tty,*gwatchrc = "gwatchrc";
-struct gale_text receipt = { NULL, 0 };
+struct gale_text receipt;
 
 int max_num = 0;
 int so_far = 0;
@@ -42,7 +42,9 @@ void watch_ping(struct gale_text cat,struct gale_id *id) {
 		const char *host = getenv("HOST");
 		char *tmp = gale_malloc(strlen(host) + 20);
 		sprintf(tmp,"%s.%d",host,(int) getpid());
-		receipt = id_category(user_id,"receipt",tmp);
+		receipt = id_category(user_id,
+			_G("receipt"),
+			gale_text_from_latin1(tmp,-1));
 		gale_free(tmp);
 		watch_cat(receipt);
 	}
@@ -68,12 +70,12 @@ void watch_ping(struct gale_text cat,struct gale_id *id) {
 }
 
 void watch_id(struct gale_id *id) {
-	watch_ping(id_category(id,"user",":/ping"),id);
-	watch_cat(id_category(id,"notice",""));
+	watch_ping(id_category(id,_G("user"),_G(":/ping")),id);
+	watch_cat(id_category(id,_G("notice"),_G("")));
 }
 
-void watch_domain(const char *id) {
-	watch_cat(dom_category(id,"notice"));
+void watch_domain(struct gale_text id) {
+	watch_cat(dom_category(id,_G("notice")));
 }
 
 void read_file(const char *fn) {
@@ -103,9 +105,9 @@ void read_file(const char *fn) {
 		else if (!strcmp(var,"ping"))
 			watch_ping(gale_text_from_local(value,-1),NULL);
 		else if (!strcmp(var,"id"))
-			watch_id(lookup_id(value));
+			watch_id(lookup_id(gale_text_from_local(value,-1)));
 		else if (!strcmp(var,"domain"))
-			watch_domain(value);
+			watch_domain(gale_text_from_local(value,-1));
 		else
 			gale_alert(GALE_WARNING,var,EINVAL);
 	} while (num == 2);
@@ -156,7 +158,7 @@ void incoming(
 	case m_logout: printf("<logout>"); break;
 	case m_ping: printf("<ping>"); break;
 	}
-	if (id) printf(" <%s>",auth_id_name(id));
+	if (id) printf(" <%s>",gale_text_hack(auth_id_name(id)));
 	if (from) printf(" (%s)",from);
 	printf("\r\n");
 	fflush(stdout);
@@ -197,8 +199,8 @@ void process_message(struct gale_message *msg) {
 	}
 
 #ifndef NDEBUG
-	if (!gale_text_compare(msg->cat,debug) && 
-	    id_sign && !strcmp(auth_id_name(id_sign),"egnor@ofb.net")) {
+	if (!gale_text_compare(msg->cat,debug) && id_sign 
+	&&  !gale_text_compare(auth_id_name(id_sign),_G("egnor@ofb.net"))) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
 		gale_restart();
 	}
@@ -222,7 +224,6 @@ void usage(void) {
 		"flags: -n          Do not fork (default if -m, -t, or stdout redirected)\n"
 		"       -k          Do not kill other gwatch processes\n"
 		"       -K          Kill other gwatch processes and terminate\n"
-		"       -r          Do not retry server connection\n"
 		"       -i id       Watch user \"id\"\n"
 		"       -d domain   Watch domain \"domain\"\n"
 		"       -p cat      Send a \"ping\" to the given category\n"
@@ -235,7 +236,7 @@ void usage(void) {
 }
 
 int main(int argc,char *argv[]) {
-	int arg,do_fork = 0,do_kill = 0,do_retry = 1;
+	int arg,do_fork = 0,do_kill = 0;
 	struct sigaction act;
 
 	if ((tty = ttyname(1))) {
@@ -245,6 +246,7 @@ int main(int argc,char *argv[]) {
 	}
 
 	gale_init("gwatch",argc,argv);
+	receipt = null_text;
 
 	sigaction(SIGALRM,NULL,&act);
 	act.sa_handler = bye;
@@ -255,9 +257,8 @@ int main(int argc,char *argv[]) {
 	case 'n': do_fork = 0; break;
 	case 'k': do_kill = 0; break;
 	case 'K': if (tty) gale_kill(tty,1); return 0;
-	case 'r': do_retry = 0; break;
-	case 'i': watch_id(lookup_id(optarg)); break;
-	case 'd': watch_domain(optarg); break;
+	case 'i': watch_id(lookup_id(gale_text_from_local(optarg,-1))); break;
+	case 'd': watch_domain(gale_text_from_local(optarg,-1)); break;
 	case 'p': watch_ping(gale_text_from_local(optarg,-1),NULL); break;
 	case 'm': max_num = atoi(optarg); do_fork = 0; break;
 	case 's': alarm(atoi(optarg)); do_fork = 0; break;
@@ -279,14 +280,12 @@ int main(int argc,char *argv[]) {
 	}
 
 	open_client();
-	if (!do_retry && gale_error(client))
-		gale_alert(GALE_ERROR,"Could not connect to server.",0);
 
 	if (do_fork) gale_daemon(1);
 	if (tty) gale_kill(tty,do_kill);
 
 	send_pings();
-	do {
+	for (;;) {
 		while (!gale_send(client) && !gale_next(client)) {
 			struct gale_message *msg;
 			if (tty && !isatty(1)) return 0;
@@ -295,8 +294,8 @@ int main(int argc,char *argv[]) {
 				release_message(msg);
 			}
 		}
-		if (do_retry) gale_retry(client);
-	} while (do_retry);
+		gale_retry(client);
+	}
 
 	gale_close(client);
 	return 0;

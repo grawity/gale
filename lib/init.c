@@ -71,19 +71,22 @@ static void init_vars(struct passwd *pwd) {
 	}
 
 	tmp = getenv("GALE_ID");
-	user_id = lookup_id(tmp ? tmp : pwd->pw_name);
-	if (!user_id) gale_alert(GALE_ERROR,"could not get user id",0);
+	if (tmp)
+		user_id = lookup_id(gale_text_from_latin1(tmp,-1));
+	else
+		user_id = lookup_id(gale_text_from_latin1(pwd->pw_name,-1));
 
 	if (!getenv("GALE_FROM")) {
-		const char *name = auth_id_comment(user_id);
-		if (!name || !*name) name = strtok(pwd->pw_gecos,",");
+		char *name = gale_text_to_latin1(auth_id_comment(user_id));
+		if (!name) 
+			name = strtok(pwd->pw_gecos,",");
 		tmp = gale_malloc((name ? strlen(name) : 0) + 30);
 		sprintf(tmp,"GALE_FROM=%s",name ? name : "");
 		putenv(tmp);
 	}
 
 	if (!getenv("GALE_SUBS")) {
-		struct gale_text cat = id_category(user_id,"user","");
+		struct gale_text cat = id_category(user_id,_G("user"),_G(""));
 		char *tmp = gale_text_to_local(cat);
 		char *tmp2 = gale_malloc(strlen(tmp) + 30);
 		sprintf(tmp2,"GALE_SUBS=%s",tmp);

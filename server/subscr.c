@@ -197,7 +197,7 @@ static void remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 static void subscr(struct connect *conn,
                    void (*func)(struct node *,struct gale_text,struct sub *))
 {
-	struct gale_text cat = { NULL,0 };
+	struct gale_text cat = null_text;
 	struct sub sub;
 	sub.connect = conn;
 	sub.priority = 0;
@@ -257,7 +257,7 @@ static void transmit(struct node *ptr,struct gale_text spec,
 }
 
 void subscr_transmit(struct gale_message *msg,struct connect *avoid) {
-	struct gale_text cat = { NULL,0 };
+	struct gale_text cat = null_text;
 	++stamp;
 
 	assert(list == NULL);

@@ -3,6 +3,7 @@
 #ifndef GALE_TYPES_H
 #define GALE_TYPES_H
 
+#include <stddef.h>
 #include <sys/types.h>
 #include "gale/compat.h"
 #include "gale/config.h"
@@ -33,7 +34,7 @@ typedef unsigned short u16;
 typedef unsigned char u8;
 
 typedef u8 byte;	/* alias */
-typedef u16 wch;	/* wide char */
+typedef wchar_t wch;	/* wide char */
 
 /* handy data type for a counted buffer. */
 struct gale_data {

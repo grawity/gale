@@ -18,7 +18,7 @@ void gale_init(const char *,int argc,char * const *argv);
 
 /* A banner, suitable for usage messages. */
 #define GALE_BANNER \
-	(PACKAGE " version " VERSION ", copyright 1997 Dan Egnor")
+	(PACKAGE " version " VERSION ", copyright 1997,1998 Dan Egnor")
 
 /* -- management of message (puff) objects --------------------------------- */
 

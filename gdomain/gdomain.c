@@ -20,13 +20,13 @@ void usage() {
 void success(struct auth_id *id,struct gale_message *msg) {
 	struct gale_data data;
 	export_auth_id(id,&data,0);
-	msg->data.p = gale_malloc(256 + strlen(auth_id_name(id)) + data.l);
+	msg->data.p = gale_malloc(256 + auth_id_name(id).l + data.l);
 	sprintf(msg->data.p,
 		"Content-Type: application/x-gale-key\r\n"
 		"From: Domain Server\r\n"
 		"Time: %lu\r\n"
 		"Subject: success %s\r\n\r\n",
-		time(NULL),auth_id_name(id));
+		time(NULL),gale_text_hack(auth_id_name(id)));
 	msg->data.l = strlen(msg->data.p);
 	memcpy(msg->data.p + msg->data.l,data.p,data.l);
 	msg->data.l += data.l;
@@ -34,13 +34,13 @@ void success(struct auth_id *id,struct gale_message *msg) {
 }
 
 void failure(struct auth_id *id,struct gale_message *msg) {
-	msg->data.p = gale_malloc(256 + strlen(auth_id_name(id)));
+	msg->data.p = gale_malloc(256 + auth_id_name(id).l);
 	sprintf(msg->data.p,
 		"Content-Type: application/x-gale-key\r\n"
 		"From: Domain Server\r\n"
 		"Time: %lu\r\n"
 		"Subject: failure %s\r\n",
-		time(NULL),auth_id_name(id));
+		time(NULL),gale_text_hack(auth_id_name(id)));
 	msg->data.l = strlen(msg->data.p);
 }
 
@@ -73,10 +73,10 @@ int suffix(struct gale_text x,struct gale_text suffix) {
 }
 
 void incoming(struct gale_message *_msg) {
-	struct gale_text rcpt = { NULL,0 };
+	struct gale_text rcpt = null_text;
 	struct gale_message *msg = NULL;
 	struct auth_id *encrypted = NULL,*signature = NULL;
-	char *user = NULL;
+	struct gale_text user = null_text;
 
 	encrypted = decrypt_message(_msg,&msg);
 	if (!msg) return;
@@ -88,10 +88,11 @@ void incoming(struct gale_message *_msg) {
 		char *next = msg->data.p,*end = next + msg->data.l;
 		char *header,*data;
 		while (parse_header(&next,&header,&data,end)) {
-			if (!strcasecmp(header,"Request-Key"))
-				user = gale_strdup(data);
-			else if (!strcasecmp(header,"Receipt-To")) {
-				if (rcpt.p) free_gale_text(rcpt);
+			if (!strcasecmp(header,"Request-Key")) {
+				free_gale_text(user);
+				user = gale_text_from_latin1(data,-1);
+			} else if (!strcasecmp(header,"Receipt-To")) {
+				free_gale_text(rcpt);
 				rcpt = gale_text_from_latin1(data,-1);
 			}
 		}
@@ -99,29 +100,29 @@ void incoming(struct gale_message *_msg) {
 
 	/* Now see what we can glean from the category */
 
-	if (!user) {
+	if (!user.p) {
 		struct gale_text trailer = gale_text_from_latin1("/key",-1);
-		struct gale_text cat = { NULL, 0 };
+		struct gale_text cat = null_text;
 
-		while (gale_text_token(_msg->cat,':',&cat)) {
+		while (!user.p && gale_text_token(_msg->cat,':',&cat)) {
 			if (prefix(cat,old_cat) && suffix(cat,trailer))
-				user = gale_text_to_latin1(
+				user = gale_text_dup(
 					gale_text_right(
 						gale_text_left(cat,-trailer.l),
 						-old_cat.l));
 			else if (prefix(cat,new_cat))
-				user = gale_text_to_latin1(
+				user = gale_text_dup(
 					gale_text_right(cat,-new_cat.l));
 		}
 
 		free_gale_text(trailer);
 	}
 
-	if (!user) 
+	if (!user.p)
 		gale_alert(GALE_WARNING,"cannot determine the key wanted",0);
 	else {
 		struct auth_id *key = lookup_id(user);
-		if (!rcpt.p) rcpt = id_category(key,"auth/key","");
+		if (!rcpt.p) rcpt = id_category(key,_G("auth/key"),_G(""));
 		gale_dprintf(3,"--- looking up key for %s\n",user);
 		if (key) {
 			request(key,rcpt);
@@ -133,13 +134,13 @@ void incoming(struct gale_message *_msg) {
 
 	if (encrypted) free_auth_id(encrypted);
 	if (signature) free_auth_id(signature);
-	if (user) gale_free(user);
+	free_gale_text(user);
 	if (msg) release_message(msg);
 }
 
 int main(int argc,char *argv[]) {
 	int arg;
-	struct gale_text category,colon;
+	struct gale_text category;
 
 	gale_init("gdomain",argc,argv);
 	disable_gale_akd();
@@ -153,16 +154,15 @@ int main(int argc,char *argv[]) {
 	}
 	if (optind != argc) usage();
 
-	init_auth_id(&domain,getenv("GALE_DOMAIN"));
+	init_auth_id(&domain,gale_text_from_local(getenv("GALE_DOMAIN"),-1));
 	if (!domain || !auth_id_private(domain))
 		gale_alert(GALE_ERROR,"no access to domain private key",0);
 
-	old_cat = dom_category(NULL,"dom");
-	new_cat = dom_category(NULL,"auth/query");
-	colon = gale_text_from_latin1(":",1);
-	category = new_gale_text(old_cat.l + new_cat.l + colon.l);
+	old_cat = dom_category(auth_id_name(domain),_G("dom"));
+	new_cat = dom_category(auth_id_name(domain),_G("auth/query"));
+	category = new_gale_text(old_cat.l + new_cat.l + 1);
 	gale_text_append(&category,old_cat);
-	gale_text_append(&category,colon);
+	gale_text_append(&category,_G(":"));
 	gale_text_append(&category,new_cat);
 	client = gale_open(category);
 

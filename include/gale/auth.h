@@ -4,6 +4,7 @@
 #define GALE_AUTH_H
 
 #include "gale/core.h"
+#include "gale/types.h"
 
 /* Not yet documented, sorry. */
 
@@ -12,15 +13,15 @@ struct auth_id;
 typedef void auth_hook(struct auth_id *);
 extern auth_hook *hook_find_public,*hook_find_private;
 
-void init_auth_id(struct auth_id **,const char *name);
+void init_auth_id(struct auth_id **,struct gale_text name);
 void free_auth_id(struct auth_id *);
-const char *auth_id_name(struct auth_id *);
-const char *auth_id_comment(struct auth_id *);
+struct gale_text auth_id_name(struct auth_id *);
+struct gale_text auth_id_comment(struct auth_id *);
 
 int auth_id_public(struct auth_id *);
 int auth_id_private(struct auth_id *);
 
-void auth_id_gen(struct auth_id *,const char *comment);
+void auth_id_gen(struct auth_id *,struct gale_text comment);
 
 void export_auth_id(struct auth_id *,struct gale_data *data,int private);
 void import_auth_id(struct auth_id **,struct gale_data data,int private);

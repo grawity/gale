@@ -786,7 +786,7 @@ host_os=`echo $host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
 echo "$ac_t""$host" 1>&6
 
 
-BUILD="misc lib auth include server gsend gsub gwatch gkeys gdomain"
+BUILD="misc lib auth server gsend gsub gwatch gkeys gdomain"
 extra_libs=""
 no_wacky_libs=""
 have_libdb=""
@@ -2007,6 +2007,7 @@ LIBS="-lgale -lgauth -lgmisc -lrsaref $LIBS"
 LDFLAGS="-L\${top_builddir}/lib -L\${top_builddir}/auth -L\${top_builddir}/misc $LDFLAGS"
 CPPFLAGS="-I\${top_srcdir}/include -I\${top_builddir}/include $CPPFLAGS"
 CPPFLAGS="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $CPPFLAGS"
+BUILD="$BUILD include"
 
 
 trap '' 1 2 15

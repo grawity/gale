@@ -77,64 +77,61 @@ static int process(struct auth_id *id,struct auth_id *domain,
 void _gale_find_id(struct auth_id *id) {
 	struct gale_client *client;
 	struct gale_message *msg;
-	char *tmp;
-	struct gale_text category,cat1,cat2,cat3,colon;
-	const char *name;
+	struct gale_text tok,name,category,cat1,cat2,cat3;
 	struct auth_id *domain = NULL;
+	char *tmp,*tmp2;
 	time_t timeout;
 	int status = 0;
 
 	name = auth_id_name(id);
-	tmp = strchr(name,'@');
-	if (!tmp)
+	tok = null_text;
+	if (gale_text_token(name,'@',&tok) && gale_text_token(name,0,&tok))
+		init_auth_id(&domain,tok);
+	else
 		domain = id;
-	else {
-		init_auth_id(&domain,tmp + 1);
-		auth_id_public(domain);
-	}
 
 	/* prevent re-entrancy */
 	if (inhibit) return;
 	disable_gale_akd();
 
-	tmp = gale_malloc(80 + strlen(name));
-	sprintf(tmp,"requesting key \"%s\" from domain server",name);
+	tmp = gale_malloc(80 + name.l);
+	sprintf(tmp,"requesting key \"%s\" from domain server",
+	        gale_text_hack(name));
 	gale_alert(GALE_NOTICE,tmp,0);
 	gale_free(tmp);
 
 	timeout = time(NULL);
-	category = id_category(id,"auth/key","");
+	category = id_category(id,_G("auth/key"),_G(""));
 	client = gale_open(category);
 
 	msg = new_message();
 
 	if (id == domain)
-		msg->cat = id_category(id,"auth/query","");
+		msg->cat = id_category(id,_G("auth/query"),_G(""));
 	else
 	{
-		cat1 = id_category(id,"dom","key");
-		cat2 = id_category(id,"user",":/ping");
-		cat3 = id_category(id,"auth/query","");
-		colon = gale_text_from_latin1(":",1);
-		msg->cat = new_gale_text(cat1.l + cat2.l + cat3.l + 2*colon.l);
+		cat1 = id_category(id,_G("dom"),_G("key"));
+		cat2 = id_category(id,_G("user"),_G(":/ping"));
+		cat3 = id_category(id,_G("auth/query"),_G(""));
+		msg->cat = new_gale_text(cat1.l + cat2.l + cat3.l + 2);
 		gale_text_append(&msg->cat,cat1);
-		gale_text_append(&msg->cat,colon);
+		gale_text_append(&msg->cat,_G(":"));
 		gale_text_append(&msg->cat,cat2);
-		gale_text_append(&msg->cat,colon);
+		gale_text_append(&msg->cat,_G(":"));
 		gale_text_append(&msg->cat,cat3);
 		free_gale_text(cat1); 
 		free_gale_text(cat2); 
 		free_gale_text(cat3);
-		free_gale_text(colon);
 	}
 
-	msg->data.p = gale_malloc(strlen(name) + category.l + 256);
+	msg->data.p = gale_malloc(name.l + category.l + 256);
 	tmp = gale_text_to_latin1(category);
+	tmp2 = gale_text_to_latin1(name);
 	sprintf(msg->data.p,
 	        "Receipt-To: %s\r\n"
 		"Request-Key: %s\r\n"
 	        "Time: %lu\r\n",
-		tmp,name,timeout);
+		tmp,tmp2,timeout);
 	gale_free(tmp);
 	msg->data.l = strlen(msg->data.p);
 	free_gale_text(category);

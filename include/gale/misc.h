@@ -4,6 +4,7 @@
 #define GALE_MISC_H
 
 #include <string.h>
+#include <stddef.h>
 #include "gale/types.h"
 
 /* -- process management --------------------------------------------------- */
@@ -52,22 +53,26 @@ void *gale_realloc(void *,size_t);
 
 /* -- text buffer manipulation --------------------------------------------- */
 
+extern const struct gale_text null_text;
+
 struct gale_text new_gale_text(size_t alloc);
 void free_gale_text(struct gale_text);
+#define _G(x) (_gale_text_literal(L##x))
+struct gale_text _gale_text_literal(const wchar_t *);
 
 void gale_text_append(struct gale_text *,struct gale_text);
 
-struct gale_text gale_text_dup(struct gale_text);
+struct /*owned*/ gale_text gale_text_dup(struct gale_text);
 struct gale_text gale_text_left(struct gale_text,int);
 struct gale_text gale_text_right(struct gale_text,int);
 int gale_text_token(struct gale_text string,wch sep,struct gale_text *token);
 int gale_text_compare(struct gale_text,struct gale_text);
 
-typedef struct gale_text gale_text_from(const char *,int len);
-typedef char *gale_text_to(struct gale_text);
+typedef /*owned*/ struct gale_text gale_text_from(const char *,int len);
+typedef /*owned*/ char *gale_text_to(struct gale_text);
 
-gale_text_from gale_text_from_local,gale_text_from_latin1;
-gale_text_to gale_text_to_local,gale_text_to_latin1;
+gale_text_from gale_text_from_local,gale_text_from_latin1,gale_text_from_utf8;
+gale_text_to gale_text_to_local,gale_text_to_latin1,gale_text_to_utf8;
 
 char *gale_text_hack(struct gale_text);
 
@@ -86,26 +91,42 @@ void gale_time_from(struct gale_time *,struct timeval *);
 
 /* -- data interchange conversion ------------------------------------------ */
 
+extern const struct gale_data null_data;
+
 int gale_unpack_copy(struct gale_data *,void *,size_t);
 int gale_unpack_compare(struct gale_data *,const void *,size_t);
 void gale_pack_copy(struct gale_data *,const void *,size_t);
 #define gale_copy_size(s) (s)
 
+int gale_unpack_skip(struct gale_data *);
+void gale_pack_skip(struct gale_data *,size_t);
+#define gale_skip_size(sz) ((sz) + gale_u32_size())
+
 int gale_unpack_rle(struct gale_data *,void *,size_t);
 void gale_pack_rle(struct gale_data *,const void *,size_t);
 #define gale_rle_size(s) (((s)+127)/128+(s))
-
-int gale_unpack_str(struct gale_data *,const char **);
-void gale_pack_str(struct gale_data *,const char *);
-#define gale_str_size(t) (strlen(t) + 1)
 
 int gale_unpack_u32(struct gale_data *,u32 *);
 void gale_pack_u32(struct gale_data *,u32);
 #define gale_u32_size() (sizeof(u32))
 
-int gale_unpack_skip(struct gale_data *);
-void gale_pack_skip(struct gale_data *,size_t);
-#define gale_skip_size(sz) ((sz) + gale_u32_size())
+int gale_unpack_wch(struct gale_data *,wch *);
+void gale_pack_wch(struct gale_data *,wch);
+#define gale_wch_size() (sizeof(u16))
+
+/* ANSI; deprecated! */
+int gale_unpack_str(struct gale_data *,const char **);
+void gale_pack_str(struct gale_data *,const char *);
+#define gale_str_size(t) (strlen(t) + 1)
+
+int gale_unpack_text(struct gale_data *,/*owned*/ struct gale_text *);
+void gale_pack_text(struct gale_data *,struct gale_text);
+#define gale_text_size(t) (gale_text_len_size(t) + gale_u32_size())
+
+int gale_unpack_text_len(struct gale_data *,size_t len,
+                         /*in,out*/ struct gale_text *);
+void gale_pack_text_len(struct gale_data *,struct gale_text);
+#define gale_text_len_size(t) ((t).l * gale_wch_size())
 
 int gale_unpack_time(struct gale_data *,struct gale_time *);
 void gale_pack_time(struct gale_data *,struct gale_time);
