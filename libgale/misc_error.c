@@ -37,15 +37,23 @@ static void *on_error(oop_source *source,struct timeval when,void *data) {
 	return OOP_CONTINUE;
 }
 
-void gale_on_error(oop_source *source,gale_call_error *call,void *data) {
-	struct gale_errors *error = gale_malloc(sizeof(*error));
-	error->source = source;
-	error->call = call;
-	error->data = data;
-	gale_global->error = error;
+/** Set a different error handler.
+ *  The function \a func will be called when an error is reported.
+ *  \param oop The liboop source used for dispatch.
+ *  \param func The function to call when there's an error.
+ *  \param user The user-defined parameter to pass the function. */
+void gale_on_error(oop_source *oop,gale_call_error *func,void *user) {
+	gale_create(gale_global->error);
+	gale_global->error->source = oop;
+	gale_global->error->call = func;
+	gale_global->error->data = user;
 }
 
-void gale_alert(int sev,struct gale_text msg,int err) {
+/** Report an error; terminate if \a severity is GALE_ERROR.
+ *  \param severity The severity of the error (from ::gale_error).
+ *  \param msg The error message to report.
+ *  \param err If nonzero, a system errno value to look up. */
+void gale_alert(int severity,struct gale_text msg,int err) {
 	struct error_message *message;
 	struct gale_text stamp,prefix,label;
 
@@ -61,14 +69,14 @@ void gale_alert(int sev,struct gale_text msg,int err) {
 		prefix = gale_text_concat(2,G_(" "),
 			 gale_text_from(NULL,gale_global->error_prefix,-1));
 
-	switch (sev) {
+	switch (severity) {
 	case GALE_NOTICE: label = G_(" notice"); break;
 	case GALE_WARNING: label = G_(" warning"); break;
 	case GALE_ERROR: label = G_(" error"); break;
 	}
 
 	gale_create(message);
-	message->severity = sev;
+	message->severity = severity;
 	if (0 != err) 
 		message->text = gale_text_concat(7,
 			stamp,prefix,label,G_(" ("),msg,G_("): "),
@@ -85,5 +93,5 @@ void gale_alert(int sev,struct gale_text msg,int err) {
 			OOP_TIME_NOW,
 			on_error,message);
 
-	if (GALE_ERROR == sev) exit(1);
+	if (GALE_ERROR == severity) exit(1);
 }

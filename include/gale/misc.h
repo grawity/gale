@@ -12,7 +12,6 @@
 
 #include "gale/types.h"
 #include "gale/core.h"
-#include "gale/client.h" /* REVIEW */
 #include "oop.h"
 
 /** \name Terminal Output */
@@ -579,54 +578,16 @@ void gale_set_file_time(struct gale_file_state *state,struct gale_time);
 /** Degree of error severity for gale_alert(). */
 enum gale_error { GALE_NOTICE, GALE_WARNING, GALE_ERROR };
 
-/** Report an error; terminate if \a severity is GALE_ERROR.
- *  \param severity The severity of the error (from ::gale_error).
- *  \param str The error message to report.
- *  \param err If nonzero, a system errno value to look up. */
-void gale_alert(int severity,struct gale_text str,int err);
-
 /** Function type for a user-defined error handler. 
  *  \param severity The severity of the error.
- *  \param str The error message.
+ *  \param msg The error message.
  *  \param user A user-defined parameter.
  *  \return Liboop continuation code (usually OOP_CONTINUE).
  *  \sa gale_on_error() */
 typedef void *gale_call_error(int severity,struct gale_text msg,void *user);
 
-struct old_gale_message;
-
-/** Function type for a user-defined error handler that accepts a
- *  formatted ::old_gale_message. 
- *  \param oop The liboop source used for dispatch.
- *  \param puff The ::old_gale_message containing the error.
- *  \param user A user-defined parameter.
- *  \return Liboop continuation code (usually OOP_CONTINUE).
- *  \sa gale_on_error_message() */
-typedef void *gale_call_error_message(oop_source *oop,struct old_gale_message *puff,void *user);
-
-/** Set a different error handler. 
- *  The function \a func will be called when an error is reported. 
- *  \param oop The liboop source used for dispatch.
- *  \param func The function to call when there's an error.
- *  \param user The user-defined parameter to pass the function. */
+void gale_alert(int severity,struct gale_text str,int err);
 void gale_on_error(oop_source *oop,gale_call_error *func,void *user);
-
-/** Set an error handler that accepts a formatted ::old_gale_message.
- *  The function \a func will be called when an error is reported. 
- *  \param oop The liboop source used for dispatch.
- *  \param func The function to call when there's an error.
- *  \param user The user-defined parameter to pass the function. */
-void gale_on_error_message(oop_source *oop,gale_call_error_message *func,void *user);
-
-/** Transmit error messages on the specified ::gale_link.
- *  \param oop The liboop source used for dispatch.
- *  \param link The link to transmit error messages on. */
-void gale_set_error_link(oop_source *oop,struct gale_link *link);
-
-/** Format a ::old_gale_message from error text. 
- *  \param body The message to report.
- *  \return A ::old_gale_message containing the specified error message. */
-struct old_gale_message *gale_error_message(struct gale_text body);
 /*@}*/
 
 /** \name Debugging Support */

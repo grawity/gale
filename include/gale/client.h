@@ -5,6 +5,7 @@
 #define GALE_CLIENT_H
 
 #include "gale/core.h"
+#include "gale/misc.h"
 #include "oop.h"
 
 /** \name Message Formatting */
@@ -71,6 +72,17 @@ void gale_unpack_message(oop_source *oop,
 struct gale_text gale_pack_subscriptions(
 	struct gale_location **list,
 	int *positive);
+/*@}*/
+
+/** \name Error Processing */
+/*@{*/
+
+struct gale_error_queue;
+
+struct gale_error_queue *gale_make_queue(oop_source *);
+void gale_on_queue(struct gale_error_queue *,gale_call_message *,void *);
+gale_call_error gale_queue_error;
+
 /*@}*/
 
 /** \name Connection Management */
