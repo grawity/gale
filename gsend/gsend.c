@@ -16,10 +16,10 @@
 
 struct gale_message *msg;               /* The message we're building. */
 struct gale_location *user = NULL;	/* The local user. */
-struct gale_location *bad_location = (struct gale_location *) 0xbaadbaad;
 oop_source *oop;			/* Event source. */
 int lookup_count = 1;			/* Outstanding lookup requests. */
 int do_rrcpt = 0,do_identify = 1;       /* Various flags. */
+int from_count = 0,to_count = 0;
 
 /* Print a comma-separated list of names. */
 static void comma_list(struct gale_location **list) {
@@ -110,16 +110,16 @@ char *get_line(int tty)
 	return line;
 }
 
-static void collapse(struct gale_location **from) {
+static void collapse(struct gale_location **from,int count) {
 	struct gale_location **to = from;
 	if (NULL == from) return;
-	while (NULL != *from) {
-		if (bad_location == *from)
+	while (0 != count--)
+		if (NULL == *from)
 			++from;
 		else
 			*to++ = *from++;
-	}
-	*to = *from;
+
+	*to = NULL;
 }
 
 /* Terminate the event loop when the message is sent. */
@@ -149,20 +149,20 @@ static void prepare_message() {
 	char *line = NULL;			/* The current input line */
 	int ttyin = isatty(0);	  		/* Input options */
 
-	if (bad_location == user)
-		gale_alert(GALE_ERROR,G_("Who are you?"),0);
+	if (do_identify) {
+		if (NULL == user) gale_alert(GALE_ERROR,G_("Who are you?"),0);
 
-	/* Sign with our key by default. */
-	if (do_identify && NULL == msg->from) {
-		gale_create_array(msg->from,2);
-		msg->from[0] = user;
-		msg->from[1] = NULL;
+		/* Sign with our key by default. */
+		msg->from[from_count++] = user;
+
+		/* Add the default fragments to the message. */
+		headers();
 	}
 
-	collapse(msg->from);
-	collapse(msg->to);
+	collapse(msg->from,from_count);
+	collapse(msg->to,to_count);
 
-	if (NULL == msg->to || NULL == msg->to[0])
+	if (NULL == msg->to[0])
 		gale_alert(GALE_ERROR,G_("No valid recipients."),0);
 
 	/* If stdin is a TTY, prompt the user. */
@@ -172,9 +172,6 @@ static void prepare_message() {
 		gale_print(stdout,0,G_(":\n"));
 		gale_print(stdout,0,G_("(End your message with EOF or a solitary dot.)\n"));
 	}
-
-	/* Add the default fragments to the message. */
-	if (do_identify) headers();
 
 	/* Get the message. */
 	while ((line = get_line(ttyin))) {
@@ -202,7 +199,7 @@ static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
 	if (NULL != loc)
 		*ptr = loc;
 	else {
-		*ptr = bad_location;
+		*ptr = NULL;
 		gale_alert(GALE_WARNING,gale_text_concat(3,
 			G_("cannot find \""),n,G_("\"")),0);
 	}
@@ -222,13 +219,13 @@ static void find_location(struct gale_text name,struct gale_location **ptr) {
 static void usage(void) {
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-hap] [-s subj] [-S address] address [address ...]\n"
+		"usage: gsend [-hap] [-f address] [-t nm=val] address [address ...] [/\"subject\"]\n"
 		"flags: -h          Display this message\n"
-		"       -s subject  Set the message subject\n"
-		"       -S address  Sign message with a specific <address>\n"
 		"       -a          Do not sign message (anonymous)\n"
 		"       -p          Always request a return receipt\n"
+		"       -f address  Sign message with a specific <address>\n"
 		"       -t nm=val   Include text fragment 'nm' set to 'val'\n"
+		"       /\"subject\"  Set the message subject text\n"
 		"You must specify at least one recipient address.\n"
 		,GALE_BANNER);
 	exit(1);
@@ -239,6 +236,8 @@ int main(int argc,char *argv[]) {
 	int arg;				/* Command line flags */
 	struct gale_fragment frag;
 
+	if (argc <= 1) usage();
+
 	/* Initialize the gale libraries. */
 	gale_init("gsend",argc,argv);
 	sys = oop_sys_new();
@@ -247,11 +246,16 @@ int main(int argc,char *argv[]) {
 
 	/* Create a new message object to send. */
 	gale_create(msg);
-	msg->from = msg->to = NULL;
 	msg->data = gale_group_empty();
 
+	/* Conservatively allocate arrays. */
+	gale_create_array(msg->to,argc);
+	gale_create_array(msg->from,argc);
+	for (arg = 0; arg != argc; ++arg)
+		msg->to[arg] = msg->from[arg] = NULL;
+
 	/* Parse command line options. */
-	while ((arg = getopt(argc,argv,"Ddhat:ps:S:")) != EOF) {
+	while ((arg = getopt(argc,argv,"Ddhat:pf:")) != EOF) {
 		struct gale_text str = (NULL == optarg) ? null_text :
 			gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (arg) {
@@ -259,17 +263,8 @@ int main(int argc,char *argv[]) {
 	case 'D': gale_global->debug_level += 5; break;
 	case 'a': do_identify = 0; break;	/* Anonymous */
 
-	case 's': 
-		frag.name = G_("message/subject");
-		frag.type = frag_text;
-		frag.value.text = str;
-		gale_group_add(&msg->data,frag);
-		break;
-
-	case 'S': 
-		gale_create_array(msg->from,2);
-		find_location(str,&msg->from[0]);
-		msg->from[1] = NULL;
+	case 'f': 
+		find_location(str,&msg->from[from_count++]);
 		break;
 
 	case 'p': do_rrcpt = 1; break;		/* Return receipt */
@@ -293,14 +288,12 @@ int main(int argc,char *argv[]) {
 		gale_find_default_location(oop,on_location,&user);
 	}
 
-	gale_create_array(msg->to,1 + argc - optind);
-	msg->to[argc - optind] = NULL;
 	for (arg = optind; argc != arg; ++arg) {
 		struct gale_text a = gale_text_from(
 			gale_global->enc_cmdline,
 			argv[arg],-1);
 		if ('/' != argv[arg][0])
-			find_location(a,&msg->to[arg - optind]);
+			find_location(a,&msg->to[to_count++]);
 		else {
 			frag.name = G_("message/subject");
 			frag.type = frag_text;
