@@ -255,7 +255,7 @@ static void *show_message(struct gale_message *msg) {
 	int status = 0;
 	char *szbody = NULL;
 
-	if (NULL == msg) return OOP_CONTINUE;
+	if (NULL == msg) return next_message();
 
 #ifndef NDEBUG
 	/* In debug mode, restart if we get a properly authorized message. 
