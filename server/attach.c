@@ -10,9 +10,11 @@
 #include <unistd.h>
 
 struct attach {
+	oop_source *source;
 	struct gale_server *server;
-	struct connect *connect;
 	struct gale_link *link;
+	struct connect *connect;
+	struct gale_error_queue *will;
 	struct gale_text name,in_subs,out_subs;
 
 	attach_empty_call *func;
@@ -33,7 +35,19 @@ static struct gale_text attach_report(void *d) {
 		G_("]\n"));
 }
 
-void *on_connect(struct gale_server *server,
+static void *on_will_packet(struct gale_packet *pkt,void *x) {
+	struct attach *att = (struct attach *) x;
+	link_will(att->link,pkt);
+	return OOP_CONTINUE;
+}
+
+static void *on_will_message(struct gale_message *msg,void *x) {
+	struct attach *att = (struct attach *) x;
+	gale_pack_message(att->source,msg,on_will_packet,x);
+	return OOP_CONTINUE;
+}
+
+static void *on_connect(struct gale_server *server,
                  struct gale_text name,struct sockaddr_in addr,
                  void *data) 
 {
@@ -43,14 +57,14 @@ void *on_connect(struct gale_server *server,
 		gale_connect_text(name,addr)),0);
 	att->name = name;
 	link_subscribe(att->link,att->in_subs);
-	link_will(att->link,gale_transmit(gale_error_message(
+	gale_queue_error(GALE_NOTICE,
 		gale_text_concat(3,
 			G_("galed will: disconnected from "),
-			gale_connect_text(name,addr),G_("\n")))));
+			gale_connect_text(name,addr),G_("\n")),att->will);
 	return OOP_CONTINUE;
 }
 
-void *on_disconnect(struct gale_server *server,void *data) {
+static void *on_disconnect(struct gale_server *server,void *data) {
 	struct attach *att = (struct attach *) data;
 	gale_alert(GALE_WARNING,gale_text_concat(3,
 		G_("disconnected from \""),att->name,G_("\"")),0);
@@ -71,13 +85,16 @@ struct attach *new_attach(
 	struct gale_link *link = new_link(source);
 	struct attach *att;
 	gale_create(att);
+	att->source = source;
 	att->name = server;
 	att->link = link;
 	att->connect = new_connect(source,link,out);
+	att->will = gale_make_queue(source);
+	gale_on_queue(att->will,on_will_message,att);
 	att->in_subs = in;
 	att->out_subs = out;
 	/* This overrides the default on_error ... */
-	att->server = gale_make_server(source,link,server,1);
+	att->server = gale_make_server(source,link,server,server_port);
 	gale_report_add(gale_global->report,attach_report,att);
 	gale_on_connect(att->server,on_connect,att);
 	gale_on_disconnect(att->server,on_disconnect,att);

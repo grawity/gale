@@ -27,8 +27,13 @@
 
 int server_port;
 
-static void *on_error_message(oop_source *src,struct old_gale_message *msg,void *user) {
-	subscr_transmit(src,gale_transmit(msg),NULL);
+static void *on_error_packet(struct gale_packet *pkt,void *x) {
+	subscr_transmit((oop_source *) x,pkt,NULL);
+	return OOP_CONTINUE;
+}
+
+static void *on_error_queue(struct gale_message *msg,void *x) {
+	gale_pack_message((oop_source *) x,msg,on_error_packet,x);
 	return OOP_CONTINUE;
 }
 
@@ -148,6 +153,7 @@ int main(int argc,char *argv[]) {
 	int opt;
 	oop_source_sys *sys;
 	oop_source *source;
+	struct gale_error_queue *error;
 
 	gale_init("galed",argc,argv);
 	source = oop_sys_source(sys = oop_sys_new());
@@ -176,7 +182,11 @@ int main(int argc,char *argv[]) {
 	gale_kill(gale_text_from_number(server_port,10,0),1);
 	make_listener(source,server_port);
 	gale_detach();
-	gale_on_error_message(source,on_error_message,NULL);
+
+	error = gale_make_queue(source);
+	gale_on_queue(error,on_error_queue,source);
+	gale_on_error(source,gale_queue_error,error);
+
 	oop_sys_run(sys);
 	return 0;
 }
