@@ -94,11 +94,11 @@ int _gale_find_id(struct auth_id *id) {
 	msg->cat = id_category(id,G_("auth/query"),G_(""));
 	msg->data.p = gale_malloc(name.l + 256);
 	tmp2 = gale_text_to_latin1(name);
-	sprintf(msg->data.p,
+	sprintf((char*) msg->data.p,
 		"Request-Key: %s\r\n"
 	        "Time: %lu\r\n",
 		tmp2,timeout);
-	msg->data.l = strlen(msg->data.p);
+	msg->data.l = strlen((char*) msg->data.p);
 
 	timeout += TIMEOUT;
 	link_put(client->link,msg);

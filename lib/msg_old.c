@@ -61,15 +61,15 @@ struct gale_fragment **unpack_old_message(struct gale_data msgdata) {
 		data.p[data.l] = '\0';
 		gale_create(create);
 
-		if (!strcasecmp(key.p,"encryption") 
-		&& !strncmp(data.p,"g2",2)) {
+		if (!strcasecmp((char*) key.p,"encryption") 
+		&& !strncmp((char*) data.p,"g2",2)) {
 			create->name = G_("security/encryption");
 			create->type = frag_data;
 			create->value.data = msgdata;
 			msgdata.l = 0;
-		} else if (!strcasecmp(key.p,"signature") 
-		       &&  !strncmp(data.p,"g2/",3)) {
-			size_t tlen = strlen(data.p + 3);
+		} else if (!strcasecmp((char*) key.p,"signature") 
+		       &&  !strncmp((char*) data.p,"g2/",3)) {
+			size_t tlen = strlen((char*) data.p + 3);
 			size_t slen = dearmor_len(tlen);
 			size_t size = slen + gale_u32_size() + msgdata.l;
 			create->name = G_("security/signature");
@@ -77,51 +77,59 @@ struct gale_fragment **unpack_old_message(struct gale_data msgdata) {
 			create->value.data.l = 0;
 			create->value.data.p = gale_malloc_atomic(size);
 			gale_pack_u32(&create->value.data,slen);
-			dearmor(data.p + 3,tlen,
+			dearmor((char*) data.p + 3,tlen,
 				create->value.data.p + create->value.data.l);
 			create->value.data.l += slen;
 			gale_pack_copy(&create->value.data,msgdata.p,msgdata.l);
 			msgdata.l = 0;
-		} else if (!strcasecmp(key.p,"receipt-to")) {
+		} else if (!strcasecmp((char*) key.p,"receipt-to")) {
                         create->name = G_("question/receipt");
                         create->type = frag_text;
-                        create->value.text = gale_text_from_latin1(data.p,-1);
-		} else if (!strcasecmp(key.p,"subject")) {
+                        create->value.text = 
+				gale_text_from_latin1((char*) data.p,-1);
+		} else if (!strcasecmp((char*) key.p,"subject")) {
 			create->name = G_("message/subject");
 			create->type = frag_text;
-			create->value.text = gale_text_from_latin1(data.p,-1);
-		} else if (!strcasecmp(key.p,"from")) {
+			create->value.text = 
+				gale_text_from_latin1((char*) data.p,-1);
+		} else if (!strcasecmp((char*) key.p,"from")) {
 			create->name = G_("message/sender");
 			create->type = frag_text;
-			create->value.text = gale_text_from_latin1(data.p,-1);
-		} else if (!strcasecmp(key.p,"to")) {
+			create->value.text = 
+				gale_text_from_latin1((char*) data.p,-1);
+		} else if (!strcasecmp((char*) key.p,"to")) {
 			create->name = G_("message/recipient");
 			create->type = frag_text;
-			create->value.text = gale_text_from_latin1(data.p,-1);
-		} else if (!strcasecmp(key.p,"time")) {
+			create->value.text = 
+				gale_text_from_latin1((char*) data.p,-1);
+		} else if (!strcasecmp((char*) key.p,"time")) {
 			struct timeval tv;
-			tv.tv_sec = atoi(data.p);
+			tv.tv_sec = atoi((char*) data.p);
 			tv.tv_usec = 0;
 			create->name = G_("id/time");
 			create->type = frag_time;
 			gale_time_from(&create->value.time,&tv);
-		} else if (!strcasecmp(key.p,"agent")) {
+		} else if (!strcasecmp((char*) key.p,"agent")) {
 			create->name = G_("id/instance");
 			create->type = frag_text;
-			create->value.text = gale_text_from_latin1(data.p,-1);
-		} else if (!strcasecmp(key.p,"receipt-to")) {
+			create->value.text = 
+				gale_text_from_latin1((char*) data.p,-1);
+		} else if (!strcasecmp((char*) key.p,"receipt-to")) {
 			create->name = G_("question/receipt");
 			create->type = frag_text;
-			create->value.text = gale_text_from_latin1(data.p,-1);
-		} else if (!strcasecmp(key.p,"request-key")) {
+			create->value.text = 
+				gale_text_from_latin1((char*) data.p,-1);
+		} else if (!strcasecmp((char*) key.p,"request-key")) {
 			create->name = G_("question/key");
 			create->type = frag_text;
-			create->value.text = gale_text_from_latin1(data.p,-1);
+			create->value.text = 
+				gale_text_from_latin1((char*) data.p,-1);
 		} else {
 			create->name = gale_text_concat(2,
 				G_("legacy/"),
-				gale_text_from_latin1(key.p,-1));
-			create->value.text = gale_text_from_latin1(data.p,-1);
+				gale_text_from_latin1((char*) key.p,-1));
+			create->value.text = 
+				gale_text_from_latin1((char*) data.p,-1);
 		}
 
 		frag[count++] = create;
@@ -137,7 +145,7 @@ struct gale_fragment **unpack_old_message(struct gale_data msgdata) {
 		frag[count]->name = G_("message/body");
 		frag[count]->type = frag_text;
 		frag[count]->value.text = 
-			gale_text_from_latin1(msgdata.p,msgdata.l);
+			gale_text_from_latin1((char*) msgdata.p,msgdata.l);
 		++count;
 	}
 
@@ -162,7 +170,7 @@ struct gale_data pack_old_message(struct gale_fragment **frags) {
 		                           G_("security/encryption"))) {
 			data.l = temp.l + 16;
 			data.p = gale_malloc_atomic(data.l);
-			strcpy(data.p,"Encryption: g2\r\n");
+			strcpy((char*) data.p,"Encryption: g2\r\n");
 			memcpy(data.p + 16,temp.p,data.l - 16);
 			return data;
 		    } else 
@@ -173,9 +181,9 @@ struct gale_data pack_old_message(struct gale_fragment **frags) {
 			size_t tlen = armor_len(len);
 			data.l = 16 + tlen + temp.l - len;
 		        data.p = gale_malloc_atomic(data.l);
-		        strcpy(data.p,"Signature: g2/");
-			armor(temp.p,len,data.p + 14);
-			strcpy(data.p + 14 + tlen,"\r\n");
+		        strcpy((char*) data.p,"Signature: g2/");
+			armor(temp.p,len,(char*) data.p + 14);
+			strcpy((char*) data.p + 14 + tlen,"\r\n");
 			memcpy(data.p + 16 + tlen,temp.p + len,temp.l - len);
 			return data;
 		    } else
@@ -216,44 +224,44 @@ struct gale_data pack_old_message(struct gale_fragment **frags) {
 
 		case frag_text:
 		    if (!gale_text_compare(frag->name,G_("message/body"))) {
-			body.p = gale_text_to_latin1(frag->value.text);
-			body.l = strlen(body.p);
+			body.p = (byte*) gale_text_to_latin1(frag->value.text);
+			body.l = strlen((char*) body.p);
 		    } else
 		    if (!gale_text_compare(frag->name,G_("message/subject"))) {
-			sprintf(data.p + data.l,"Subject: %s\r\n",
+			sprintf((char*) data.p + data.l,"Subject: %s\r\n",
 			        gale_text_to_latin1(frag->value.text));
-			data.l += strlen(data.p + data.l);
+			data.l += strlen((char*) data.p + data.l);
 		    } else
 		    if (!gale_text_compare(frag->name,G_("message/keywords"))) {
-			sprintf(data.p + data.l,"Keywords: %s\r\n",
+			sprintf((char*) data.p + data.l,"Keywords: %s\r\n",
 			        gale_text_to_latin1(frag->value.text));
-			data.l += strlen(data.p + data.l);
+			data.l += strlen((char*) data.p + data.l);
 		    } else
 		    if (!gale_text_compare(frag->name,G_("message/sender"))) {
-			sprintf(data.p + data.l,"From: %s\r\n",
+			sprintf((char*) data.p + data.l,"From: %s\r\n",
 			        gale_text_to_latin1(frag->value.text));
-			data.l += strlen(data.p + data.l);
+			data.l += strlen((char*) data.p + data.l);
 		    } else
 		    if (!gale_text_compare(frag->name,G_("message/recipient")))
 		    {
-			sprintf(data.p + data.l,"To: %s\r\n",
+			sprintf((char*) data.p + data.l,"To: %s\r\n",
 			        gale_text_to_latin1(frag->value.text));
-			data.l += strlen(data.p + data.l);
+			data.l += strlen((char*) data.p + data.l);
 		    } else
 		    if (!gale_text_compare(frag->name,G_("id/instance"))) {
-			sprintf(data.p + data.l,"Agent: %s\r\n",
+			sprintf((char*) data.p + data.l,"Agent: %s\r\n",
 			        gale_text_to_latin1(frag->value.text));
-			data.l += strlen(data.p + data.l);
+			data.l += strlen((char*) data.p + data.l);
 		    } else
 		    if (!gale_text_compare(frag->name,G_("question/receipt"))) {
-			sprintf(data.p + data.l,"Receipt-To: %s\r\n",
+			sprintf((char*) data.p + data.l,"Receipt-To: %s\r\n",
 			        gale_text_to_latin1(frag->value.text));
-			data.l += strlen(data.p + data.l);
+			data.l += strlen((char*) data.p + data.l);
 		    } else
 		    if (!gale_text_compare(frag->name,G_("question/key"))) {
-			sprintf(data.p + data.l,"Request-Key: %s\r\n",
+			sprintf((char*) data.p + data.l,"Request-Key: %s\r\n",
 			        gale_text_to_latin1(frag->value.text));
-			data.l += strlen(data.p + data.l);
+			data.l += strlen((char*) data.p + data.l);
 		    }
 		    break;
 
@@ -261,8 +269,9 @@ struct gale_data pack_old_message(struct gale_fragment **frags) {
 		    if (!gale_text_compare(frag->name,G_("id/time"))) {
 			struct timeval tv;
 			gale_time_to(&tv,frag->value.time);
-			sprintf(data.p + data.l,"Time: %lu\r\n",tv.tv_sec);
-			data.l += strlen(data.p + data.l);
+			sprintf((char*) data.p + data.l,
+			        "Time: %lu\r\n",tv.tv_sec);
+			data.l += strlen((char*) data.p + data.l);
 		    }
 		    break;
 
@@ -274,7 +283,7 @@ struct gale_data pack_old_message(struct gale_fragment **frags) {
 		}
 	}
 
-	sprintf(data.p + data.l,"\r\n");
+	sprintf((char*) data.p + data.l,"\r\n");
 	data.l += 2;
 
 	if (0 != body.l) {

@@ -88,9 +88,11 @@ static void init_vars(struct passwd *pwd) {
 		struct gale_text name = 
 			gale_text_from_local(getenv("GALE_ID"),-1);
 		struct auth_id *id = lookup_id(name);
-		struct gale_text cat = id_category(id,G_("user"),G_(""));
-		char *tmp = gale_text_to_local(cat);
-		char *tmp2 = gale_malloc(strlen(tmp) + 30);
+		struct gale_text cat;
+		char *tmp,*tmp2;
+		cat = id_category(id,G_("user"),G_(""));
+		tmp = gale_text_to_local(cat);
+		tmp2 = gale_malloc(strlen(tmp) + 30);
 		sprintf(tmp2,"GALE_SUBS=%s",tmp);
 		putenv(tmp2);
 	}

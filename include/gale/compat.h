@@ -7,7 +7,7 @@
 
 #if defined(OS_HPUX)
 void syslog(int priority, const char *message, ...);
-void openlog(char *ident, int option, int facility);
+void openlog(const char *ident, int option, int facility);
 char *strerror(int);
 #endif
 
