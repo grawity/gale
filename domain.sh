@@ -143,7 +143,7 @@ EOM
 read descr
 
 echo "We will generate the key now.  Have patience."
-gkgen "$CONF_GALE_DOMAIN" "$descr" > "$unsigned" || exit 1
+gkgen -u "$unsigned" "$CONF_GALE_DOMAIN" "$descr" || exit 1
 
 cat << EOM
 

@@ -35,8 +35,15 @@ static void sign_key(struct gale_data in,struct gale_data *out) {
 static void stash(char * const * argv) {
 	struct gale_data data;
 	struct gale_text fn = gale_text_from_local(argv[1],-1);
-	if (_ga_load(0,&data)) 
-		_ga_save_file(gale_global->dot_private,fn,0600,data,NULL);
+	struct inode inode;
+	if (_ga_load(0,&data) 
+	&& _ga_save_file(gale_global->dot_private,fn,0600,data,&inode)) {
+		gale_alert(GALE_NOTICE,
+		gale_text_to_local(gale_text_concat(5, 
+			G_("saving private key in \""),
+			_ga_dot_private,G_("/"),inode.name,
+			G_("\""))),0);
+	}
 }
 
 void auth_id_gen(struct auth_id *id,struct gale_text comment) {
@@ -108,8 +115,15 @@ void auth_id_gen(struct auth_id *id,struct gale_text comment) {
 	}
 
 	if (_ga_trust_pub(id)) {
+		struct inode inode;
 		_ga_save_file(gale_global->sys_local,id->name,0644,key,NULL);
-		_ga_save_file(gale_global->dot_local,id->name,0644,key,NULL);
+		if (_ga_save_file(gale_global->dot_local,id->name,0644,key,&inode)) {
+			gale_alert(GALE_NOTICE,
+			gale_text_to_local(gale_text_concat(5, 
+				G_("saving signed public key in \""),
+				gale_global->dot_local,G_("/"),inode.name,
+				G_("\""))),0);
+		}
 		gale_free(key.p);
 	}
 

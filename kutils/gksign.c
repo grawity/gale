@@ -15,7 +15,7 @@
 void usage(void) {
         fprintf(stderr,
                 "%s\n"
-                "usage: gksign [-h] [id] < key > signed-key\n"
+                "usage: gksign [-h] [id] < public-key > signed-public-key\n"
 		"flags: -h          Display this message\n"
                 ,GALE_BANNER);
 	exit(1);
@@ -44,7 +44,7 @@ int main(int argc,char *argv[]) {
 		struct gale_text domain = gale_var(G_("GALE_DOMAIN"));
 		if (!pwd) gale_alert(GALE_ERROR,"who are you?",0);
 		if (check.p)
-			gale_alert(GALE_WARNING,"ignoring specified key",0);
+			gale_alert(GALE_WARNING,"ignoring specified key name",0);
 		check = gale_text_concat(3,
 			gale_text_from_local(pwd->pw_name,-1),
 			G_("@"),domain);
@@ -56,16 +56,16 @@ int main(int argc,char *argv[]) {
 	if (!id) gale_alert(GALE_ERROR,"could not import public key",0);
 
 	if (check.p && gale_text_compare(check,id->name))
-		gale_alert(GALE_ERROR,"permission denied to sign key",0);
+		gale_alert(GALE_ERROR,"permission denied to sign public key",0);
 	if (id->sig.id)
 		_ga_warn_id(G_("key \"%\" already signed"),id);
 
 	_ga_sign_pub(id,gale_time_forever()); /* change me! */
-	if (!id->sig.id) gale_alert(GALE_ERROR,"cannot sign key",0);
+	if (!id->sig.id) gale_alert(GALE_ERROR,"cannot sign public key",0);
 
 	_ga_export_pub(id,&key,EXPORT_NORMAL);
 	if (!_ga_save(1,key))
-		gale_alert(GALE_ERROR,"could not write output",errno);
+		gale_alert(GALE_ERROR,"could not write signed public key",errno);
 
 	return 0;
 }

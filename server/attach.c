@@ -41,7 +41,7 @@ static void tv_sub(struct timeval *a,const struct timeval *b) {
 
 static void delay_attach(struct attach *att,struct timeval *now) {
 	gale_dprintf(3,"... \"%s\": connection failed, waiting %d seconds\n",
-	        att->server,att->wait);
+	        gale_text_to_local(att->server),att->wait);
 	att->time.tv_sec = now->tv_sec + att->wait;
 	att->time.tv_usec = now->tv_usec;
 	if (att->wait)
@@ -59,13 +59,14 @@ void attach_select(struct attach *att,fd_set *wfd,
 			tv_sub(&diff,now);
 			gale_dprintf(4,
 			        "... \"%s\": setting timeout to %d.%06d\n",
-			        att->server,diff.tv_sec,diff.tv_usec);
+			        gale_text_to_local(att->server),
+				diff.tv_sec,diff.tv_usec);
 			if (tv_less(&diff,timeo)) *timeo = diff;
 			return;
 		}
 		if (!att->connect) {
 			gale_dprintf(3,"... \"%s\": attempting connection\n",
-			             att->server);
+			             gale_text_to_local(att->server));
 			att->connect = make_connect(att->server);
 			if (!att->connect) delay_attach(att,now);
 		}
@@ -81,7 +82,7 @@ int select_attach(struct attach *att,fd_set *wfd,struct timeval *now) {
 	att->connect = NULL;
 	if (fd > 0) {
 		gale_dprintf(3,"[%d] \"%s\": successful connection\n",
-		             fd,att->server);
+		             fd,gale_text_to_local(att->server));
 		att->wait = 0;
 		return fd;
 	}

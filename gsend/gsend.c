@@ -18,7 +18,7 @@ struct gale_message *msg;               /* The message we're building. */
 int num = 0,alloc = 0;
 
 /* Various flags. */
-int do_encrypt = 0,do_rrcpt = 1;
+int do_encrypt = 0,do_rrcpt = 1,do_identify = 1;
 
 struct auth_id **rcpt = NULL;		/* Encryption recipients. */
 struct auth_id *signer;			/* Identity to sign the message. */
@@ -175,7 +175,8 @@ int main(int argc,char *argv[]) {
 	switch (arg) {
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
-	case 'a': signer = NULL; break;		/* Anonymous (no signature) */
+	case 'a': signer = NULL; 		/* Anonymous */
+	          do_identify = 0; break;
 	case 'c': if (!public.p) public =       /* Public message */
 	          gale_text_from_local(optarg,-1);
 	          else public = 
@@ -289,7 +290,7 @@ int main(int argc,char *argv[]) {
 	}
 
 	/* Add the default fragments to the message. */
-	headers();
+	if (do_identify) headers();
 
 	/* Get the message. */
 	while ((line = get_line(ttyin))) {
