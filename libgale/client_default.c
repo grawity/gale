@@ -1,4 +1,5 @@
 #include "gale/client.h"
+#include "gale/crypto.h"
 #include "gale/key.h"
 #include "oop.h"
 
@@ -21,7 +22,7 @@ static void *on_location(struct gale_text n,struct gale_location *l,void *x) {
 	if (NULL != l) return find->func(n,l,find->user);
 
 	gale_key_generate(find->oop,
-		gale_key_handle(n),gale_group_empty(),
+		gale_key_handle(n),gale_crypto_generate(n),
 		on_key,find);
 	return OOP_CONTINUE;
 }
