@@ -69,7 +69,7 @@ void watch_id(struct gale_id *id) {
 
 void watch_domain(const char *id) {
 	char *tmp = gale_malloc(strlen(id) + 30);
-	sprintf(tmp,"notice/%s",id);
+	sprintf(tmp,"@%s/notice/",id);
 	watch_cat(tmp);
 }
 
