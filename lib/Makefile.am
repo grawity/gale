@@ -3,8 +3,8 @@
 lib_LTLIBRARIES = libgale.la
 
 # version:revision:age
-# as of post-0.21: has a new version
-libgale_la_LDFLAGS = -version-info 6:0:0
+# as of 0.90c: has a new revision
+libgale_la_LDFLAGS = -version-info 6:1:0
 
 libgale_la_SOURCES = \
 	authmsg.c client.c connect.c find.c id.c init.c global.c \
