@@ -92,7 +92,7 @@ static gint real_poll(GPollFD *array,guint num,gint timeout) {
 }
 #endif
 
-oop_source *oop_glib_new() {
+oop_source *oop_glib_new(void) {
 	if (use_count++) return oop_sys_source(sys);
 
 	sys = oop_sys_new();
@@ -101,13 +101,13 @@ oop_source *oop_glib_new() {
 	return oop_sys_source(sys);
 }
 
-void *oop_glib_return() {
+void *oop_glib_return(void) {
 	if (&use_count == ret) return NULL;
 	return ret;
 }
 
 #ifdef HAVE_POLL_H
-void oop_glib_delete() {
+void oop_glib_delete(void) {
 	assert(use_count > 0 && "oop_glib_delete() called too much");
 	if (0 != --use_count) return;
 

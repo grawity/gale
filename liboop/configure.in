@@ -60,6 +60,9 @@ if test -z "$no_wacky_libs" ; then
   AC_CHECK_LIB(socket,socket)
 fi
 
+test yes = "$GCC" && 
+CFLAGS="-Wall -Wno-comment -Werror -Wmissing-prototypes -Wstrict-prototypes -Wpointer-arith -Wwrite-strings $CFLAGS"
+
 AC_SUBST(PROG_LDCONFIG)
 AC_SUBST(GLIB_INCLUDES)
 AC_SUBST(GLIB_LIBS)

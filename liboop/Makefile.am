@@ -12,6 +12,7 @@ INCLUDES = $(GLIB_INCLUDES) $(WWW_INCLUDES)
 
 # versions updated as of 0.4; 0.5 only changes build stuff;
 # 0.6 only adds the readline interface.
+# 0.7 breaks compatibility (OOP_CONTINUE / OOP_HALT)
 
 liboop_la_LDFLAGS = -version-info 2:0:0 # version:revision:age
 liboop_la_SOURCES = sys.c select.c signal.c alloc.c
@@ -43,6 +44,7 @@ release: dist
 	ln -sf $(PACKAGE)-$(VERSION).tar.gz ../../gdist/$(PACKAGE).tar.gz ; \
 	ln -sf $(PACKAGE)-$(VERSION).tar.bz2 ../../gdist/$(PACKAGE).tar.bz2 ; \
 	fi
+	@echo '** NOW TAG THE CVS REPOSITORY! **'
 
 install-exec-local:
 	$(PROG_LDCONFIG) || true

@@ -14,12 +14,12 @@
 #include "oop.h"
 
 /* Create an event source based on the GLib event loop. */
-oop_source *oop_glib_new();
+oop_source *oop_glib_new(void);
 
 /* Delete the event source so created.  (Uses reference counting.) */
-void oop_glib_delete();
+void oop_glib_delete(void);
 
 /* Get the value used to terminate the event loop (e.g. OOP_HALT). */
-void *oop_glib_return();
+void *oop_glib_return(void);
 
 #endif

@@ -105,15 +105,12 @@ static void *on_process(oop_source *source,struct timeval when,void *data) {
 	adns_answer *r;
 	adns_query query;
 	oop_adns_query *q = NULL;
+	void *adns_data;
 
-	adns_forallqueries_begin(a->state);
-	while (NULL == q
-	   && (query = adns_forallqueries_next(a->state,NULL))) {
-		void *data;
-		if (0 == adns_check(a->state,&query,&r,&data)) {
-			q = (oop_adns_query *) data;
-			assert(query == q->query);
-		}
+	query = NULL;
+	if (0 == adns_check(a->state,&query,&r,&adns_data)) {
+		q = (oop_adns_query *) adns_data;
+		assert(query == q->query);
 	}
 
 	set_select(a);

@@ -20,6 +20,9 @@
 /* The glib utility library (from gtk+) */
 #undef HAVE_GLIB
 
+/* GNU readline */
+#undef HAVE_READLINE
+
 /* The W3C libwww */
 #undef HAVE_WWW
 

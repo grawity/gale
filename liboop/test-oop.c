@@ -23,6 +23,7 @@ GMainLoop *glib_loop;
 
 #ifdef HAVE_READLINE
 #include <readline/readline.h>
+#include "oop-rl.h"
 #endif
 
 struct timer {
@@ -59,8 +60,8 @@ static void usage(void) {
 
 /* -- timer ---------------------------------------------------------------- */
 
-oop_call_time on_timer;
-void *on_timer(oop_source *source,struct timeval tv,void *data) {
+static oop_call_time on_timer;
+static void *on_timer(oop_source *source,struct timeval tv,void *data) {
 	struct timer *timer = (struct timer *) data;
 	timer->tv = tv;
 	timer->tv.tv_sec += timer->delay;
@@ -71,15 +72,15 @@ void *on_timer(oop_source *source,struct timeval tv,void *data) {
 	return OOP_CONTINUE;
 }
 
-oop_call_signal stop_timer;
-void *stop_timer(oop_source *source,int sig,void *data) {
+static oop_call_signal stop_timer;
+static void *stop_timer(oop_source *source,int sig,void *data) {
 	struct timer *timer = (struct timer *) data;
 	source->cancel_time(source,timer->tv,on_timer,timer);
 	source->cancel_signal(source,SIGQUIT,stop_timer,timer);
 	return OOP_CONTINUE;
 }
 
-void add_timer(oop_source *source,int interval) {
+static void add_timer(oop_source *source,int interval) {
 	struct timer *timer = malloc(sizeof(*timer));
 	gettimeofday(&timer->tv,NULL);
 	timer->delay = interval;
@@ -146,7 +147,9 @@ static void *stop_readline(oop_source *src,int sig,void *data) {
 }
 
 static void add_readline(oop_source *src) {
-	rl_callback_handler_install("> ",(VFunction *) on_readline);
+	rl_callback_handler_install(
+		(char *) "> ", /* readline isn't const-correct */
+		(VFunction *) on_readline);
 	oop_readline_register(src);
 	src->on_signal(src,SIGQUIT,stop_readline,NULL);
 }
@@ -298,7 +301,7 @@ static void *stop_www(oop_source *source,int sig,void *x) {
 	return OOP_CONTINUE;
 }
 
-void add_www(oop_source *source) {
+static void add_www(oop_source *source) {
 	puts("libwww: known bug: termination (^\\) may abort due to cached "
              "connections, sorry.");
 	HTProfile_newNoCacheClient("test-www","1.0");
@@ -321,7 +324,7 @@ void add_www(oop_source *source) {
 
 #else
 
-void add_www(oop_source *source) {
+static void add_www(oop_source *source) {
 	fputs("sorry, libwww not available\n",stderr);
 	usage();
 }
@@ -413,26 +416,20 @@ static void add_sink(oop_source *src,const char *name) {
 		return;
 	}
 
-#ifdef HAVE_READLINE
 	if (!strcmp(name,"readline")) {
 		add_readline(src);
 		return;
 	}
-#endif
 
-#ifdef HAVE_ADNS
 	if (!strcmp(name,"adns")) {
 		add_adns(src);
 		return;
 	}
-#endif
 
-#ifdef HAVE_WWW
 	if (!strcmp(name,"libwww")) {
 		add_www(src);
 		return;
 	}
-#endif
 
 	fprintf(stderr,"unknown sink \"%s\"\n",name);
 	usage();

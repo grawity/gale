@@ -19,6 +19,8 @@
 #include <sys/select.h>
 #endif
 
+int _oop_halt; /* this has to go somewhere */
+
 #define MAGIC 0x9643
 
 struct sys_time {
