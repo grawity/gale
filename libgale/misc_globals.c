@@ -21,8 +21,11 @@ static struct gale_text trim_space(struct gale_text line) {
 }
 
 static void read_conf(struct gale_text fn) {
+	struct gale_text line;
 	FILE * const fp = fopen(gale_text_to(gale_global->enc_filesys,fn),"r");
-	struct gale_text line = gale_read_line(fp);
+	if (NULL == fp) return;
+
+	line = gale_read_line(fp);
 	while (line.l > 0) {
 		struct gale_text var;
 		struct gale_text_accumulator val = null_accumulator;
