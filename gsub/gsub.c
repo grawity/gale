@@ -7,7 +7,6 @@
 #include "gale/gsubrc.h"
 
 #include <time.h>
-#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -329,10 +328,14 @@ static void *show_message(struct gale_message *msg) {
 		/* Form the name used for environment variables. */
 		gale_create_array(buf,frag.name.l);
 		for (i = 0; i < frag.name.l; ++i)
-			if (isalnum(frag.name.p[i]))
-				buf[i] = toupper(frag.name.p[i]);
+			if ((frag.name.p[i] >= '0' && frag.name.p[i] <= '9')
+			||  (frag.name.p[i] >= 'A' && frag.name.p[i] <= 'Z'))
+				buf[i] = frag.name.p[i];
+			else if (frag.name.p[i] >= 'a' && frag.name.p[i] <= 'z')
+				buf[i] = frag.name.p[i] - 'a' + 'A';
 			else
 				buf[i] = '_';
+
 		base.p = buf;
 		base.l = frag.name.l;
 
