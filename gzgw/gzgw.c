@@ -143,7 +143,7 @@ void *to_z(struct gale_link *conn,struct gale_message *msg,void *data) {
 	while (gale_text_token(msg->cat,':',&token)) {
 		if (!gale_text_compare(cat,gale_text_left(token,cat.l))) {
 			strncpy(instance,
-				gale_text_to_local(gale_text_right(token,cat.l)),
+				gale_text_to_local(gale_text_right(token,-cat.l)),
 				255);
 			break;
 		}

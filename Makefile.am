@@ -21,9 +21,15 @@ else
 gc_dir =
 endif
 
-SUBDIRS = @subdirs@ ${gc_dir} ${rsaref_dir} \
+if BUILD_GLXML
+glxml_dir = glxml
+else
+glxml_dir =
+endif
+
+SUBDIRS = ${gc_dir} ${rsaref_dir} \
 	lib server gsend gsub gwatch kutils gdomain \
-	${gzgw_dir} include
+	${gzgw_dir} ${glxml_dir} include
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

@@ -137,9 +137,10 @@ void gale_on_disconnect(struct gale_server *s,gale_call_disconnect *f,void *d) {
 }
 
 struct auth_id *gale_user(void) {
-	if (!auth_id_public(gale_global->user_id) 
-	&&  !auth_id_private(gale_global->user_id))
-		auth_id_gen(gale_global->user_id,gale_var(G_("GALE_FROM")));
+	struct auth_id *user_id = lookup_id(gale_var(G_("GALE_ID")));
+	if (!auth_id_public(user_id) 
+	&&  !auth_id_private(user_id))
+		auth_id_gen(user_id,gale_var(G_("GALE_FROM")));
 
-	return gale_global->user_id;
+	return user_id;
 }

@@ -20,6 +20,9 @@
 /* The GNU readline library */
 #undef HAVE_LIBREADLINE
 
+/* Veillard's XML parser library */
+#undef HAVE_LIBXML
+
 /* The SOCKS firewall proxy */
 #undef HAVE_SOCKS
 

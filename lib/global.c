@@ -13,12 +13,13 @@ static char *read_line(FILE *fp) {
 	static int alloc = 0;
 	int ch,size = 0;
 
-	if (!fp) return NULL;
+	if (NULL == fp) return NULL;
+	if (0 == alloc) buf = gale_malloc_safe(alloc = 256);
 
 	while ((ch = fgetc(fp)) != EOF && ch != '\n') {
 		if (size >= alloc - 1) {
 			char *old = buf;
-			buf = gale_malloc_safe(alloc = alloc ? alloc * 2 : 256);
+			buf = gale_malloc_safe(alloc *= 2);
 			memcpy(buf,old,size);
 			gale_free(old);
 		}

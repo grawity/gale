@@ -40,7 +40,28 @@ struct inode _ga_init_inode(void) {
 	i.name = null_text;
 	i.device = 0;
 	i.inode = 0;
+	i.file_time = i.inode_time = 0;
 	return i;
+}
+
+struct inode _ga_read_inode(int fd,struct gale_text name) {
+	struct inode i = _ga_init_inode();
+	struct stat buf;
+	if (!fstat(fd,&buf)) {
+		i.name = name;
+		i.inode = buf.st_ino;
+		i.device = buf.st_dev;
+		i.file_time = buf.st_mtime;
+		i.inode_time = buf.st_ctime;
+	}
+	return i;
+}
+
+int _ga_inode_changed(struct inode i) {
+	struct stat buf;
+	if (stat(gale_text_to_local(i.name),&buf)) return 1;
+	return (buf.st_dev != i.device || buf.st_ino != i.inode
+	   ||  buf.st_ctime != i.inode_time || buf.st_mtime != i.file_time);
 }
 
 int _ga_erase_inode(struct inode file) {
@@ -65,17 +86,6 @@ int _ga_erase_inode(struct inode file) {
 	}
 
 	return status;
-}
-
-struct inode _ga_read_inode(int fd,struct gale_text name) {
-	struct inode i;
-	struct stat buf;
-	if (!fstat(fd,&buf)) {
-		i.name = name;
-		i.inode = buf.st_ino;
-		i.device = buf.st_dev;
-	}
-	return i;
 }
 
 int _ga_read_file(struct gale_text fn) {

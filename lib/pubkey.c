@@ -89,26 +89,6 @@ int _ga_pub_rsa(struct gale_group group,R_RSA_PUBLIC_KEY *rsa) {
 	return 1;
 }
 
-#if 0
-static int pack_fragment(struct gale_data *data,struct gale_group group,
-                         struct gale_text name,enum gale_fragment_type type)
-{
-	struct gale_fragment frag;
-	if (!gale_group_lookup(group,name,type,&frag)) return 0;
-	assert(type == frag.type && 0 == gale_text_compare(name,frag.name));
-	switch (type) {
-	case frag_text:   gale_pack_text(data,frag.value.text);  break;
-	case frag_number: gale_pack_u32(data,frag.value.number); break;
-	case frag_data:   gale_pack_rle(data,
-				frag.value.data.p,
-				frag.value.data.l);              break;
-	case frag_time:   gale_pack_time(data,frag.value.time);  break;
-	default:          assert(0);
-	}
-	return 1;
-}
-#endif
-
 void _ga_import_pub(struct auth_id **id,struct gale_data key,
                     struct inode *source,int trust) {
 	struct auth_id *try = NULL;
@@ -230,17 +210,18 @@ void _ga_import_pub(struct auth_id **id,struct gale_data key,
 
 	/* OK... now install the key. */
 	if (!gale_group_null(try->pub_data) 
-	&&  !_ga_pub_equal(data,try->pub_data))
+	&&  !_ga_pub_equal(data,try->pub_data)) {
 		gale_alert(GALE_NOTICE,"replacing an old public key",0);
+#if !SAFE_KEY
+		_ga_erase_inode(try->pub_inode);
+#endif
+	}
 
 	try->pub_data = data;
 	try->pub_orig = save;
 	try->pub_signer = sig.id;
 	try->pub_trusted = trust;
 
-#if !SAFE_KEY
-	_ga_erase_inode(try->pub_inode);
-#endif
 	if (NULL != source)
 		try->pub_inode = *source;
 	else
@@ -369,7 +350,14 @@ int _ga_trust_pub(struct auth_id *id) {
 		return 0;
 	}
 
+	if (id->pub_trusted) {
+		gale_diprintf(10,-2,"(auth) \"%s\": implicitly trusted\n",
+		             gale_text_to_local(id->name));
+		return 1;
+	}
+
 	now = gale_time_now();
+#if 0
 	while (NULL != id && !gale_group_null(id->pub_data)) {
 		gale_dprintf(12,"(auth) checking component \"%s\"\n",
 			     gale_text_to_local(id->name));
@@ -386,5 +374,30 @@ int _ga_trust_pub(struct auth_id *id) {
 			id = id->pub_signer;
 	}
 
+	gale_diprintf(10,-2,"(auth) done verifying trust\n");
 	return NULL != id && id->pub_trusted;
+#else
+	if (bad_key(id)) {
+		_ga_warn_id(G_("\"%\": bad, old, insecure key"),id);
+		gale_diprintf(10,-2,"(auth) no trust\n");
+		return 0;
+	} else if (expired(id,now)) {
+		_ga_warn_id(G_("\"%\": key expired"),id);
+		gale_diprintf(10,-2,"(auth) no trust\n");
+		return 0;
+	} else if (NULL == id->pub_signer) {
+		gale_diprintf(10,-2,"(auth) unsigned key, no trust\n");
+		return 0;
+	}
+
+	if (auth_id_public(id->pub_signer)) {
+		gale_diprintf(10,-2,"(auth) \"%s\": everything checks out\n", 
+		              gale_text_to_local(id->name));
+		return 1;
+	} else {
+		gale_diprintf(10,-2,"(auth) \"%s\": parent not trusted\n", 
+		              gale_text_to_local(id->name));
+		return 0;
+	}
+#endif
 }

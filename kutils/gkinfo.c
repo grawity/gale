@@ -54,7 +54,12 @@ void pub_info(struct auth_id *id,int indent) {
 		printf(" [trusted]");
 	printf("\n");
 
-	if (do_verbose) do_info(id->pub_data,&id->pub_inode,indent += 2);
+	if (do_verbose) {
+		if (NULL != id->pub_signer)
+			printf("%sSigned by <%s>\n",do_indent(indent += 2),
+			       gale_text_to_local(id->pub_signer->name));
+		do_info(id->pub_data,&id->pub_inode,indent);
+	}
 
 	if (gale_group_lookup(id->pub_data,G_("key.redirect"),frag_text,&frag))
 		printf("%sRedirector to <%s>\n",

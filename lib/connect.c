@@ -342,11 +342,7 @@ static void *on_lookup(oop_adapter_adns *adns,adns_answer *answer,void *data) {
 	struct gale_connect *conn = res->owner;
 	int i;
 
-	for (i = 0; res != conn->resolving[i]; ++i) 
-		assert(i < conn->num_resolve);
-
 	res->query = NULL;
-	del_name(conn,i);
 
 	if (adns_s_ok == answer->status) {
 		struct gale_text name = answer->cname 
@@ -364,6 +360,10 @@ static void *on_lookup(oop_adapter_adns *adns,adns_answer *answer,void *data) {
 	}
 
 	free(answer);
+
+	for (i = 0; res != conn->resolving[i]; ++i) 
+		assert(i < conn->num_resolve);
+	del_name(conn,i);
 
 	if (0 == conn->num_resolve && conn->all_names) 
 		last_address(conn);

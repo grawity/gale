@@ -256,7 +256,7 @@ void default_gsubrc(int do_beep) {
 			bufloaded += fread(buf + bufloaded, 1, buflen - bufloaded, stdin);
 			if (!bufloaded && feof(stdin)) goto done_proper;
 		}
-		end_line:
+		end_line: ;
 	}
 	gale_print(stdout, gale_print_clobber_right, 
 	           gale_text_from_local(buf, buflen));

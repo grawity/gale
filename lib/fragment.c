@@ -257,6 +257,7 @@ void gale_pack_group(struct gale_data *data,struct gale_group group) {
 			gale_pack_u32(data,fragment_group);
 			gale_pack_u32(data,len + 
 			              gale_group_size(frag.value.group));
+			gale_pack_text(data,frag.name);
 			gale_pack_group(data,frag.value.group);
 			break;
 		default:

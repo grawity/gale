@@ -64,7 +64,7 @@ CC = gcc
 DLLTOOL = @DLLTOOL@
 DL_LIBS = -ldl
 GALE_LIBS = ${top_builddir}/lib/libgale.la -ltermcap ${top_builddir}/gc/libgc.a -lrsaref ${top_builddir}/liboop/liboop-adns.la -ladns -lresolv ${top_builddir}/liboop/liboop.la
-INCLUDES = -DGALE_SYS_DIR=\"${prefix}/etc/gale\" -I${top_srcdir}/include -I${top_builddir}/include 
+INCLUDES = -DGALE_SYS_DIR=\"${prefix}/etc/gale\" -I${top_srcdir}/include -I${top_builddir}/include -I/usr/include/gnome-xml 
 LD = /usr/bin/ld
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LN_S = ln -s
@@ -73,9 +73,11 @@ NM = /usr/bin/nm -B
 OBJDUMP = @OBJDUMP@
 PACKAGE = gale
 PROG_LDCONFIG = /sbin/ldconfig
+PROG_XML_CONFIG = xml-config
 RANLIB = ranlib
 READLINE_LIBS = -lreadline
-VERSION = 0.91b
+VERSION = 0.99
+XML_LIBS = -L/usr/lib -lxml -lz
 YACC = bison -y
 ZEPHYR_LIBS = 
 
@@ -92,8 +94,8 @@ LIBRARIES =  $(lib_LIBRARIES)
 
 
 DEFS = -DHAVE_CONFIG_H -I. -I$(srcdir) -I../include/gale
-CPPFLAGS = -I${top_srcdir}/liboop -I${top_srcdir}/gc/include -I/ofb/include -I/home/egnor/include
-LDFLAGS = -L/ofb/lib -L/home/egnor/lib
+CPPFLAGS = -I${top_srcdir}/liboop -I${top_srcdir}/gc/include  -I/home/egnor/include
+LDFLAGS =  -L/home/egnor/lib
 LIBS = -lnsl 
 libgc_a_LIBADD = 
 libgc_a_OBJECTS = 

@@ -21,7 +21,7 @@ int num = 0,alloc = 0;
 int do_encrypt = 0,do_rrcpt = 1,do_identify = 1;
 
 struct auth_id **rcpt = NULL;		/* Encryption recipients. */
-struct auth_id *signer;			/* Identity to sign the message. */
+struct auth_id *signer = NULL;		/* Identity to sign the message. */
 int num_rcpt = 0;			/* Number of recipients. */
 
 /* Parse user-supplied text. */
@@ -177,16 +177,12 @@ int main(int argc,char *argv[]) {
 	msg = new_message();
 	msg->data = gale_group_empty();
 
-	/* Default is to sign with our key. */
-	signer = gale_user();
-
 	/* Parse command line options. */
 	while ((arg = getopt(argc,argv,"Ddhac:C:t:Pps:S:uU")) != EOF) 
 	switch (arg) {
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
-	case 'a': signer = NULL; 		/* Anonymous */
-	          do_identify = 0; break;
+	case 'a': do_identify = 0; break;	/* Anonymous */
 	case 'c': if (!public.p) public =       /* Public message */
 	          gale_text_from_local(optarg,-1);
 	          else public = 
@@ -211,6 +207,9 @@ int main(int argc,char *argv[]) {
 	case 'h':
 	case '?': usage();
 	}
+
+	/* Sign with our key by default. */
+	if (do_identify && NULL == signer) signer = gale_user();
 
 	gale_create_array(rcpt,argc - optind);
 	for (; argc != optind; ++optind) {

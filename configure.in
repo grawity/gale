@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.13)
 AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(gale,0.91b)
+AM_INIT_AUTOMAKE(gale,0.99)
 AM_CONFIG_HEADER(include/gale/config.h:config.h.in)
 AC_CANONICAL_HOST
 AM_PROG_LIBTOOL
@@ -71,10 +71,15 @@ if test -z "$no_wacky_libs" ; then
   AC_CHECK_LIB(socket,socket)
 fi
 
+termcap_lib=""
 AC_CHECK_LIB(termcap,tgetent,[
   GALE_LIBS="$GALE_LIBS -ltermcap"
+  termcap_lib="-ltermcap"
 ],[
-  AC_CHECK_LIB(ncurses,tgetent,[GALE_LIBS="$GALE_LIBS -lncurses"])
+  AC_CHECK_LIB(ncurses,tgetent,[
+    GALE_LIBS="$GALE_LIBS -lncurses"
+    termcap_lib="-lncurses"
+  ])
 ])
 
 AC_CHECK_LIB(dl,dlopen,[
@@ -82,7 +87,7 @@ AC_CHECK_LIB(dl,dlopen,[
   AC_DEFINE(HAVE_LIBDL)])
 AC_CHECK_LIB(readline,readline,[
   READLINE_LIBS="-lreadline"
-  AC_DEFINE(HAVE_LIBREADLINE)])
+  AC_DEFINE(HAVE_LIBREADLINE)],[],$termcap_lib)
 
 if test x$use_socks = xtrue ; then
 AC_CHECK_LIB(socks,SOCKSinit,[
@@ -102,6 +107,15 @@ AC_CHECK_LIB(zephyr,ZInitialize,[
 ],[
   AC_MSG_ERROR(cannot find library to build gzgw as specified)
 ],-lcom_err)
+fi
+
+build_glxml=false
+AC_CHECK_PROG(PROG_XML_CONFIG,xml-config,xml-config)
+if test -n "$PROG_XML_CONFIG" ; then
+  build_glxml=true
+  INCLUDES="`xml-config --cflags` $INCLUDES"
+  XML_LIBS="`xml-config --libs`"
+  AC_DEFINE(HAVE_LIBXML)
 fi
 
 AC_MSG_CHECKING([for local copy of Boehm GC])
@@ -201,11 +215,13 @@ INCLUDES="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $INCLUDES"
 AC_SUBST(INCLUDES)
 AC_SUBST(ZEPHYR_LIBS)
 AC_SUBST(READLINE_LIBS)
+AC_SUBST(XML_LIBS)
 AC_SUBST(DL_LIBS)
 AC_SUBST(GALE_LIBS)
 AC_SUBST(PROG_LDCONFIG)
 
 AM_CONDITIONAL(BUILD_GZGW,test x$build_gzgw = xtrue)
+AM_CONDITIONAL(BUILD_GLXML,test x$build_glxml = xtrue)
 AM_CONDITIONAL(BUILD_RSAREF,test x$build_rsaref = xtrue)
 AM_CONDITIONAL(BUILD_GC,test x$build_gc = xtrue)
 
@@ -220,6 +236,7 @@ AC_OUTPUT(
 	lib/Makefile 
 	gsub/Makefile
 	gzgw/Makefile
+	glxml/Makefile
 	gsend/Makefile
 	kutils/Makefile
 	gwatch/Makefile

@@ -10,10 +10,12 @@ struct inode {
 	dev_t device;
 	ino_t inode;
 	struct gale_text name;
+	time_t inode_time,file_time;
 };
 
 struct inode _ga_init_inode(void);
 struct inode _ga_read_inode(int fd,struct gale_text name);
+int _ga_inode_changed(struct inode);
 int _ga_erase_inode(struct inode);
 
 int _ga_read_file(struct gale_text fn);

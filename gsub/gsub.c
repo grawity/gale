@@ -47,6 +47,7 @@ char *tty;                              /* TTY device */
 
 int do_run_default = 0;			/* Flag to run default_gsubrc */
 int do_presence = 0;			/* Should we announce presence? */
+int do_default = 1;			/* Default subscriptions? */
 int do_keys = 1;			/* Should we answer key requests? */
 int do_beep = 1;			/* Should we beep? */
 int do_termcap = 0;                     /* Should we highlight headers? */
@@ -419,14 +420,14 @@ void usage(void) {
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
 	"       -n          Do not fork (default if stdout redirected)\n"
-	"       -o id       Listen to messages for id (as well as %s)\n"
+	"       -o id       Listen to messages for id (as well as \"%s\")\n"
 	"       -r          Run the default internal gsubrc and exit\n"
 	"       -f rcprog   Use rcprog (default gsubrc, if found)\n"
 #ifdef HAVE_DLOPEN
 	"       -l rclib    Use module (default gsubrc.so, if found)\n" 
 #endif
 	"       -p state    Announce presence state (eg. \"out/to/lunch\")\n"
-	,GALE_BANNER,gale_text_to_local(auth_id_name(user_id)));
+	,GALE_BANNER,gale_text_to_local(gale_var(G_("GALE_ID"))));
 	exit(1);
 }
 
@@ -487,8 +488,7 @@ void add_subs(struct gale_text *subs,struct gale_text add) {
 /* listen to another user category */
 
 void add_other(struct gale_text *subs,struct gale_text add) {
-	struct auth_id *id;
-	init_auth_id(&id,add);
+	struct auth_id *id = lookup_id(add);
 	if (!auth_id_private(id)) {
 		struct gale_text err = gale_text_concat(3,
 			G_("no private key for \""),
@@ -528,7 +528,6 @@ int main(int argc,char **argv) {
 	/* Various flags. */
 	int opt,do_fork = 0,do_kill = 0;
 	struct gale_text rclib = null_text;
-	struct gale_text others,other = null_text;
 
 	/* Subscription list. */
 	struct gale_text serv = null_text;
@@ -536,9 +535,6 @@ int main(int argc,char **argv) {
 	/* Initialize the gale libraries. */
 	gale_init("gsub",argc,argv);
 	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
-
-	/* Figure out who we are. */
-	user_id = gale_user();
 
 	/* Default values. */
 	rcprog = G_("gsubrc");
@@ -561,25 +557,18 @@ int main(int argc,char **argv) {
 	presence = gale_var(G_("GALE_PRESENCE"));
 	if (!presence.l) presence = G_("in/present");
 
-	/* Default subscriptions. */
-	add_subs(&serv,gale_var(G_("GALE_SUBS")));
-	add_subs(&serv,gale_var(G_("GALE_GSUB")));
-
-	/* Other IDs to listen to. */
-	others = gale_var(G_("GALE_OTHERS"));
-	while (gale_text_token(others,',',&other))
-		if (0 != other.l) add_other(&serv,other);
-
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"haAbenkKro:f:l:p:"))) 
+	while (EOF != (opt = getopt(argc,argv,"dDhaAbenkKro:f:l:p:"))) 
 	switch (opt) {
+	case 'd': ++gale_global->debug_level; break;
+	case 'D': gale_global->debug_level += 5; break;
 	case 'a': do_presence = do_keys = 0; break;
 						/* Stay quiet */
 	case 'A': do_presence = do_keys = 1; break;
 						/* Don't */
 	case 'b': do_beep = 0; break;		/* Do not beep */
-	case 'e': serv.l = 0; break;            /* Do not include defaults */
-	case 'n': do_fork = 0; break;           /* Do not background */
+	case 'e': do_default = 0; break;        /* Do not include defaults */
+	case 'n': do_fork = do_kill = 0; break; /* Do not background */
 	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
 	case 'K': if (tty) gale_kill(gale_text_from_local(tty,-1),1);
 	          return 0;			/* only kill other gsubs */
@@ -596,9 +585,27 @@ int main(int argc,char **argv) {
 	case '?': usage();
 	}
 
+	/* Figure out who we are. */
+	if (do_presence || do_keys) user_id = gale_user();
+
 	if (do_run_default) {
 		default_gsubrc(do_beep);
 		return 0;
+	}
+
+	if (do_default) {
+		/* Other IDs to listen to. */
+		struct gale_text others,other = null_text;
+		others = gale_var(G_("GALE_OTHERS"));
+		while (gale_text_token(others,',',&other))
+			if (0 != other.l) add_other(&serv,other);
+
+		/* Default subscriptions. */
+		if (gale_var(G_("GALE_SUBS")).l)
+			add_subs(&serv,gale_var(G_("GALE_SUBS")));
+		else
+			add_other(&serv,gale_var(G_("GALE_ID")));
+		add_subs(&serv,gale_var(G_("GALE_GSUB")));
 	}
 
 	/* One argument, at most (subscriptions) */

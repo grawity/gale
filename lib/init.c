@@ -86,11 +86,6 @@ static void init_vars(struct passwd *pwd) {
 
 	if (!gale_var(G_("GALE_ID")).l)
 		gale_set(G_("GALE_ID"),gale_text_from_local(pwd->pw_name,-1));
-
-	if (!gale_var(G_("GALE_SUBS")).l) {
-		struct auth_id *id = lookup_id(gale_var(G_("GALE_ID")));
-		gale_set(G_("GALE_SUBS"),id_category(id,G_("user"),G_("")));
-	}
 }
 
 void gale_restart(void) {
@@ -161,5 +156,5 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	/* Round out the environment. */
 
 	init_vars(pwd);
-	gale_global->user_id = lookup_id(gale_var(G_("GALE_ID")));
+	/* gale_global->user_id = lookup_id(gale_var(G_("GALE_ID"))); */
 }

@@ -50,7 +50,7 @@ if [ -f "$CONF" ]; then
 		case "$var" in
 		"") continue ;;
 		"#") continue ;;
-		"#*") continue ;;
+		"#"*) continue ;;
 		esac
 		eval "CONF_$var=\"$value\""
 	done
@@ -123,10 +123,7 @@ if you choose "mydomain.example.com", you will need to contact the owners of
 If you run Gale in the context of a larger organization, they may have a domain 
 set up; ask your administrators.
 
-We recommend that new users choose an unoccupied name in the free, first-come,
-first-served dork.gale.org domain by visiting <URL:http://gale.org/dork>.  
-This will streamline the registration process to get you up and running as 
-quickly as possible with a minimum of human intervention.  
+For most of the top-level domains, contact <mailto:egnor-gale@ofb.net>.
 
 EOM
 
@@ -299,20 +296,6 @@ read descr
 echo "We will generate the key now.  Have patience."
 gkgen -u "$unsigned" "$GALE_DOMAIN" "$descr" || exit 1
 
-case "$GALE_DOMAIN" in
-*.dork.gale.org)
-cat << EOM
-
-*** Ah, a dork key.  Good!
-Visit <URL:http://gale.org/cgi/dork?check=$GALE_DOMAIN>.
-Send the file "$unsigned" for signing.  
-Save the resulting signed key file to disk someplace.  When you
-have the signed key available, run "${bindir}/gale-install" 
-again, and we will move on to the next step.
-
-EOM
-;;
-*)
 cat << EOM
 
 *** What you must do: Take the file "$unsigned",
@@ -326,5 +309,3 @@ signed key file available, re-run this script, and we will move on to the
 next step.
 
 EOM
-;;
-esac

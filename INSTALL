@@ -26,8 +26,7 @@ which requires a certain amount of finicky setup -- including setuid binaries
 
  * The Boehm conservative garbage collector
 
-   You can get this from http://reality.sgi.com/boehm/gc.html.  
-   ** Note -- Linux i386/glibc requires version 4.13alpha1 or later! **  
+   You can get this from http://www.hpl.hp.com/personal/Hans_Boehm/gc/.
    Unpack the tarball in the "gale" directory; it will expand into "gale/gc".
 
    You may alternatively build and install it yourself elsewhere.  If so,
@@ -40,8 +39,10 @@ which requires a certain amount of finicky setup -- including setuid binaries
    Get it from http://www.chiark.greenend.org.uk/~ian/adns/.  Make sure you
    know where it installed adns.h and libadns.*.
 
-   ** Make sure to use at least version 0.5! **
-   Versions 0.4 and older have fatal bugs.
+   ** Use version 0.5! **
+   At the time of this writing, the only known working version is 0.5.
+   Versions 0.4, 0.6, 0.7 and 0.8 don't work.
+   Versions after 0.8 may or may not work; try it and see.
 
  * GNU Autoconf
 

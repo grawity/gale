@@ -3,8 +3,8 @@
 lib_LTLIBRARIES = libgale.la
 
 # version:revision:age
-# current as of 0.91b
-libgale_la_LDFLAGS = -version-info 8:0:1
+# current as of 0.99
+libgale_la_LDFLAGS = -version-info 9:0:0
 
 libgale_la_SOURCES = \
 	authgrp.c client.c connect.c find.c id.c init.c global.c \

@@ -16,6 +16,12 @@ case "$host" in
   *-linux-*)
     AC_PATH_PROG(PROG_LDCONFIG, ldconfig, :, $PATH:/usr/sbin:/sbin)
     ;;
+  *-sgi-irix6*)
+    if test -n "$LPATH" ; then
+      LDFLAGS="-Wl,-rpath,$LPATH $LDFLAGS"
+    fi
+    no_wacky_libs=yes
+    ;;
 esac
 
 AC_CHECK_HEADERS(poll.h sys/select.h)
@@ -42,6 +48,11 @@ AC_CHECK_LIB(wwwcore,HTEvent_setRegisterCallback,[
   -lwwwtelnet -lwwwtrans -lwwwutils -lwwwxml -lwwwzip -lxmlparse -lxmltok -lmd5"
   WWW_INCLUDES="-I/usr/include/w3c-libwww"
 ],,-lwwwutils)
+
+if test -z "$no_wacky_libs" ; then
+  AC_CHECK_LIB(nsl,main)
+  AC_CHECK_LIB(socket,socket)
+fi
 
 AC_SUBST(PROG_LDCONFIG)
 AC_SUBST(GLIB_INCLUDES)

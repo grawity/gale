@@ -15,7 +15,7 @@ version="@VERSION@"
 top_builddir="IGNORE"
 top_srcdir="IGNORE"
 
-linkflags="-lgale -lrsaref -lgc -loop"
+linkflags="-lgale -lrsaref -lgc -loop-adns -loop"
 test "x${exec_prefix}" != "x/usr" && linkflags="-L${exec_prefix}/lib $linkflags"
 for flag in @LDFLAGS@ @GALE_LIBS@ @LIBS@ ; do
   case "$flag" in

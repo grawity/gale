@@ -13,7 +13,7 @@
 void usage(void) {
         fprintf(stderr,
                 "%s\n"
-                "usage: gkgen [-h] [-s id] [-r file] [-u file] id 'comment'\n"
+                "usage: gkgen [-hn] [-s id] [-r file] [-u file] id ['comment']\n"
 		"flags: -h          Display this message\n"
 		"       -n          Do not erase existing keys\n"
 		"       -s id       Create a redirector to another id\n"
@@ -44,8 +44,11 @@ int main(int argc,char *argv[]) {
 	case '?': usage();
 	}
 
-	if (argc - optind != 2) usage();
-	comment = gale_text_from_local(argv[optind + 1],-1);
+	switch (argc - optind) {
+	case 2: comment = gale_text_from_local(argv[optind + 1],-1); break;
+	case 1: comment = null_text; break;
+	default:  usage();
+	}
 
 	init_auth_id(&id,gale_text_from_local(argv[optind],-1));
 	if (do_wipe) {

@@ -44,7 +44,7 @@ extern struct gale_global_data {
 	auth_hook *find_public,*find_private;
 
 	/* The calling user's ID. */
-	struct auth_id *user_id;
+	/* struct auth_id *user_id; */
 
 	/* The system environment. */
 	char **environ;

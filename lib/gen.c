@@ -49,13 +49,16 @@ static void stash(char * const * argv) {
 static void clear(struct auth_id *id,struct gale_text comment) {
 	struct gale_fragment frag;
 
-	id->pub_time = gale_time_zero();
+	id->pub_time_slow = gale_time_zero();
+	id->pub_time_fast = gale_time_zero();
 	id->pub_data = gale_group_empty();
 	id->pub_orig = null_data;
 	id->pub_signer = NULL;
 	id->pub_inode = _ga_init_inode();
 	id->pub_trusted = 0;
 
+	id->priv_time_slow = gale_time_zero();
+	id->priv_time_fast = gale_time_zero();
 	id->priv_data = gale_group_empty();
 	id->priv_inode = _ga_init_inode();
 

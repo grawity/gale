@@ -73,9 +73,11 @@ NM = @NM@
 OBJDUMP = @OBJDUMP@
 PACKAGE = @PACKAGE@
 PROG_LDCONFIG = @PROG_LDCONFIG@
+PROG_XML_CONFIG = @PROG_XML_CONFIG@
 RANLIB = @RANLIB@
 READLINE_LIBS = @READLINE_LIBS@
 VERSION = @VERSION@
+XML_LIBS = @XML_LIBS@
 YACC = @YACC@
 ZEPHYR_LIBS = @ZEPHYR_LIBS@
 
@@ -87,8 +89,10 @@ bin_SCRIPTS = gale-config gale-install
 @BUILD_RSAREF_FALSE@rsaref_dir = 
 @BUILD_GC_TRUE@gc_dir = gc
 @BUILD_GC_FALSE@gc_dir = 
+@BUILD_GLXML_TRUE@glxml_dir = glxml
+@BUILD_GLXML_FALSE@glxml_dir = 
 
-SUBDIRS = @subdirs@ ${gc_dir} ${rsaref_dir} 	lib server gsend gsub gwatch kutils gdomain 	${gzgw_dir} include
+SUBDIRS = ${gc_dir} ${rsaref_dir} 	lib server gsend gsub gwatch kutils gdomain 	${gzgw_dir} ${glxml_dir} include
 
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
@@ -106,8 +110,8 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = tar
 GZIP_ENV = --best
-DIST_SUBDIRS =  @subdirs@ gc rsaref lib server gsend gsub gwatch kutils \
-gdomain gzgw include
+DIST_SUBDIRS =  gc rsaref lib server gsend gsub gwatch kutils gdomain \
+gzgw glxml include
 all: all-redirect
 .SUFFIXES:
 $(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
