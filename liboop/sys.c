@@ -86,12 +86,13 @@ static void sys_on_fd(oop_source *source,int fd,oop_event ev,
 		int i,j,num_files = 1 + fd;
 		sys_file *files = oop_malloc(num_files * sizeof(sys_file));
 		if (NULL == files) return; /* ugh */
+
 		memcpy(files,sys->files,sizeof(sys_file) * sys->num_files);
 		for (i = sys->num_files; i < num_files; ++i)
 			for (j = 0; j < OOP_NUM_EVENTS; ++j)
 				files[i][j].f = NULL;
 
-		oop_free(sys->files);
+		if (NULL != sys->files) oop_free(sys->files);
 		sys->files = files;
 		sys->num_files = num_files;
 	}
@@ -414,6 +415,7 @@ void oop_sys_delete(oop_source_sys *sys) {
 			assert(NULL == sys->files[i][j].f && "cannot delete with file handler");
 
 	assert(0 == sys->num_events);
+	if (NULL != sys->files) oop_free(sys->files);
 	oop_free(sys);
 }
 

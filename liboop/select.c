@@ -38,6 +38,7 @@ oop_adapter_select *oop_select_new(
 	FD_ZERO(&s->active.wfd);
 	FD_ZERO(&s->active.xfd);
 	s->num_fd = 0;
+	s->num_fd_active = 0;
 	s->do_timeout = 0;
 	s->is_active = 0;
 	s->call = call;
