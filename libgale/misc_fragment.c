@@ -60,9 +60,14 @@ void gale_group_append(struct gale_group *g,struct gale_group ga) {
 	*g = n;
 }
 
-struct gale_group gale_group_find(struct gale_group g,struct gale_text name) {
-	while (!gale_group_null(g) && 
-	       gale_text_compare(gale_group_first(g).name,name))
+struct gale_group gale_group_find(
+	struct gale_group g,
+	struct gale_text name,
+	enum gale_fragment_type type) 
+{
+	while (!gale_group_null(g) 
+	   && (gale_group_first(g).type != type
+	   ||  gale_text_compare(gale_group_first(g).name,name)))
 		g = gale_group_rest(g);
 	return g;
 }
@@ -70,27 +75,22 @@ struct gale_group gale_group_find(struct gale_group g,struct gale_text name) {
 int gale_group_lookup(struct gale_group group,struct gale_text name,
                       enum gale_fragment_type type,struct gale_fragment *frag)
 {
-	struct gale_group g = gale_group_find(group,name);
-
-	while (!gale_group_null(g)) {
-		struct gale_fragment f = gale_group_first(g);
-		assert(0 == gale_text_compare(f.name,name));
-		if (f.type == type) {
-			*frag = f;
-			return 1;
-		}
-		g = gale_group_find(gale_group_rest(g),name);
-	}
-
-	return 0;
+	const struct gale_group g = gale_group_find(group,name,type);
+	if (gale_group_null(g)) return 0;
+	*frag = gale_group_first(g);
+	return 1;
 }
 
-int gale_group_remove(struct gale_group *g,struct gale_text name) {
+int gale_group_remove(
+	struct gale_group *g,
+	struct gale_text name,
+	enum gale_fragment_type type) 
+{
 	struct gale_group t,r = *g;
 	int c = 0;
 
 	*g = gale_group_empty();
-	while (!gale_group_null((t = gale_group_find(r,name)))) {
+	while (!gale_group_null((t = gale_group_find(r,name,type)))) {
 		gale_group_prefix(&r,t);
 		gale_group_append(g,r);
 		r = gale_group_rest(t);
@@ -102,7 +102,7 @@ int gale_group_remove(struct gale_group *g,struct gale_text name) {
 }
 
 void gale_group_replace(struct gale_group *g,struct gale_fragment f) {
-	struct gale_group t = gale_group_find(*g,f.name);
+	struct gale_group t = gale_group_find(*g,f.name,f.type);
 	if (!gale_group_null(t)) {
 		gale_group_prefix(g,t);
 		t = gale_group_rest(t);

@@ -6,6 +6,7 @@
 #include <gc.h>
 
 /* #define CHEESY_ALLOC */
+#define GC_DEBUG
 
 struct gale_ptr { void *ptr; };
 
@@ -13,11 +14,11 @@ struct gale_ptr { void *ptr; };
 
 #ifndef CHEESY_ALLOC
 
-void *gale_malloc(size_t len) { return GC_malloc(len); }
-void *gale_malloc_atomic(size_t len) { return GC_malloc_atomic(len); }
-void *gale_malloc_safe(size_t len) { return GC_malloc_uncollectable(len); }
-void gale_free(void *ptr) { GC_free(ptr); }
-void *gale_realloc(void *s,size_t len) { return GC_realloc(s,len); }
+void *gale_malloc(size_t len) { return GC_MALLOC(len); }
+void *gale_malloc_atomic(size_t len) { return GC_MALLOC_ATOMIC(len); }
+void *gale_malloc_safe(size_t len) { return GC_MALLOC_UNCOLLECTABLE(len); }
+void gale_free(void *ptr) { GC_FREE(ptr); }
+void *gale_realloc(void *s,size_t len) { return GC_REALLOC(s,len); }
 void gale_check_mem(void) { GC_gcollect(); }
 
 void gale_finalizer(void *obj,void (*f)(void *,void *),void *data) {

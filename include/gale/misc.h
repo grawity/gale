@@ -367,13 +367,18 @@ void gale_group_add(struct gale_group *group,struct gale_fragment frag);
 void gale_group_append(struct gale_group *a,struct gale_group b);
 
 /** You probably don't need this, use gale_group_lookup() instead. */
-struct gale_group gale_group_find(struct gale_group,struct gale_text name);
+struct gale_group gale_group_find(struct gale_group,
+	struct gale_text name,
+	enum gale_fragment_type);
 
 /** Remove a fragment from a group.
  *  \param group Pointer to the group to be altered.
  *  \param name Name of the fragment to remove.
+ *  \param type Type of fragment to remove.
  *  \return Nonzero if any fragments matched the name (and were removed). */
-int gale_group_remove(struct gale_group *group,struct gale_text name);
+int gale_group_remove(struct gale_group *group,
+	struct gale_text name,
+	enum gale_fragment_type type);
 
 /** Add a fragment to an existing group, replacing any others with the 
  *  same name.

@@ -90,7 +90,7 @@ struct gale_group gale_crypto_public(struct gale_group key) {
 
 		if (gale_text_compare(G_("rsa.private"),frag.name) <= 0
 		&&  gale_text_compare(G_("rsa.private.~"),frag.name) > 0) {
-			gale_group_remove(&filtered,frag.name);
+			gale_group_remove(&filtered,frag.name,frag.type);
 			key = filtered;
 		}
 	}

@@ -23,23 +23,24 @@ static void *found(oop_source *oop,struct gale_key *key,void *user) {
 		g->is_complete = 0;
 	else {
 		struct gale_group data = gale_key_data(ass);
-		data = gale_group_find(data,g->name);
+		data = gale_group_find(data,g->name,frag_text);
 		while (!gale_group_null(data)) {
-			struct gale_fragment frag = gale_group_first(data);
-			if (frag_text == frag.type) {
-				struct gale_data name;
-				name = gale_text_as_data(frag.value.text);
-				if (0 == name.l)
-					g->has_null = 1;
-				else if (NULL == gale_map_find(g->map,name)) {
-					struct gale_key *key; 
-					++(g->out);
-					key = gale_key_handle(frag.value.text);
-					gale_map_add(g->map,name,key);
-					gale_key_search(oop,key,g->flags,found,g);
-				}
+			const struct gale_fragment frag = 
+				gale_group_first(data);
+			const struct gale_data name = 
+				gale_text_as_data(frag.value.text);
+			if (0 == name.l)
+				g->has_null = 1;
+			else if (NULL == gale_map_find(g->map,name)) {
+				struct gale_key *key; 
+				++(g->out);
+				key = gale_key_handle(frag.value.text);
+				gale_map_add(g->map,name,key);
+				gale_key_search(oop,key,g->flags,found,g);
 			}
-			data = gale_group_find(gale_group_rest(data),g->name);
+
+			data = gale_group_find(gale_group_rest(data),
+				g->name,frag_text);
 		}
 	}
 
