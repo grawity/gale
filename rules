@@ -54,7 +54,7 @@ subdirs:
 %.a: %.o
 	@echo $^ '->' $@
 	@ar ru $@ $^
-	@ranlib $@
+	@ranlib $@ || true
 
 $(BIN_DIR)/%: % mkdir/$(BIN_DIR)
 	@echo $* '->' $(BIN_DIR)
