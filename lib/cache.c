@@ -1,6 +1,7 @@
 #include "gale/all.h"
 #include "global.h"
 #include "rsaref.h"
+#include "md5.h"
 
 #include <sys/utsname.h>
 #include <sys/stat.h>

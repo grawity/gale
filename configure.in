@@ -46,8 +46,8 @@ PROG_LDCONFIG=:
 test yes = "$GCC" && CFLAGS="-Wall $CFLAGS"
 test NONE != "$exec_prefix" && LDFLAGS="$LDFLAGS -L${exec_prefix}/lib"
 if test NONE != "$prefix" ; then
-	CPPFLAGS="$CPPFLAGS -I${prefix}/include"
-	test NONE = "$exec_prefix" && LDFLAGS="$LDFLAGS -L${prefix}/lib"
+  CPPFLAGS="$CPPFLAGS -I${prefix}/include"
+  test NONE = "$exec_prefix" && LDFLAGS="$LDFLAGS -L${prefix}/lib"
 fi
 
 dnl System type checks.
@@ -168,10 +168,15 @@ if test -f "${srcdir}/rsaref/source/rsa.c"; then
   GALE_LIBS="$GALE_LIBS \${top_builddir}/rsaref/source/librsaref.la"
 else
   AC_MSG_RESULT(no)
-  AC_CHECK_LIB(rsaref,R_RandomInit,[:],[
-    AC_MSG_ERROR(cannot find RSAREF library, see INSTALL directions)
+  AC_CHECK_LIB(rsaref,R_RandomInit,[
+    GALE_LIBS="$GALE_LIBS -lrsaref"
+  ],[
+    if test -f "/usr/lib/rsaref.a"; then
+      GALE_LIBS="$GALE_LIBS /usr/lib/rsaref.a"
+    else
+      AC_MSG_ERROR(cannot find RSAREF library, see INSTALL directions)
+    fi
   ])
-  GALE_LIBS="$GALE_LIBS -lrsaref"
 fi
 
 AC_MSG_CHECKING([for local copy of liboop])
@@ -198,6 +203,10 @@ fi
 
 dnl Checks for header files.
 AC_CHECK_HEADERS(sys/bitypes.h sys/select.h curses.h term.h dlfcn.h readline/readline.h getopt.h)
+
+if test -d /usr/include/rsaref ; then
+  CPPFLAGS="$CPPFLAGS -I/usr/include/rsaref"
+fi
 
 if test ! -f "${srcdir}/rsaref/source/rsaref.h"; then
   AC_CHECK_HEADERS(rsaref.h,,[
