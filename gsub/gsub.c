@@ -567,7 +567,6 @@ static void argument(struct gale_text arg,int *positive) {
 		++lookup_count;
 		gale_find_location(source,arg,on_subscr_loc,(void *) i);
 		*positive = 1;
-		do_default = 0;
 	}
 }
 
@@ -636,15 +635,17 @@ int main(int argc,char **argv) {
 
 	subs = null_text;
 	if (do_default) subs = gale_var(G_("GALE_SUBSCRIBE"));
-
-	line = null_text;
-	positive = 1;
-	while (gale_text_token(subs,'\n',&line)) {
-		struct gale_text space = null_text;
-		while (gale_text_token(line,' ',&space)) {
-			struct gale_text tab = null_text;
-			while (gale_text_token(space,'\t',&tab))
-				argument(tab,&positive);
+	if (0 != subs.l) {
+		do_default = 0;
+		line = null_text;
+		positive = 1;
+		while (gale_text_token(subs,'\n',&line)) {
+			struct gale_text space = null_text;
+			while (gale_text_token(line,' ',&space)) {
+				struct gale_text tab = null_text;
+				while (gale_text_token(space,'\t',&tab))
+					argument(tab,&positive);
+			}
 		}
 	}
 
