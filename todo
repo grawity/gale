@@ -1,6 +1,9 @@
-limits on category (line as a whole?) (message size during collection?)
-server-server links
-verification of tree structure, removal of loop check
+fix Travis' header problems
 return receipts
+multiple signatures
+multiple encryption
 documentation (HTML)
+user notification
 
+limits on category (line as a whole?) (message size during collection?)
+verification of tree structure, removal of loop check
