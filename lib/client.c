@@ -3,6 +3,7 @@
 #include "gale/core.h"
 #include "gale/compat.h"
 #include "gale/misc.h"
+#include "gale/auth.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,10 +19,9 @@ struct auth_id *gale_user(void) {
 
 	if (user_id) return user_id;
 
-	user_id = lookup_id(gale_text_from_local(getenv("GALE_ID"),-1));
+	user_id = lookup_id(gale_var(G_("GALE_ID")));
 	if (!auth_id_public(user_id))
-		auth_id_gen(user_id,
-		            gale_text_from_local(getenv("GALE_FROM"),-1));
+		auth_id_gen(user_id,gale_var(G_("GALE_FROM")));
 
 	return user_id;
 }
@@ -40,6 +40,24 @@ static void do_connect(struct gale_client *client) {
 	} while (!client->socket);
 	if (client->socket > 0 && client->subscr.p)
 		link_subscribe(client->link,client->subscr);
+	while (client->socket > 0 && link_version(client->link) < 0) {
+		fd_set rfd,wfd;
+		FD_ZERO(&rfd);
+		FD_ZERO(&wfd);
+		if (link_receive_q(client->link)) FD_SET(client->socket,&rfd);
+		if (link_transmit_q(client->link)) FD_SET(client->socket,&wfd);
+		select(FD_SETSIZE,
+			(SELECT_ARG_2_T) &rfd,
+			(SELECT_ARG_2_T) &wfd,
+			NULL,NULL);
+		if ((FD_ISSET(client->socket,&rfd) 
+		&&  link_receive(client->link,client->socket))
+		||  (FD_ISSET(client->socket,&wfd)
+		&&  link_transmit(client->link,client->socket))) {
+			close(client->socket);
+			client->socket = -1;
+		}
+	}
 }
 
 void gale_retry(struct gale_client *client) {
@@ -65,10 +83,9 @@ void gale_retry(struct gale_client *client) {
 struct gale_client *gale_open(struct gale_text spec) {
 	struct gale_client *client;
 
-	client = gale_malloc(sizeof(*client));
-
+	gale_create(client);
 	client->server = gale_strdup(getenv("GALE_SERVER"));
-	client->subscr = gale_text_dup(spec);
+	client->subscr = spec;
 	client->socket = -1;
 	client->link = new_link();
 
@@ -81,8 +98,6 @@ struct gale_client *gale_open(struct gale_text spec) {
 
 void gale_close(struct gale_client *client) {
 	if (client->socket != -1) close(client->socket);
-	free_link(client->link);
-	free_gale_text(client->subscr);
 	gale_free(client->server);
 	gale_free(client);
 }

@@ -21,7 +21,8 @@ struct gale_link_old {
 };
 
 struct gale_link_old *new_link_old(void) {
-	struct gale_link_old *l = gale_malloc(sizeof(struct gale_link_old));
+	struct gale_link_old *l;
+	gale_create(l);
 	l->out_size = l->in_size = l->out_len = l->in_len = 0;
 	l->in_ptr = l->out_ptr = 0;
 	l->out_buf = l->in_buf = l->out_sub = l->in_sub = NULL;
@@ -40,12 +41,8 @@ void free_link_old(struct gale_link_old *l) {
 	if (l->in_buf) gale_free(l->in_buf);
 	if (l->out_sub) gale_free(l->out_sub);
 	if (l->in_sub) gale_free(l->in_sub);
-	if (l->in_msg) release_message(l->in_msg);
-	if (l->out_msg) release_message(l->out_msg);
-	if (l->in_will) release_message(l->in_will);
-	if (l->out_will) release_message(l->out_will);
 	while (l->queue_tail != l->queue_head) {
-		release_message(l->queue[l->queue_tail]);
+		l->queue[l->queue_tail] = NULL;
 		l->queue_tail = (l->queue_tail + 1) % l->queue_size;
 	}
 	if (l->queue) gale_free(l->queue);
@@ -62,7 +59,7 @@ void link_limits_old(struct gale_link_old *l,int num,int mem) {
 	tail = l->queue_tail;
 	size = l->queue_size;
 
-	l->queue = gale_malloc(sizeof(struct gale_message *) * num);
+	gale_create_array(l->queue,num);
 	l->queue_head = 0;
 	l->queue_tail = 0;
 	l->queue_size = num;
@@ -71,7 +68,7 @@ void link_limits_old(struct gale_link_old *l,int num,int mem) {
 
 	while (tail != head) {
 		link_put_old(l,queue[tail]);
-		release_message(queue[tail]);
+		queue[tail] = NULL;
 		tail = (tail + 1) % size;
 	}
 
@@ -81,14 +78,12 @@ void link_limits_old(struct gale_link_old *l,int num,int mem) {
 void reset_link_old(struct gale_link_old *l) {
 	l->out_ptr = l->out_len = 0;
 	if (l->out_buffer_mode) {
-		release_message(l->out_msg);
 		l->out_buffer_mode = 0;
 		l->out_msg = NULL;
 	}
 	l->in_will_mode = 0;
 	l->in_ptr = l->in_len = 0;
 	if (l->in_buffer_mode) {
-		release_message(l->in_msg);
 		l->in_buffer_mode = 0;
 		l->in_msg = NULL;
 	}
@@ -114,14 +109,10 @@ static void in_msg(struct gale_link_old *l,char *cmd) {
 }
 
 static void in_msg_done(struct gale_link_old *l) {
-	if (!l->in_msg->data.p) {
-		release_message(l->in_msg);
-		l->in_msg = NULL;
-	}
+	if (!l->in_msg->data.p) l->in_msg = NULL;
 	if (l->in_will_mode) {
 		l->in_will_mode = 0;
 		if (l->in_msg) {
-			if (l->in_will) release_message(l->in_will);
 			l->in_will = l->in_msg;
 			l->in_msg = NULL;
 		}
@@ -272,7 +263,6 @@ int link_transmit_old(struct gale_link_old *l,int fd) {
 		}
 		l->out_ptr += r;
 		if (l->out_ptr == l->out_msg->data.l) {
-			release_message(l->out_msg);
 			l->out_msg = NULL;
 			l->out_buffer_mode = 0;
 			l->out_ptr = 0;
@@ -302,20 +292,18 @@ void link_subscribe_old(struct gale_link_old *l,const char *spec) {
 }
 
 void link_put_old(struct gale_link_old *l,struct gale_message *msg) {
-	addref_message(msg);
 	l->queue[l->queue_head] = msg;
 	l->queue_mem += msg->data.l;
 	l->queue_head = (l->queue_head + 1) % l->queue_size;
 	if (l->queue_head == l->queue_tail || l->queue_mem > l->queue_max) do {
 		l->queue_mem -= l->queue[l->queue_tail]->data.l;
-		release_message(l->queue[l->queue_tail]);
+		l->queue[l->queue_tail] = NULL;
 		l->queue_tail = (l->queue_tail + 1) % l->queue_size;
 	} while (l->queue_mem > l->queue_max);
 }
 
 void link_will_old(struct gale_link_old *l,struct gale_message *msg) {
-	if (l->out_will != NULL) release_message(l->out_will);
-	addref_message(l->out_will = msg);
+	l->out_will = msg;
 }
 
 struct gale_message *link_get_old(struct gale_link_old *l) {

@@ -7,7 +7,8 @@
 #include "server.h"
 
 struct connect *new_connect(int rfd,int wfd,int old) {
-	struct connect *conn = gale_malloc(sizeof(struct connect));
+	struct connect *conn;
+	gale_create(conn);
 	fcntl(wfd,F_SETFL,O_NONBLOCK);
 	fcntl(rfd,F_SETFD,1);
 	fcntl(wfd,F_SETFD,1);
@@ -22,15 +23,10 @@ struct connect *new_connect(int rfd,int wfd,int old) {
 }
 
 void free_connect(struct connect *conn) {
-	free_link(conn->link);
 	close(conn->rfd);
 	if (conn->wfd != conn->rfd) close(conn->wfd);
-	if (conn->subscr.p) {
-		remove_subscr(conn);
-		free_gale_text(conn->subscr);
-	}
+	if (conn->subscr.p) remove_subscr(conn);
 	if (conn->retry) free_attach(conn->retry);
-	gale_free(conn);
 }
 
 void pre_select(struct connect *conn,fd_set *r,fd_set *w) {
@@ -64,22 +60,13 @@ int post_select(struct connect *conn,fd_set *r,fd_set *w) {
 		}
 	}
 	sub = link_subscribed(conn->link);
-	if (sub.p) {
-		subscribe_connect(conn,sub);
-		free_gale_text(sub);
-	}
-	while ((msg = link_get(conn->link))) {
-		subscr_transmit(msg,conn);
-		release_message(msg);
-	}
+	if (sub.p) subscribe_connect(conn,sub);
+	while ((msg = link_get(conn->link))) subscr_transmit(msg,conn);
 	return 0;
 }
 
 void subscribe_connect(struct connect *conn,struct gale_text sub) {
-	if (conn->subscr.p) {
-		remove_subscr(conn);
-		free_gale_text(conn->subscr);
-	}
-	conn->subscr = gale_text_dup(sub);
+	if (conn->subscr.p) remove_subscr(conn);
+	conn->subscr = sub;
 	add_subscr(conn);
 }

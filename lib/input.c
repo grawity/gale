@@ -13,7 +13,8 @@ struct input_buffer {
 };
 
 struct input_buffer *create_input_buffer(struct input_state initial) {
-	struct input_buffer *buf = gale_malloc(sizeof(*buf));
+	struct input_buffer *buf;
+	gale_create(buf);
 	buf->state = initial;
 	buf->extra = NULL;
 	buf->remnant = 0;

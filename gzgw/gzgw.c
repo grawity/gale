@@ -10,9 +10,6 @@
 
 #include "gale/all.h"
 
-void *gale_malloc(size_t size) { return malloc(size); }
-void gale_free(void *ptr) { free(ptr); }
-
 ZSubscription_t sub;
 
 u_short port;
@@ -46,9 +43,8 @@ void append(int len,const char *s) {
 
 void to_g(ZNotice_t *notice) {
 	struct gale_message *msg;
-	struct gale_text inst;
-	int len;
-	char *ptr,*end,num[15];
+	char *ptr;
+	struct gale_fragment *frags[6];
 
 	if (notice->z_opcode && !strcmp(notice->z_opcode,"gale")) {
 		gale_dprintf(2,"message has opcode gale; dropping.\n");
@@ -64,53 +60,45 @@ void to_g(ZNotice_t *notice) {
 	for (ptr = notice->z_class_inst; *ptr; ++ptr)
 		*ptr = tolower(*ptr);
 
-	msg = new_message();
-	msg->cat = new_gale_text(cat.l + strlen(notice->z_class_inst));
-	gale_text_append(&msg->cat,cat);
-	inst = gale_text_from_latin1(notice->z_class_inst,-1);
-	gale_text_append(&msg->cat,inst);
-	free_gale_text(inst);
+	frags[0] = gale_make_id_class();
+	frags[1] = gale_make_id_instance(null_text);
+	frags[2] = gale_make_id_time();
 
-	reset();
-	append(-1,"Content-type: text/x-zwgc\r\nTime: ");
-	sprintf(num,"%u",(unsigned int) notice->z_time.tv_sec);
-	append(-1,num);
+	gale_create(frags[3]);
+	frags[3]->name = G_("message/sender");
+	frags[3]->type = frag_text;
+	frags[3]->value.text = gale_text_from_latin1(notice->z_sender,-1);
 
-	append(8,"\r\nFrom: ");
+	gale_create(frags[4]);
+	frags[4]->name = G_("message/body");
+	frags[4]->type = frag_text;
+	frags[4]->value.text = null_text;
 
-	ptr = memchr(notice->z_message,'\0',notice->z_message_len);
-	if (ptr) {
-		if (notice->z_message[0]) {
-			append(ptr - notice->z_message,notice->z_message);
-			append(1," ");
-		}
-	}
-
-	append(1,"<");
-	append(-1,notice->z_sender);
-	append(5,">\r\n\r\n");
-
-	if (ptr) {
-		char *zero;
-		++ptr;
-		len = notice->z_message_len - (ptr - notice->z_message);
-		zero = memchr(ptr,'\0',len);
+	if ((ptr = memchr(notice->z_message,'\0',notice->z_message_len))) {
+		int len = notice->z_message_len - (++ptr - notice->z_message);
+		char *zero = memchr(ptr,'\0',len);
 		if (zero) len = zero - ptr;
 		while (len > 0 && *ptr) {
-			end = memchr(ptr,'\n',len);
+			char *end = memchr(ptr,'\n',len);
 			if (!end) end = ptr + len;
-			append(end - ptr,ptr);
-			append(2,"\r\n");
+
+			frags[4]->value.text = gale_text_concat(3,
+				frags[4]->value.text,
+				gale_text_from_latin1(ptr,end - ptr),
+				G_("\r\n"));
+
 			len -= (end - ptr) + 1;
 			ptr = end + 1;
 		}
 	}
 
-	msg->data.l = buf_len;
-	msg->data.p = gale_malloc(msg->data.l);
-	memcpy(msg->data.p,buf,msg->data.l);
+	frags[5] = NULL;
+
+	msg = new_message();
+	msg->cat = gale_text_concat(2,cat,
+		gale_text_from_latin1(notice->z_class_inst,-1));
+	msg->data = pack_message(frags);
 	link_put(client->link,msg);
-	release_message(msg);
 }
 
 void z_to_g(void) {
@@ -127,18 +115,18 @@ void z_to_g(void) {
 	}
 }
 
-void to_z(struct gale_message *_msg) {
+void to_z(struct gale_message *msg) {
 	ZNotice_t notice;
 	char instance[256] = "(invalid)";
-	char *key,*data,*next,*end,*sig;
-	struct gale_message *msg;
+	char *sig = NULL,*body = NULL;
 	struct auth_id *signature,*encryption;
+	struct gale_fragment **frags;
 	struct gale_text token = null_text;
 	int retval;
 
-	encryption = decrypt_message(_msg,&msg);
+	encryption = decrypt_message(msg,&msg);
 	if (!msg) return;
-	signature = verify_message(msg);
+	signature = verify_message(msg,&msg);
 
 	memset(&notice,0,sizeof(notice));
 	notice.z_kind = UNACKED;
@@ -156,20 +144,20 @@ void to_z(struct gale_message *_msg) {
 	while (gale_text_token(msg->cat,':',&token)) {
 		if (!gale_text_compare(cat,gale_text_left(token,cat.l))) {
 			strncpy(instance,
-				gale_text_hack(gale_text_right(token,cat.l)),
+				gale_text_to_local(gale_text_right(token,cat.l)),
 				255);
 			break;
 		}
 	}
 
-	sig = NULL;
-	end = msg->data.p + msg->data.l;
-	next = msg->data.p;
-	while (parse_header(&next,&key,&data,end)) {
-		if (!strcasecmp(key,"From")) {
-			if (sig) gale_free(sig);
-			sig = gale_strdup(data);
-		}
+	for (frags = unpack_message(msg->data); *frags; ++frags) {
+		struct gale_fragment *frag = *frags;
+		if (frag_text == frag->type
+		&& !gale_text_compare(frag->name,G_("message/sender")))
+			sig = gale_text_to_latin1(frag->value.text);
+		if (frag_text == frag->type
+		&& !gale_text_compare(frag->name,G_("message/body")))
+			body = gale_text_to_latin1(frag->value.text);
 	}
 
 	if (sig == NULL) {
@@ -183,14 +171,14 @@ void to_z(struct gale_message *_msg) {
 	append(strlen(sig) + 1,sig); 
 	gale_free(sig);
 
-	while (next != end) {
-		key = memchr(next,'\r',end - next);
-		if (!key) key = end;
-		append(key - next,next);
-		next = key;
-		if (next != end) {
-			++next;
-			if (*next == '\n') ++next;
+	while (body && *body) {
+		char *nl = strchr(body,'\r');
+		if (!nl) nl = body + strlen(body);
+		append(nl - body,body);
+		body = nl;
+		if (*body) {
+			++body;
+			if (*body == '\n') ++body;
 			append(1,"\n");
 		}
 	}
@@ -202,11 +190,6 @@ void to_z(struct gale_message *_msg) {
 	if ((retval = ZSendNotice(&notice,ZAUTH)) != ZERR_NONE &&
 	    (retval = ZSendNotice(&notice,ZNOAUTH)) != ZERR_NONE)
 		com_err(myname,retval,"while sending notice");
-
-	if (signature) free_auth_id(signature);
-	if (encryption) free_auth_id(encryption);
-	gale_free(notice.z_sender);
-	release_message(msg);
 }
 
 void g_to_z(void) {
@@ -215,7 +198,6 @@ void g_to_z(void) {
 	while ((msg = link_get(client->link))) {
 		gale_dprintf(2,"received gale message\n");
 		to_z(msg);
-		release_message(msg);
 	}
 }
 
@@ -258,15 +240,12 @@ int main(int argc,char *argv[]) {
 		cat = gale_text_from_local(argv[optind],-1);
 		++optind;
 	} else {
-		const char *domain = getenv("GALE_DOMAIN");
-		char *tmp = gale_malloc(strlen(domain) + 30);
-		sprintf(tmp,"zephyr/%s/",domain);
-		cat = gale_text_from_latin1(tmp,-1);
-		gale_free(tmp);
+		cat = gale_text_concat(3,
+			G_("zephyr/"),gale_var(G_("GALE_DOMAIN")),G_("/"));
 	}
 	if (optind < argc) usage();
 
-	gale_dprintf(2,"subscribing to gale: \"%s\"\n",gale_text_hack(cat));
+	gale_dprintf(2,"subscribing to gale: \"%s\"\n",gale_text_to_local(cat));
 	client = gale_open(cat);
 
 	gale_dprintf(2,"subscribing to Zephyr\n");

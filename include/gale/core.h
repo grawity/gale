@@ -11,6 +11,9 @@
    the next two are argc and argv. */
 void gale_init(const char *,int argc,char * const *argv);
 
+/* Get an environment variable. */
+struct gale_text gale_var(struct gale_text);
+
 /* The makefiles define this based on the "version" file. */
 #ifndef VERSION
 #error You must define VERSION.
@@ -22,22 +25,29 @@ void gale_init(const char *,int argc,char * const *argv);
 
 /* -- management of message (puff) objects --------------------------------- */
 
-/* The message object is reference counted; this is done mostly for the 
-   server, but might prove useful elsewhere. */
-
 struct gale_message {
 	struct gale_text cat;  /* Category expression text. */
 	struct gale_data data; /* Message data. */
-	int ref;               /* Reference count. */
 };
 
-/* Create a new message with a single reference count and fields empty. */
+/* Create a new message with empty fields. */
 struct gale_message *new_message(void);
 
-/* Manage reference counts on a message.  release_message() will delete the
-   message (and free the category and data) if the reference count reaches 0 */
-void addref_message(struct gale_message *);
-void release_message(struct gale_message *);
+/* You can decompose messages into "fragments". */
+struct gale_fragment {
+	struct gale_text name;
+	enum { frag_text, frag_data, frag_time, frag_number } type;
+	union {
+		struct gale_text text;
+		struct gale_data data;
+		struct gale_time time;
+		s32 number;
+	} value;
+};
+
+/* These routines use NULL-terminated arrays of pointers to fragments. */
+struct gale_fragment **unpack_message(struct gale_data);
+struct gale_data pack_message(struct gale_fragment **);
 
 /* -- gale server connection management ------------------------------------ */
 
@@ -52,8 +62,6 @@ struct gale_link;
 struct gale_link *new_link(void);
 /* The same, but use the old protocol. */
 struct gale_link *new_old_link(void);
-/* Destroy a link, and release any contained messages. */
-void free_link(struct gale_link *);
 /* Reset the link, in case you've lost a server connection and are 
    reconnecting.  Basically, puts the protocol back to the ground state. */
 void reset_link(struct gale_link *);
@@ -88,6 +96,8 @@ size_t link_queue_mem(struct gale_link *);
 /* Drop the earliest outgoing message. */
 void link_queue_drop(struct gale_link *);
 
+/* Get the protocol version established on the link, -1 if not known yet. */
+int link_version(struct gale_link *);
 /* Get the next incoming message.  NULL if there aren't any. */
 struct gale_message *link_get(struct gale_link *);
 /* If the other end of the link sent a "will", get it.  (Otherwise NULL.) */

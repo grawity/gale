@@ -5,63 +5,54 @@
 
 #include "gale/all.h"
 
+struct gale_text category;
 struct gale_client *client;
-struct gale_text old_cat,new_cat;
 struct auth_id *domain;
-
-void *gale_malloc(size_t size) { return malloc(size); }
-void gale_free(void *ptr) { free(ptr); }
 
 void usage() {
 	fprintf(stderr,"%s\nusage: gdomain\n",GALE_BANNER);
 	exit(1);
 }
 
-void success(struct auth_id *id,struct gale_message *msg) {
-	struct gale_data data;
-	export_auth_id(id,&data,0);
-	msg->data.p = gale_malloc(256 + auth_id_name(id).l + data.l);
-	sprintf(msg->data.p,
-		"Content-Type: application/x-gale-key\r\n"
-		"From: Domain Server\r\n"
-		"Time: %lu\r\n"
-		"Subject: success %s\r\n\r\n",
-		time(NULL),gale_text_hack(auth_id_name(id)));
-	msg->data.l = strlen(msg->data.p);
-	memcpy(msg->data.p + msg->data.l,data.p,data.l);
-	msg->data.l += data.l;
-	gale_free(data.p);
+struct gale_message *slip(struct auth_id *id,struct gale_fragment frag) {
+	struct gale_message *msg = new_message();
+	struct gale_fragment *frags[5];
+
+	frags[0] = gale_make_id_class();
+	frags[1] = gale_make_id_instance(null_text);
+	frags[2] = gale_make_id_time();
+	
+	*gale_create(frags[3]) = frag;
+
+	frags[4] = NULL;
+
+	msg->data = pack_message(frags);
+	msg->cat = id_category(id,G_("auth/key"),G_(""));
+	return msg;
 }
 
-void failure(struct auth_id *id,struct gale_message *msg) {
-	msg->data.p = gale_malloc(256 + auth_id_name(id).l);
-	sprintf(msg->data.p,
-		"Content-Type: application/x-gale-key\r\n"
-		"From: Domain Server\r\n"
-		"Time: %lu\r\n"
-		"Subject: failure %s\r\n",
-		time(NULL),gale_text_hack(auth_id_name(id)));
-	msg->data.l = strlen(msg->data.p);
+struct gale_message *success(struct auth_id *id) {
+	struct gale_fragment frag;
+	frag.name = G_("answer/key");
+	frag.type = frag_data;
+	export_auth_id(id,&frag.value.data,0);
+	return slip(id,frag);
 }
 
-void request(struct auth_id *id,struct gale_text category) {
-	struct gale_message *reply = new_message();
-	reply->cat = gale_text_dup(category);
+struct gale_message *failure(struct auth_id *id) {
+	struct gale_fragment frag;
+	frag.name = G_("answer/key/error");
+	frag.type = frag_text;
+	frag.value.text = gale_text_concat(3,
+		G_("key \""),auth_id_name(id),G_("\" not found"));
+	return slip(id,frag);
+}
 
-	if (!auth_id_public(id)) 
-		failure(id,reply);
-	else
-		success(id,reply);
-
-	if (reply->data.p) {
-		struct gale_message *new = _sign_message(domain,reply);
-		if (new) {
-			link_put(client->link,new);
-			release_message(new);
-		}
-	}
-
-	release_message(reply);
+void request(struct auth_id *id) {
+	struct gale_message *reply;
+	reply = auth_id_public(id) ? success(id) : failure(id);
+	reply = _sign_message(domain,reply);
+	if (reply) link_put(client->link,reply);
 }
 
 int prefix(struct gale_text x,struct gale_text prefix) {
@@ -72,75 +63,43 @@ int suffix(struct gale_text x,struct gale_text suffix) {
 	return !gale_text_compare(gale_text_right(x,suffix.l),suffix);
 }
 
-void incoming(struct gale_message *_msg) {
-	struct gale_text rcpt = null_text;
-	struct gale_message *msg = NULL;
+void incoming(struct gale_message *msg) {
 	struct auth_id *encrypted = NULL,*signature = NULL;
 	struct gale_text user = null_text;
+	struct gale_fragment **frags;
 
-	encrypted = decrypt_message(_msg,&msg);
+	encrypted = decrypt_message(msg,&msg);
 	if (!msg) return;
-	signature = verify_message(msg);
+	signature = verify_message(msg,&msg);
 
 	/* Figure out what we can from the headers. */
 
-	{
-		char *next = msg->data.p,*end = next + msg->data.l;
-		char *header,*data;
-		while (parse_header(&next,&header,&data,end)) {
-			if (!strcasecmp(header,"Request-Key")) {
-				free_gale_text(user);
-				user = gale_text_from_latin1(data,-1);
-			} else if (!strcasecmp(header,"Receipt-To")) {
-				free_gale_text(rcpt);
-				rcpt = gale_text_from_latin1(data,-1);
-			}
-		}
+	for (frags = unpack_message(msg->data); *frags; ++frags) {
+		struct gale_fragment *frag = *frags;
+		if (frag_text == frag->type 
+		&& !gale_text_compare(frag->name,G_("question/key")))
+			user = frag->value.text;
 	}
 
 	/* Now see what we can glean from the category */
 
 	if (!user.p) {
-		struct gale_text trailer = gale_text_from_latin1("/key",-1);
 		struct gale_text cat = null_text;
-
-		while (!user.p && gale_text_token(_msg->cat,':',&cat)) {
-			if (prefix(cat,old_cat) && suffix(cat,trailer))
-				user = gale_text_dup(
-					gale_text_right(
-						gale_text_left(cat,-trailer.l),
-						-old_cat.l));
-			else if (prefix(cat,new_cat))
-				user = gale_text_dup(
-					gale_text_right(cat,-new_cat.l));
-		}
-
-		free_gale_text(trailer);
+		while (!user.p && gale_text_token(msg->cat,':',&cat))
+			if (prefix(cat,category))
+				user = gale_text_right(cat,-category.l);
 	}
 
 	if (!user.p)
 		gale_alert(GALE_WARNING,"cannot determine the key wanted",0);
 	else {
 		struct auth_id *key = lookup_id(user);
-		if (!rcpt.p) rcpt = id_category(key,G_("auth/key"),G_(""));
-		gale_dprintf(3,"--- looking up key for %s\n",user);
-		if (key) {
-			request(key,rcpt);
-			free_auth_id(key);
-		}
+		if (key) request(key);
 	}
-
-	if (rcpt.p) free_gale_text(rcpt);
-
-	if (encrypted) free_auth_id(encrypted);
-	if (signature) free_auth_id(signature);
-	free_gale_text(user);
-	if (msg) release_message(msg);
 }
 
 int main(int argc,char *argv[]) {
 	int arg;
-	struct gale_text category;
 
 	gale_init("gdomain",argc,argv);
 	disable_gale_akd();
@@ -154,16 +113,11 @@ int main(int argc,char *argv[]) {
 	}
 	if (optind != argc) usage();
 
-	init_auth_id(&domain,gale_text_from_local(getenv("GALE_DOMAIN"),-1));
+	init_auth_id(&domain,gale_var(G_("GALE_DOMAIN")));
 	if (!domain || !auth_id_private(domain))
 		gale_alert(GALE_ERROR,"no access to domain private key",0);
 
-	old_cat = dom_category(auth_id_name(domain),G_("dom"));
-	new_cat = dom_category(auth_id_name(domain),G_("auth/query"));
-	category = new_gale_text(old_cat.l + new_cat.l + 1);
-	gale_text_append(&category,old_cat);
-	gale_text_append(&category,G_(":"));
-	gale_text_append(&category,new_cat);
+	category = dom_category(auth_id_name(domain),G_("auth/query"));
 	client = gale_open(category);
 
 	gale_daemon(0);
@@ -172,10 +126,7 @@ int main(int argc,char *argv[]) {
 		struct gale_message *msg;
 		while (gale_send(client)) gale_retry(client);
 		while (gale_next(client)) gale_retry(client);
-		while ((msg = link_get(client->link))) {
-			incoming(msg);
-			release_message(msg);
-		}
+		while ((msg = link_get(client->link))) incoming(msg);
 	}
 
 	return 0;

@@ -4,9 +4,6 @@
 
 #include "gale/all.h"
 
-void *gale_malloc(size_t size) { return malloc(size); }
-void gale_free(void *ptr) { free(ptr); }
-
 void usage(void) {
 	fprintf(stderr,
 		"%s\n"
@@ -26,5 +23,6 @@ int main(int argc,char *argv[]) {
 		putenv(tmp);
 	}
 	gale_init("gkeys",argc,argv);
+	gale_user();
 	return 0;
 }

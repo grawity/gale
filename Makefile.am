@@ -6,7 +6,7 @@ noinst_SCRIPTS = common.sh config.sh domain.sh
 EXTRA_DIST = common.sh config.sh domain.sh
 DIST_SUBDIRS = \
 	auth gdomain gkeys gsend gsub gwatch lib rsaref server \
-	gzgw glog glsql include
+	gzgw glog glsql include gc
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

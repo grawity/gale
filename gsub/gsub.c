@@ -7,9 +7,11 @@
 #include "gale/gsubrc.h"
 
 #include <time.h>
+#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -31,7 +33,9 @@ gsubrc_t *dl_gsubrc = NULL;		/* Loaded gsubrc function. */
 gsubrc2_t *dl_gsubrc2 = NULL;		/* Extended gsubrc function. */
 struct gale_client *client;             /* Connection to server. */
 struct auth_id *user_id;		/* The user. */
-char *tty,*agent;                       /* TTY device, user-agent string. */
+struct gale_text presence;		/* Current presence state. */
+char *tty;                              /* TTY device */
+int sig_received = 0;			/* Signal received */
 
 int do_stealth = 0;			/* Should we answer Receipt-To's? */
 int do_beep = 1;			/* Should we beep? */
@@ -40,49 +44,60 @@ int sequence = 0;
 
 #define TIMEOUT 300			/* Interval to poll for tty death */
 
-void *gale_malloc(size_t size) { return malloc(size); }
-void gale_free(void *ptr) { free(ptr); }
+void get_signal(int sig) {
+	sig_received = sig;
+}
+
+void trap_signal(int num) {
+	struct sigaction act;
+	if (sigaction(num,NULL,&act)) gale_alert(GALE_ERROR,"sigaction",errno);
+	if (act.sa_handler != SIG_DFL) return;
+	act.sa_handler = get_signal;
+	if (sigaction(num,&act,NULL)) gale_alert(GALE_ERROR,"sigaction",errno);
+}
 
 /* Generate a trivial little message with the given category.  Used for
    return receipts, login/logout notifications, and such. */
 struct gale_message *slip(struct gale_text cat,
+                          struct gale_text presence,
+                          struct gale_fragment *extra,
                           struct auth_id *sign,struct auth_id *encrypt)
 {
 	struct gale_message *msg;
-	int len = strlen(agent) + strlen(getenv("GALE_FROM"));
+	struct gale_fragment *frags[7];
 
 	/* Create a new message. */
 	msg = new_message();
-	msg->cat = gale_text_dup(cat);
-	msg->data.p = gale_malloc(128 + len);
+	msg->cat = cat;
 
-	/* A few obvious headers. */
-	sprintf(msg->data.p,
-		"From: %s\r\n"
-		"Time: %lu\r\n"
-		"Agent: %s\r\n"
-		"Sequence: %d\r\n"
-		"\r\n",
-	        getenv("GALE_FROM"),time(NULL),agent,sequence++);
+	gale_create(frags[0]);
+	frags[0]->name = G_("message/sender");
+	frags[0]->type = frag_text;
+	frags[0]->value.text = gale_var(G_("GALE_FROM"));
 
-	msg->data.l = strlen(msg->data.p);
+	gale_create(frags[1]);
+	frags[1]->name = G_("notice/presence");
+	frags[1]->type = frag_text;
+	frags[1]->value.text = presence;
+
+	frags[2] = gale_make_id_class();
+	frags[3] = gale_make_id_instance(gale_text_from_latin1(tty,-1));
+	frags[4] = gale_make_id_time();
+
+	frags[5] = extra;
+	frags[6] = NULL;
+
+	msg->data = pack_message(frags);
 
 	/* Sign and encrypt the message, if appropriate. */
 	if (sign) {
 		struct gale_message *new = sign_message(sign,msg);
-		if (new) {
-			release_message(msg);
-			msg = new;
-		}
+		if (new) msg = new;
 	}
 
-	if (encrypt) {
-		/* For safety's sake, don't leave the old message in place
-		   if encryption fails. */
-		struct gale_message *new = encrypt_message(1,&encrypt,msg);
-		release_message(msg);
-		msg = new;
-	}
+	/* For safety's sake, don't leave the old message in place if 
+	   encryption fails. */
+	if (encrypt) msg = encrypt_message(1,&encrypt,msg);
 
 	return msg;
 }
@@ -90,29 +105,15 @@ struct gale_message *slip(struct gale_text cat,
 /* Reply to an AKD request: post our key. */
 
 struct gale_message *send_key(void) {
-	struct gale_data data;
-	struct gale_message *key = new_message();
-	export_auth_id(user_id,&data,0);
-	key->cat = id_category(user_id,G_("auth/key"),G_(""));
-	key->data.p = gale_malloc(256 
-	            + auth_id_name(user_id).l
-	            + strlen(getenv("GALE_FROM"))
-	            + data.l);
+	struct gale_fragment *frag;
 
-	sprintf(key->data.p,
-		"From: %s\r\n"
-		"Time: %lu\r\n"
-		"Agent: %s\r\n"
-		"Sequence: %d\r\n"
-		"Subject: success %s\r\n"
-		"\r\n",
-	        getenv("GALE_FROM"),time(NULL),agent,sequence++,
-		gale_text_hack(auth_id_name(user_id)));
-	key->data.l = strlen(key->data.p);
-	memcpy(key->data.p + key->data.l,data.p,data.l);
-	key->data.l += data.l;
+	gale_create(frag);
+	frag->name = G_("answer/key");
+	frag->type = frag_data;
+	export_auth_id(user_id,&frag->value.data,0);
 
-	return key;
+	return slip(id_category(user_id,G_("auth/key"),G_("")),
+	            presence,frag,user_id,NULL);
 }
 
 /* Print a user ID, with a default string (like "everyone") for NULL. */
@@ -209,11 +210,12 @@ void default_gsubrc(void) {
 			else if (*ptr == '\n')
 				fputs(nl,stdout);
 			else {
+				unsigned char ch = *ptr;
 				gale_tmode("mr");
-				if (*ptr < 32)
-					printf("^%c",*ptr + 64);
+				if (ch < 32)
+					printf("^%c",ch + 64);
 				else
-					printf("[0x%X]",*ptr);
+					printf("[0x%X]",ch);
 				gale_tmode("me");
 			}
 		}
@@ -259,100 +261,185 @@ void send_message(char *body,char *end,int fd) {
 	}
 }
 
+void notify(int in,struct gale_text presence) {
+	struct gale_text cat;
+
+	if (in) {
+		cat = id_category(user_id,G_("notice"),G_("login"));
+		link_put(client->link,slip(cat,presence,NULL,user_id,NULL));
+	} else {
+		cat = id_category(user_id,G_("notice"),G_("logout"));
+		link_will(client->link,slip(cat,presence,NULL,user_id,NULL));
+	}
+}
+
 /* Take the message passed as an argument and show it to the user, running
    their gsubrc if present, using the default formatter otherwise. */
 void present_message(struct gale_message *_msg) {
 	int pfd[2];             /* Pipe file descriptors. */
 
 	/* Lots of crap.  Discussed below, where they're used. */
-	char *next,**envp = NULL,*key,*data,*end,*tmp;
+	char **envp = NULL,*tmp;
+	struct gale_fragment **frags;
+	struct gale_text body = null_text;
 	struct auth_id *id_encrypted = NULL,*id_sign = NULL;
 	struct gale_message *rcpt = NULL,*akd = NULL,*msg = NULL;
 	int envp_global,envp_alloc,envp_len,status;
-	struct gale_text restart = gale_text_from_latin1("debug/restart",-1);
 	pid_t pid;
 
 	/* Count the number of global environment variables. */
 	envp_global = 0;
 	for (envp = environ; *envp; ++envp) ++envp_global;
 
-	/* Allocate space for ten more for the child.  That should do. */
-	envp_alloc = envp_global + 10;
-	envp = gale_malloc(envp_alloc * sizeof(*envp));
+	/* Allocate space for some more for the child.  That should do. */
+	envp_alloc = envp_global + 20;
+	gale_create_array(envp,envp_alloc);
 	memcpy(envp,environ,envp_global * sizeof(*envp));
 	envp_len = envp_global;
 
 	/* GALE_CATEGORY: the message category */
-	tmp = gale_text_to_local(_msg->cat);
-	next = gale_malloc(strlen(tmp) + 15);
-	sprintf(next,"GALE_CATEGORY=%s",tmp);
-	gale_free(tmp);
-	envp[envp_len++] = next;
+	envp[envp_len++] = gale_text_to_local(
+		gale_text_concat(2,G_("GALE_CATEGORY="),_msg->cat));
 
 	/* Decrypt, if necessary. */
 	id_encrypted = decrypt_message(_msg,&msg);
 	if (!msg) {
 		char *tmp = gale_malloc(_msg->cat.l + 80);
 		sprintf(tmp,"cannot decrypt message on category \"%s\"",
-		        gale_text_hack(_msg->cat));
+		        gale_text_to_local(_msg->cat));
 		gale_alert(GALE_WARNING,tmp,0);
-		gale_free(tmp);
-		goto error;
+		return;
 	}
 
 	if (id_encrypted) {
 		tmp = gale_malloc(auth_id_name(id_encrypted).l + 16);
 		sprintf(tmp,"GALE_ENCRYPTED=%s",
-			gale_text_hack(auth_id_name(id_encrypted)));
+			gale_text_to_local(auth_id_name(id_encrypted)));
 		envp[envp_len++] = tmp;
 	}
 
 	/* Verify a signature, if possible. */
-	id_sign = verify_message(msg);
+	id_sign = verify_message(msg,&msg);
 	if (id_sign) {
 		tmp = gale_malloc(auth_id_name(id_sign).l + 13);
 		sprintf(tmp,"GALE_SIGNED=%s",
-			gale_text_hack(auth_id_name(id_sign)));
+			gale_text_to_local(auth_id_name(id_sign)));
 		envp[envp_len++] = tmp;
 	}
 
-	/* Go through the message headers. */
-	next = msg->data.p;
-	end = msg->data.p + msg->data.l;
-	while (parse_header(&next,&key,&data,end)) {
+	/* Go through the message fragments. */
+	frags = unpack_message(msg->data);
+	while (*frags) {
+		struct gale_fragment *frag = *frags++;
+		struct gale_text name;
+		wch *buf;
+		int i;
 
 		/* Process receipts, if we do. */
-		if (!do_stealth && !strcasecmp(key,"Receipt-To")) {
+		if (!do_stealth && frag->type == frag_text
+		&&  !gale_text_compare(frag->name,G_("question/receipt"))) {
 			/* Generate a receipt. */
-			struct gale_text cat;
-			cat = gale_text_from_latin1(data,-1);
-			if (rcpt) release_message(rcpt);
-			rcpt = slip(cat,user_id,id_sign);
-			free_gale_text(cat);
+			struct gale_fragment *reply;
+			gale_create(reply);
+			reply->name = G_("answer/receipt");
+			reply->type = frag_text;
+			reply->value.text = msg->cat;
+			rcpt = slip(frag->value.text,
+			            presence,reply,user_id,id_sign);
 		}
 
-		if (!do_stealth && !strcasecmp(key,"Request-Key")) {
-			struct gale_text text = gale_text_from_latin1(data,-1);
-			if (!gale_text_compare(text,auth_id_name(user_id))) {
-				if (akd) release_message(akd);
-				akd = send_key();
+		/* Handle AKD requests for us. */
+		if (!do_stealth && frag->type == frag_text
+		&&  !gale_text_compare(frag->name,G_("question/key"))
+		&&  !gale_text_compare(frag->value.text,auth_id_name(user_id)))
+			akd = send_key();
+
+		/* Save the message body for later. */
+		if (frag->type == frag_text
+		&&  !gale_text_compare(frag->name,G_("message/body")))
+			body = frag->value.text;
+
+		/* Form the name used for environment variables. */
+		gale_create_array(buf,frag->name.l);
+		for (i = 0; i < frag->name.l; ++i)
+			if (isalnum(frag->name.p[i]))
+				buf[i] = toupper(frag->name.p[i]);
+			else
+				buf[i] = '_';
+		name.p = buf;
+		name.l = frag->name.l;
+
+		/* Create environment variables. */
+		if (frag_text == frag->type) {
+			struct gale_text varname = null_text;
+
+			if (!gale_text_compare(frag->name,G_("message/subject")))
+				varname = G_("HEADER_SUBJECT");
+			else 
+			if (!gale_text_compare(frag->name,G_("message/sender")))
+				varname = G_("HEADER_FROM");
+			else 
+			if (!gale_text_compare(frag->name,G_("message/recipient")))
+				varname = G_("HEADER_TO");
+			else
+			if (!gale_text_compare(frag->name,G_("question/receipt")))
+				varname = G_("HEADER_RECEIPT_TO");
+			else
+			if (!gale_text_compare(frag->name,G_("id/instance")))
+				varname = G_("HEADER_AGENT");
+
+			if (varname.l > 0)
+			envp[envp_len++] = gale_text_to_local(
+				gale_text_concat(3,
+					varname,G_("="),frag->value.text));
+
+			if (gale_text_compare(frag->name,G_("message/body")))
+			envp[envp_len++] = gale_text_to_local(
+				gale_text_concat(4,
+					G_("GALE_TEXT_"),
+					name,G_("="),frag->value.text));
+		}
+
+		if (frag_time == frag->type) {
+			struct gale_text time;
+			char buf[30];
+			struct timeval tv;
+			time_t when;
+			gale_time_to(&tv,frag->value.time);
+			when = tv.tv_sec;
+			strftime(buf,30,"%Y-%m-%d %H:%M:%S",localtime(&when));
+			time = gale_text_from_latin1(buf,-1);
+
+			if (!gale_text_compare(frag->name,G_("id/time"))) {
+				char num[30];
+				sprintf(num,"%lu",tv.tv_sec);
+				envp[envp_len++] = gale_text_to_local(
+					gale_text_concat(3,
+						G_("HEADER_TIME"),G_("="),
+						gale_text_from_latin1(num,-1)));
 			}
-			free_gale_text(text);
+
+			envp[envp_len++] = gale_text_to_local(
+				gale_text_concat(4,
+					G_("GALE_TIME_"),
+					name,G_("="),time));
 		}
 
-		/* Create a HEADER_... environment entry for this. */
-		for (tmp = key; *tmp; ++tmp)
-			*tmp = isalnum(*tmp) ? toupper(*tmp) : '_';
-		tmp = gale_malloc(strlen(key) + strlen(data) + 9);
-		sprintf(tmp,"HEADER_%s=%s",key,data);
+		if (frag_number == frag->type) {
+			char buf[30];
+			sprintf(buf,"%d",frag->value.number);
+			envp[envp_len++] = gale_text_to_local(
+				gale_text_concat(3,
+					G_("GALE_NUMBER_"),name,
+					G_("="),gale_text_from_latin1(buf,-1)));
+		}
 
 		/* Allocate more space for the environment if necessary. */
-		if (envp_len == envp_alloc - 1) {
+		if (envp_len >= envp_alloc - 5) {
 			char **tmp = envp;
 			envp_alloc *= 2;
-			envp = gale_malloc(envp_alloc * sizeof(*envp));
+			gale_create_array(envp,envp_alloc);
 			memcpy(envp,tmp,envp_len * sizeof(*envp));
-			gale_free(tmp);
 		}
 
 		envp[envp_len++] = tmp;
@@ -360,9 +447,11 @@ void present_message(struct gale_message *_msg) {
 
 #ifndef NDEBUG
 	/* In debug mode, restart if we get a properly authorized message. */
-	if (!gale_text_compare(msg->cat,restart) && id_sign 
+	if (!gale_text_compare(msg->cat,G_("debug/restart")) && id_sign 
 	&&  !gale_text_compare(auth_id_name(id_sign),G_("egnor@ofb.net"))) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
+		notify(0,G_("restarting"));
+		putenv("GALE_ANNOUNCE=in/restarted");
 		gale_restart();
 	}
 #endif
@@ -370,7 +459,6 @@ void present_message(struct gale_message *_msg) {
 	/* Give them our key, if they wanted it. */
 	if (akd) {
 		link_put(client->link,akd);
-		if (rcpt) release_message(rcpt);
 		rcpt = NULL;
 		status = 0;
 		goto done;
@@ -379,16 +467,19 @@ void present_message(struct gale_message *_msg) {
 	/* Terminate the new environment. */
 	envp[envp_len] = NULL;
 
+	/* Convert the message body to local format. */
+	tmp = gale_text_to_local(body);
+
 	/* Use the extended loaded gsubrc, if present. */
 	if (dl_gsubrc2) {
-		status = dl_gsubrc2(envp,next,end - next);
+		status = dl_gsubrc2(envp,tmp,strlen(tmp));
 		goto done;
 	}
 
 	/* Create a pipe to communicate with the gsubrc with. */
 	if (pipe(pfd)) {
 		gale_alert(GALE_WARNING,"pipe",errno);
-		goto error;
+		return;
 	}
 
 	/* Fork off a subprocess.  This should use gale_exec ... */
@@ -427,7 +518,7 @@ void present_message(struct gale_message *_msg) {
 
 	/* Send the message to the gsubrc. */
 	close(pfd[0]);
-	send_message(next,end,pfd[1]);
+	send_message(tmp,tmp + strlen(tmp),pfd[1]);
 	close(pfd[1]);
 
 	/* Wait for the gsubrc to terminate. */
@@ -443,53 +534,6 @@ void present_message(struct gale_message *_msg) {
 done:
 	/* Put the receipt on the queue, if we have one. */
 	if (rcpt && !status) link_put(client->link,rcpt);
-
-error:
-	/* Clean up after ourselves. */
-	if (envp) {
-		while (envp_global != envp_len) gale_free(envp[envp_global++]);
-		gale_free(envp);
-	}
-	if (id_encrypted) free_auth_id(id_encrypted);
-	if (id_sign) free_auth_id(id_sign);
-	if (msg) release_message(msg);
-	if (rcpt) release_message(rcpt);
-	if (akd) release_message(akd);
-}
-
-/* Send a login notification, arrange for a logout notification. */
-void notify(void) {
-	struct gale_message *msg;
-	struct gale_text tmp;
-
-	/* Login: send it right away. */
-	tmp = id_category(user_id,G_("notice"),G_("login"));
-	msg = slip(tmp,user_id,NULL);
-	free_gale_text(tmp);
-	link_put(client->link,msg);
-	release_message(msg);
-
-	/* Logout: "will" it to happen when we disconnect. */
-	tmp = id_category(user_id,G_("notice"),G_("logout"));
-	msg = slip(tmp,user_id,NULL);
-	free_gale_text(tmp);
-	link_will(client->link,msg);
-	release_message(msg);
-}
-
-/* Set the value to use for Agent: headers. */
-void set_agent(void) {
-	char *user = getenv("LOGNAME");
-	const char *host = getenv("HOST");
-	int len;
-
-	/* Construct the string from our version, the user running us,
-           the host we're on and so on. */
-	len = strlen(VERSION) + strlen(user) + strlen(host);
-	len += (tty ? strlen(tty) : 0) + 30;
-	agent = gale_malloc(len);
-	sprintf(agent,"gsub/%s %s@%s %s %d",
-	        VERSION,user,host,tty ? tty : "none",(int) getpid());
 }
 
 void usage(void) {
@@ -502,6 +546,7 @@ void usage(void) {
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
 	"       -a          Run in \"stealth\" mode\n"
+	"       -p state    Announce presence state (eg. \"out/to/lunch\")\n"
 	"       -f rcprog   Use rcprog (default gsubrc, if found)\n"
 #ifdef HAVE_DLOPEN
 	"       -l rclib    Use module (default gsubrc.so, if found)\n" 
@@ -524,7 +569,12 @@ void load_gsubrc(const char *name) {
 		return;
 	}
 
-	lib = dlopen((char *) rc,RTLD_LAZY); /* FreeBSD needs the cast. */
+#ifdef RTLD_LAZY
+	lib = dlopen((char *) rc,RTLD_LAZY);
+#else
+	lib = dlopen((char *) rc,0);
+#endif
+
 	if (!lib) {
 		while ((err = dlerror())) gale_alert(GALE_WARNING,err,0);
 		return;
@@ -549,16 +599,21 @@ void load_gsubrc(const char *name) {
 /* add subscriptions to a list */
 
 void add_subs(struct gale_text *subs,struct gale_text add) {
-	struct gale_text n;
 	if (add.p == NULL) return;
-	n = new_gale_text(subs->l + add.l + 1);
-	if (subs->l) {
-		gale_text_append(&n,*subs);
-		gale_text_append(&n,G_(":"));
-	}
-	gale_text_append(&n,add);
-	free_gale_text(*subs);
-	*subs = n;
+	if (subs->l)
+		*subs = gale_text_concat(3,*subs,G_(":"),add);
+	else
+		*subs = add;
+}
+
+/* set presence information */
+
+void set_presence(char *arg) {
+	if (strchr(arg,'/'))
+		presence = gale_text_from_latin1(arg,-1);
+	else
+		presence = gale_text_concat(2,G_("in/"),
+			gale_text_from_latin1(arg,-1));
 }
 
 /* main */
@@ -580,7 +635,7 @@ int main(int argc,char **argv) {
 	if ((tty = ttyname(1))) {
 		/* Truncate the tty name for convenience. */
 		char *tmp = strrchr(tty,'/');
-#ifdef HAVE_CURSES
+#if 0 && defined(HAVE_CURSES)
 		char buf[1024];
 		/* Find out the terminal type. */
 		char *term = getenv("TERM");
@@ -592,15 +647,18 @@ int main(int argc,char **argv) {
 		do_fork = do_kill = 1;
 	}
 
+	/* Default presence. */
+	presence = gale_var(G_("GALE_PRESENCE"));
+	if (!presence.l) presence = G_("in/present");
+
 	/* Default subscriptions. */
-	add_subs(&serv,gale_text_from_local(getenv("GALE_SUBS"),-1));
-	add_subs(&serv,gale_text_from_local(getenv("GALE_GSUB"),-1));
+	add_subs(&serv,gale_var(G_("GALE_SUBS")));
+	add_subs(&serv,gale_var(G_("GALE_GSUB")));
 
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"benkKaf:l:h"))) switch (opt) {
+	while (EOF != (opt = getopt(argc,argv,"benkKaf:l:p:h"))) switch (opt) {
 	case 'b': do_beep = 0; break;		/* Do not beep */
-	case 'e': free_gale_text(serv);		/* Do not include defaults */
-	          serv.l = 0; serv.p = NULL; break;
+	case 'e': serv.l = 0; break;            /* Do not include defaults */
 	case 'n': do_fork = 0; break;           /* Do not go into background */
 	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
 	case 'K': if (tty) gale_kill(tty,1);    /* *only* kill other gsubs */
@@ -608,6 +666,7 @@ int main(int argc,char **argv) {
 	case 'f': rcprog = optarg; break;       /* Use a wacky gsubrc */
 	case 'l': rclib = optarg; break;	/* Use a wacky gsubrc.so */
 	case 'a': do_stealth = 1; break;        /* Do not send login/logout */
+	case 'p': set_presence(optarg); break;	/* Presence */
 	case 'h':                               /* Usage message */
 	case '?': usage();
 	}
@@ -638,17 +697,24 @@ int main(int argc,char **argv) {
 
 	/* Fork ourselves into the background, unless we shouldn't. */
 	if (do_fork) gale_daemon(1);
+	trap_signal(SIGHUP);
+	trap_signal(SIGTERM);
+	trap_signal(SIGINT);
 	if (tty) gale_kill(tty,do_kill);
 
-	/* Set our Agent: header value. */
-	set_agent();
-
 	/* Send a login message, as needed. */
-	if (!do_stealth) notify();
+	if (!do_stealth) {
+		struct gale_text announce = gale_var(G_("GALE_ANNOUNCE"));
+		if (!announce.l) announce = presence;
+		notify(1,announce);
+		notify(0,G_("out/disconnected"));
+	}
+
 	for (;;) {
 		int r = 0;
 
-		while (!gale_error(client) && r >= 0 && !gale_send(client)) {
+		while (!sig_received
+		   &&  !gale_error(client) && r >= 0 && !gale_send(client)) {
 			fd_set fds;
 			struct timeval timeout;
 			struct gale_message *msg;
@@ -664,21 +730,31 @@ int main(int argc,char **argv) {
 			/* Make sure the tty still exists. */
 			if (tty && !isatty(1)) exit(1);
 
-			if (r < 0) 
-				gale_alert(GALE_WARNING,"select",errno);
-			else if (r > 0 && gale_next(client))
-				r = -1;
-			else while ((msg = link_get(client->link))) {
+			if (r < 0 && errno == EINTR) r = 0;
+			if (r < 0) gale_alert(GALE_WARNING,"select",errno);
+			if (r > 0 && gale_next(client)) r = -1;
+
+			while ((msg = link_get(client->link)))
 				present_message(msg);
-				release_message(msg);
-			}
 		}
 
-		/* Retry the server connection, unless we shouldn't. */
+		if (sig_received) {
+			switch (sig_received) {
+			case SIGHUP: notify(0,G_("out/logout")); break;
+			case SIGTERM: notify(0,G_("out/quit")); break;
+			case SIGINT: notify(0,G_("out/stopped")); break;
+			}
+			gale_send(client);
+			break;
+		}
+
+		/* Retry the server connection. */
 		gale_retry(client);
-		if (!do_stealth) notify();
+		if (!do_stealth) {
+			notify(1,G_("in/reconnected"));
+			notify(0,G_("out/disconnected"));
+		}
 	}
 
-	gale_alert(GALE_ERROR,"connection lost",0);
 	return 0;
 }

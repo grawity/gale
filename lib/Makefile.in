@@ -62,7 +62,8 @@ YACC = @YACC@
 lib_LIBRARIES = libgale.a
 libgale_a_SOURCES = \
 	authmsg.c client.c connect.c find.c header.c id.c init.c \
-	input.c kill.c libgale.c link.c link_old.c message.c output.c
+	input.c kill.c libgale.c link.c link_old.c message.c output.c \
+	fragment.c msg_old.c standard.c
 
 noinst_HEADERS = buffer.h link_old.h
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
@@ -77,7 +78,8 @@ LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 libgale_a_LIBADD = 
 libgale_a_OBJECTS =  authmsg.o client.o connect.o find.o header.o id.o \
-init.o input.o kill.o libgale.o link.o link_old.o message.o output.o
+init.o input.o kill.o libgale.o link.o link_old.o message.o output.o \
+fragment.o msg_old.o standard.o
 AR = ar
 CFLAGS = @CFLAGS@
 COMPILE = $(CC) $(DEFS) $(INCLUDES) $(CPPFLAGS) $(CFLAGS)
@@ -92,9 +94,9 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 TAR = tar
 GZIP = --best
 DEP_FILES =  .deps/authmsg.P .deps/client.P .deps/connect.P .deps/find.P \
-.deps/header.P .deps/id.P .deps/init.P .deps/input.P .deps/kill.P \
-.deps/libgale.P .deps/link.P .deps/link_old.P .deps/message.P \
-.deps/output.P
+.deps/fragment.P .deps/header.P .deps/id.P .deps/init.P .deps/input.P \
+.deps/kill.P .deps/libgale.P .deps/link.P .deps/link_old.P \
+.deps/message.P .deps/msg_old.P .deps/output.P .deps/standard.P
 SOURCES = $(libgale_a_SOURCES)
 OBJECTS = $(libgale_a_OBJECTS)
 

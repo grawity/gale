@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(gale,0.17)
+AM_INIT_AUTOMAKE(gale,0.18)
 AM_CONFIG_HEADER(include/gale/config.h:config.h.in)
 AC_CANONICAL_HOST
 
@@ -14,7 +14,6 @@ AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_RANLIB
 AC_PROG_YACC
-AC_PROG_MAKE_SET
 
 dnl System type checks.
 case "$host" in
@@ -66,7 +65,7 @@ AC_CHECK_LIB(zephyr,ZInitialize,[
 ],,-lcom_err)
 
 AC_MSG_CHECKING([for local copy of RSAREF source])
-if test -f "rsaref/source/rsa.c"; then
+if test -f "${srcdir}/rsaref/source/rsa.c"; then
   AC_MSG_RESULT(yes)
   BUILD="rsaref $BUILD"
   CPPFLAGS="$CPPFLAGS -I\${top_srcdir}/rsaref/source"
@@ -75,6 +74,19 @@ else
   AC_MSG_RESULT(no)
   AC_CHECK_LIB(rsaref,R_RandomInit,[:],[
     AC_MSG_ERROR(cannot find RSAREF library, see INSTALL directions)
+  ])
+fi
+
+AC_MSG_CHECKING([for local copy of Boehm GC])
+if test -f "${srcdir}/gc/alloc.c"; then
+  AC_MSG_RESULT(yes)
+  BUILD="gc $BUILD"
+  CPPFLAGS="$CPPFLAGS -I\${top_srcdir}/gc/include"
+  LDFLAGS="-L\${top_builddir}/gc $LDFLAGS"
+else
+  AC_MSG_RESULT(no)
+  AC_CHECK_LIB(gc,GC_malloc,[:],[
+    AC_MSG_ERROR(cannot find Boehm GC library, see INSTALL directions)
   ])
 fi
 
@@ -94,9 +106,15 @@ if test -n "$have_libdb"; then
   ],AC_MSG_RESULT(no))
 fi
 
-if test ! -f "rsaref/source/rsaref.h"; then
+if test ! -f "${srcdir}/rsaref/source/rsaref.h"; then
   AC_CHECK_HEADERS(rsaref.h,,[
     AC_MSG_ERROR(cannot find RSAREF headers, see INSTALL directions)
+  ])
+fi
+
+if test ! -f "${srcdir}/gc/include/gc.h"; then
+  AC_CHECK_HEADERS(gc.h,,[
+    AC_MSG_ERROR(cannot find Boehm GC headers, see INSTALL directions)
   ])
 fi
 
@@ -108,8 +126,9 @@ AC_CHECK_SIZEOF(long)
 dnl Checks for library functions.
 
 dnl Configurations that would break tests.
-LIBS="-lgale -lgauth -lgmisc -lrsaref $LIBS"
-LDFLAGS="-L\${top_builddir}/lib -L\${top_builddir}/auth -L\${top_builddir}/misc $LDFLAGS"
+LIBS="-lgale -lgauth -lgmisc -lgc -lrsaref $LIBS"
+LDFLAGS="-L\${top_builddir}/lib -L\${top_builddir}/auth $LDFLAGS"
+LDFLAGS="-L\${top_builddir}/misc $LDFLAGS"
 CPPFLAGS="-I\${top_srcdir}/include -I\${top_builddir}/include $CPPFLAGS"
 CPPFLAGS="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $CPPFLAGS"
 BUILD="$BUILD include"
@@ -117,6 +136,8 @@ BUILD="$BUILD include"
 AC_SUBST(BUILD)
 AC_OUTPUT(
 	Makefile 
+	gc/makefile
+	gc/include/Makefile
 	lib/Makefile 
 	auth/Makefile 
 	misc/Makefile

@@ -46,9 +46,15 @@ void gale_do_cleanup();
 
 extern const struct gale_data null_data;
 
-/* You must define these two! */
+/* These are currently defined in terms of the Boehm GC. */
 void *gale_malloc(size_t size);
+void *gale_malloc_atomic(size_t size); /* memory cannot contain pointers */
 void gale_free(void *);
+void gale_finalizer(void *,void (*)(void *,void *),void *);
+
+/* Handy macros. */
+#define gale_create(x) ((x) = gale_malloc(sizeof(*(x))))
+#define gale_create_array(x,size) ((x) = gale_malloc(sizeof(*(x)) * (size)))
 
 /* Duplicate memory, strings, counted strings, etc. */
 void *gale_memdup(const void *,int);
@@ -65,26 +71,22 @@ void *gale_realloc(void *,size_t);
 
 extern const struct gale_text null_text;
 
-struct gale_text new_gale_text(size_t alloc);
-void free_gale_text(struct gale_text);
 #define G_(x) (_gale_text_literal(L##x))
 struct gale_text _gale_text_literal(const wchar_t *);
+struct gale_text gale_text_concat(int count,...);
 
-void gale_text_append(struct gale_text *,struct gale_text);
-
-struct /*owned*/ gale_text gale_text_dup(struct gale_text);
 struct gale_text gale_text_left(struct gale_text,int);
 struct gale_text gale_text_right(struct gale_text,int);
 int gale_text_token(struct gale_text string,wch sep,struct gale_text *token);
 int gale_text_compare(struct gale_text,struct gale_text);
 
-typedef /*owned*/ struct gale_text gale_text_from(const char *,int len);
-typedef /*owned*/ char *gale_text_to(struct gale_text);
+struct gale_text gale_text_number(int n,int base,int pad);
+
+typedef struct gale_text gale_text_from(const char *,int len);
+typedef char *gale_text_to(struct gale_text);
 
 gale_text_from gale_text_from_local,gale_text_from_latin1,gale_text_from_utf8;
 gale_text_to gale_text_to_local,gale_text_to_latin1,gale_text_to_utf8;
-
-char *gale_text_hack(struct gale_text);
 
 /* -- time functions ------------------------------------------------------- */
 
@@ -212,6 +214,8 @@ extern int gale_debug;    /* debugging level (starts out zero) */
 
 /* Debugging printf.  Will only output if gale_debug > level. */
 void gale_dprintf(int level,const char *fmt,...);
+void gale_diprintf(int level,int indent,const char *fmt,...);
+
 /* Daemonize (go into the background).  If keep_tty is true (1), don't detach
    from the tty (gsub does this), otherwise do (like most daemons). */
 void gale_daemon(int keep_tty);

@@ -21,11 +21,6 @@ struct output_buffer {
 	size_t remnant;
 };
 
-void output_release_free(struct gale_data data,void *private) {
-	(void) private;
-	gale_free(data.p);
-}
-
 static void rel_queue(struct gale_data data,void *private) {
 	struct output_buffer *buf = (struct output_buffer *) private;
 	assert(data.p == buf->buffer + buf->btail);
@@ -35,7 +30,8 @@ static void rel_queue(struct gale_data data,void *private) {
 }
 
 struct output_buffer *create_output_buffer(struct output_state initial) {
-	struct output_buffer *buf = gale_malloc(sizeof(*buf));
+	struct output_buffer *buf;
+	gale_create(buf);
 	buf->state = initial;
 	buf->bhead = 0;
 	buf->btail = sizeof(buf->buffer) - 1;
@@ -43,18 +39,6 @@ struct output_buffer *create_output_buffer(struct output_state initial) {
 	buf->stail = NUM_SEG - 1;
 	buf->remnant = 0;
 	return buf;
-}
-
-struct output_state release_output_buffer(struct output_buffer *buf) {
-	struct output_state state = buf->state;
-	if (NUM_SEG == ++buf->stail) buf->stail = 0;
-	while (buf->stail != buf->shead) {
-		struct segment *seg = &buf->seg[buf->stail];
-		if (seg->release) seg->release(seg->data,seg->private);
-		if (NUM_SEG == ++buf->stail) buf->stail = 0;
-	}
-	gale_free(buf);
-	return state;
 }
 
 int output_buffer_ready(struct output_buffer *buf) {
@@ -99,8 +83,8 @@ int output_buffer_write(struct output_buffer *buf,int fd) {
 	if (NUM_SEG == ++sptr) sptr = 0;
 	while (sptr != buf->shead && buf->seg[sptr].data.l <= (size_t) w) {
 		struct segment *seg = &buf->seg[sptr];
-		w -= seg->data.l;
 		if (seg->release) seg->release(seg->data,seg->private);
+		w -= seg->data.l;
 		buf->stail = sptr;
 		if (NUM_SEG == ++sptr) sptr = 0;
 	}
@@ -141,7 +125,7 @@ void send_data(struct output_context *ctx,struct gale_data data) {
 void send_space(struct output_context *ctx,size_t len,struct gale_data *data) {
 	/* not efficiently implemented for now */
 	data->p = gale_malloc(data->l = len);
-	send_buffer(ctx,*data,output_release_free,NULL);
+	send_buffer(ctx,*data,NULL,NULL);
 	data->l = 0;
 }
 
@@ -152,8 +136,8 @@ void send_buffer(struct output_context *ctx,struct gale_data data,
 	struct segment *seg = &buf->seg[buf->shead];
 	assert(buf->shead != buf->stail);
 	seg->data = data;
-	seg->private = private;
 	seg->release = release;
+	seg->private = private;
 	if (NUM_SEG == ++buf->shead) buf->shead = 0;
 }
 

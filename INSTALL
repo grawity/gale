@@ -9,7 +9,11 @@ getting them in the right places.  The exception is the authentication system,
 which requires a certain amount of finicky setup -- including setuid binaries 
 -- to do its job correctly and securely.
 
-1. Get the RSAREF library.  You can retrieve the source from ftp.rsa.com, if 
+1. Make sure you have a couple libraries Gale depends on:
+
+ * RSAREF
+
+   Get the RSAREF library.  You can retrieve the source from ftp.rsa.com, if 
    you live in the US or Canada.  It you don't, you might try using a workalike
    such as RSAEURO.
 
@@ -20,6 +24,15 @@ which requires a certain amount of finicky setup -- including setuid binaries
    Alternatively, you can build the library (or a workalike) yourself.
    If you do, install librsaref.a and the RSAREF headers into system lib and 
    include directories; remember where you put them for the next step.
+
+ * The Boehm conservative garbage collector
+
+   You can get this from http://reality.sgi.com/boehm/gc.html.  ** Note --
+   Linux i386/glibc requires version 4.13alpha1 or later! **  Unpack the
+   tarball in the "gale" directory; it will expand its contents into "gale/gc".
+
+   You may alternatively build and install it yourself elsewhere.  If so,
+   make sure you know where to find libgc.a and gc.h.
 
 2. Prepare to run the provided "configure" script.  The typical "configure" 
    options (--prefix etc.) apply; run "sh configure --help" for usage 
@@ -34,6 +47,10 @@ which requires a certain amount of finicky setup -- including setuid binaries
    flags in LDFLAGS and CPPFLAGS so "configure" can find librsaref.a and the 
    RSAREF headers (rsaref.h etc).  (Don't worry about this if you've unpacked 
    rsaref20.tar.Z into gale/rsaref as directed in step 1.)
+
+   Similarly, if you've installed the Boehm GC on your own (rather than
+   unpacking it into the Gale source tree), make sure LDFLAGS and CPPFLAGS
+   include the location of libgc.a and gc.h, respectively.
 
    Once you've figured out the right options and set environment variables
    as needed, run the script.

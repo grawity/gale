@@ -12,24 +12,32 @@ static struct gale_message *sign(struct auth_id *id,struct gale_message *in,
 {
 	struct gale_message *out = NULL;
 	struct gale_data sig;
+
 	if (tweak)
 		_auth_sign(id,in->data,&sig);
 	else
 		auth_sign(id,in->data,&sig);
+
 	if (sig.p) {
-		int len = armor_len(sig.l);
+		struct gale_fragment frag,*array[2];
 		out = new_message();
-		out->cat = gale_text_dup(in->cat);
-		out->data.l = 16 + len + in->data.l;
-		out->data.p = gale_malloc(out->data.l);
-		strcpy(out->data.p,"Signature: g2/");
-		armor(sig.p,sig.l,out->data.p + 14);
-		strcpy(out->data.p + 14 + len,"\r\n");
-		memcpy(out->data.p + 16 + len,in->data.p,in->data.l);
-		gale_free(sig.p);
+
+		frag.name = G_("security/signature");
+		frag.type = frag_data;
+		frag.value.data.p = gale_malloc_atomic(
+			gale_u32_size() + sig.l + in->data.l);
+		frag.value.data.l = 0;
+
+		gale_pack_u32(&frag.value.data,sig.l);
+		gale_pack_copy(&frag.value.data,sig.p,sig.l);
+		gale_pack_copy(&frag.value.data,in->data.p,in->data.l);
+
+		array[0] = &frag;
+		array[1] = NULL;
+		out->data = pack_message(array);
+		out->cat = in->cat;
 	}
 
-	if (!out) addref_message(out = in);
 	return out;
 }
 
@@ -45,6 +53,7 @@ struct gale_message *encrypt_message(int num,struct auth_id **id,
                                      struct gale_message *in) 
 {
 	struct gale_message *out = NULL;
+	struct gale_fragment frag,*array[2];
 	struct gale_data cipher;
 	int i;
 
@@ -59,40 +68,47 @@ struct gale_message *encrypt_message(int num,struct auth_id **id,
 	if (!cipher.p) return NULL;
 
 	out = new_message();
-	out->cat = gale_text_dup(in->cat);
-	out->data.p = gale_malloc(out->data.l = cipher.l + 16);
-	strcpy(out->data.p,"Encryption: g2\r\n");
-	memcpy(out->data.p + 16,cipher.p,cipher.l);
-	gale_free(cipher.p);
+	out->cat = in->cat;
+	frag.type = frag_data;
+	frag.name = G_("security/encryption");
+	frag.value.data = cipher;
+	array[0] = &frag;
+	array[1] = NULL;
+	out->data = pack_message(array);
 
 	return out;
 }
 
-struct auth_id *verify_message(struct gale_message *in) {
-	const char *ptr = in->data.p,*end;
-	const char *dptr,*dend = in->data.p + in->data.l;
+struct auth_id *verify_message(struct gale_message *in,
+                               struct gale_message **out) 
+{
+	struct gale_data data,sig;
 	struct auth_id *id = NULL;
+	struct gale_fragment **frags = unpack_message(in->data);
+	u32 len;
 
-	for (end = ptr; end < dend && *end != '\r'; ++end) ;
-	dptr = end + 1;
-	if (dptr < dend && *dptr == '\n') ++dptr;
+	*out = in;
 
-	if (end == dend) {
-		id = NULL;
-	} else if (!strncasecmp(in->data.p,"Signature: g2/",14)) {
-		struct gale_data data,sig;
+	if (!frags[0] || frags[0]->type != frag_data
+	||  gale_text_compare(frags[0]->name,G_("security/signature")))
+		return id;
 
-		ptr += 14;
-		sig.l = dearmor_len(end - ptr);
-		sig.p = gale_malloc(sig.l);
-		dearmor(ptr,end - ptr,sig.p);
-
-		data.l = dend - dptr;
-		data.p = (byte *) dptr;
-
-		auth_verify(&id,data,sig);
-		gale_free(sig.p);
+	data = frags[0]->value.data;
+	if (!gale_unpack_u32(&data,&len) || len >= data.l) {
+		gale_alert(GALE_WARNING,"invalid signature fragment",0);
+		return id;
 	}
+
+	sig.p = data.p;
+	sig.l = len;
+
+	data.p += len;
+	data.l -= len;
+
+	auth_verify(&id,data,sig);
+	*out = new_message();
+	(*out)->cat = in->cat;
+	(*out)->data = data;
 
 	return id;
 }
@@ -100,33 +116,23 @@ struct auth_id *verify_message(struct gale_message *in) {
 struct auth_id *decrypt_message(struct gale_message *in,
                                 struct gale_message **out) 
 {
-	const char *ptr = in->data.p,*end;
-	const char *dptr,*dend = in->data.p + in->data.l;
 	struct auth_id *id = NULL;
-	*out = in;
+	struct gale_data plain;
 
-	for (end = ptr; end < dend && *end != '\r'; ++end) ;
-	dptr = end + 1;
-	if (dptr < dend && *dptr == '\n') ++dptr;
-
-	if (end == dend)
+	struct gale_fragment **frags = unpack_message(in->data);
+	if (!frags[0] || frags[0]->type != frag_data
+	||  gale_text_compare(frags[0]->name,G_("security/encryption"))) {
 		*out = in;
-	else if (!strncasecmp(ptr,"Encryption: g2",14)) {
-		struct gale_data cipher,plain;
-
-		*out = NULL;
-		cipher.p = (byte *) dptr;
-		cipher.l = dend - dptr;
-		auth_decrypt(&id,cipher,&plain);
-
-		if (id) {
-			*out = new_message();
-			(*out)->cat = gale_text_dup(in->cat);
-			(*out)->data.p = plain.p;
-			(*out)->data.l = plain.l;
-		}
+		return id;
 	}
 
-	if (*out) addref_message(*out);
+	*out = NULL;
+	auth_decrypt(&id,frags[0]->value.data,&plain);
+	if (id) {
+		*out = new_message();
+		(*out)->cat = in->cat;
+		(*out)->data = plain;
+	}
+
 	return id;
 }

@@ -43,7 +43,7 @@ void gale_kill(const char *class,int do_kill) {
 			if (!strncmp(de->d_name,dotfile,len)) {
 				int kpid = atoi(de->d_name + len);
 				if (kpid != pid) {
-					kill(kpid,SIGHUP);
+					kill(kpid,SIGTERM);
 					unlink(dir_file(dot_gale,de->d_name));
 				}
 			}

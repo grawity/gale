@@ -44,7 +44,7 @@ struct gale_data {
 
 /* counted buffer of (unicode) text. */
 struct gale_text {
-	wch *p;
+	const wch *p;
 	size_t l;	/* in wch's */
 };
 

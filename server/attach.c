@@ -10,7 +10,8 @@
 #include <unistd.h>
 
 struct attach *new_attach(void) {
-	struct attach *att = gale_malloc(sizeof(struct attach));
+	struct attach *att;
+	gale_create(att);
 	att->server = NULL;
 	att->subs.p = NULL;
 	att->subs.l = 0;
@@ -24,7 +25,6 @@ struct attach *new_attach(void) {
 
 void free_attach(struct attach *att) {
 	if (att->server) gale_free(att->server);
-	free_gale_text(att->subs);
 	if (att->connect) abort_connect(att->connect);
 }
 

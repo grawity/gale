@@ -27,10 +27,14 @@ struct gale_connect {
 struct gale_connect *make_connect(const char *serv) {
 	int alloc = 0;
 	const char *end,*cp;
-	struct gale_connect *conn = gale_malloc(sizeof(*conn));
+	struct gale_connect *conn;
+
 	cp = serv;
+
+	gale_create(conn);
 	conn->len = 0;
 	conn->array = NULL;
+
 	do {
 		struct sockaddr_in sin;
 		int i;

@@ -93,10 +93,6 @@ static void init_vars(struct passwd *pwd) {
 		char *tmp2 = gale_malloc(strlen(tmp) + 30);
 		sprintf(tmp2,"GALE_SUBS=%s",tmp);
 		putenv(tmp2);
-		gale_free(tmp);
-		free_gale_text(cat);
-		free_auth_id(id);
-		free_gale_text(name);
 	}
 }
 

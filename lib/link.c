@@ -10,6 +10,7 @@
 #define opcode_gimme 2
 
 #define SIZE_LIMIT 262144
+#define PROTOCOL_VERSION 0
 
 struct link {
 	struct gale_message *msg;
@@ -24,6 +25,7 @@ struct gale_link {
 	u32 in_opcode,in_length;
 	struct gale_message *in_msg,*in_puff,*in_will;
 	struct gale_text in_gimme;
+	int in_version;
 
 	/* output stuff */
 	struct output_buffer *output;
@@ -61,6 +63,11 @@ typedef void istate(struct input_state *inp);
 static istate ist_version,ist_idle,ist_message,ist_subscribe,ist_unknown;
 
 static void ifn_version(struct input_state *inp) {
+	struct gale_link *l = (struct gale_link *) inp->private;
+	u32 version;
+	gale_unpack_u32(&inp->data,&version);
+	if (version > PROTOCOL_VERSION) l->in_version = PROTOCOL_VERSION;
+	else l->in_version = version;
 	ist_idle(inp);
 }
 
@@ -110,7 +117,6 @@ static void ifn_message_body(struct input_state *inp) {
 		l->in_puff = l->in_msg;
 		break;
 	case opcode_will:
-		if (l->in_will) release_message(l->in_will);
 		l->in_will = l->in_msg;
 		break;
 	default:
@@ -126,7 +132,6 @@ static void ifn_message_category(struct input_state *inp) {
 	l->in_length -= inp->data.l;
 
 	l->in_msg = new_message();
-	l->in_msg->cat = new_gale_text(inp->data.l / gale_wch_size());
 	if (gale_unpack_text_len(&inp->data,
 	                         inp->data.l / gale_wch_size(),
 	                         &l->in_msg->cat)) 
@@ -137,7 +142,6 @@ static void ifn_message_category(struct input_state *inp) {
 		l->in_msg->data = inp->data;
 		inp->ready = input_always_ready;
 	} else {
-		release_message(l->in_msg);
 		l->in_msg = NULL;
 		ist_unknown(inp);
 	}
@@ -190,12 +194,9 @@ static void ifn_subscribe_category(struct input_state *inp) {
 	size_t len = inp->data.l / gale_wch_size();
 	assert(opcode_gimme == l->in_opcode);
 	assert(l->in_length == inp->data.l);
-	free_gale_text(l->in_gimme);
-	l->in_gimme = new_gale_text(len);
 	if (gale_unpack_text_len(&inp->data,len,&l->in_gimme))
 		ist_idle(inp);
 	else {
-		free_gale_text(l->in_gimme);
 		l->in_gimme.p = NULL;
 		l->in_gimme.l = 0;
 		ist_unknown(inp);
@@ -237,7 +238,7 @@ static ostate ost_version,ost_idle;
 static void ofn_version(struct output_state *out,struct output_context *ctx) {
 	struct gale_data buf;
 	send_space(ctx,gale_u32_size(),&buf);
-	gale_pack_u32(&buf,0);
+	gale_pack_u32(&buf,PROTOCOL_VERSION);
 	ost_idle(out);
 }
 
@@ -246,14 +247,9 @@ static void ost_version(struct output_state *out) {
 	out->next = ofn_version;
 }
 
-static void rel_message(struct gale_data data,void *private) {
-	(void) data;
-	release_message((struct gale_message *) private);
-}
-
 static void ofn_msg_data(struct output_state *out,struct output_context *ctx) {
 	struct gale_link *l = (struct gale_link *) out->private;
-	send_buffer(ctx,l->out_msg->data,rel_message,l->out_msg);
+	send_buffer(ctx,l->out_msg->data,NULL,l->out_msg);
 	l->out_msg = NULL;
 	ost_idle(out);
 }
@@ -274,7 +270,6 @@ static void ofn_text(struct output_state *out,struct output_context *ctx) {
 	size_t len = gale_text_len_size(l->out_text);
 	send_space(ctx,len,&data);
 	gale_pack_text_len(&data,l->out_text);
-	free_gale_text(l->out_text);
 	l->out_text.p = NULL;
 	l->out_text.l = 0;
 	ost_idle(out);
@@ -332,13 +327,15 @@ struct gale_link *new_old_link(void) {
 }
 
 struct gale_link *new_link(void) {
-	struct gale_link *l = gale_malloc(sizeof(*l));
+	struct gale_link *l;
+	gale_create(l);
 	l->old = NULL;
 
 	l->input = NULL;
 	l->in_msg = l->in_puff = l->in_will = NULL;
 	l->in_gimme.p = NULL;
 	l->in_gimme.l = 0;
+	l->in_version = -1;
 
 	l->output = NULL;
 	l->out_text.p = NULL;
@@ -351,29 +348,6 @@ struct gale_link *new_link(void) {
 	return l;
 }
 
-void free_link(struct gale_link *l) {
-	struct gale_message *m;
-
-	if (l->old) {
-		free_link_old(l->old);
-		gale_free(l);
-		return;
-	}
-
-	reset_link(l);
-
-	if (l->in_puff) release_message(l->in_puff);
-	if (l->in_will) release_message(l->in_will);
-	if (l->in_gimme.p) gale_free(l->in_gimme.p);
-
-	if (l->out_will) release_message(l->out_will);
-	if (l->out_gimme.p) gale_free(l->out_gimme.p);
-
-	while ((m = dequeue(l))) release_message(m);
-	assert(l->queue_num == 0 && l->queue_mem == 0);
-	gale_free(l);
-}
-
 void reset_link(struct gale_link *l) {
 	if (l->old) {
 		reset_link_old(l->old);
@@ -381,12 +355,12 @@ void reset_link(struct gale_link *l) {
 	}
 
 	/* reset fields */
-	if (l->in_msg) release_message(l->in_msg); l->in_msg = NULL;
-	if (l->input) release_input_buffer(l->input); l->input = NULL;
+	if (l->in_msg) l->in_msg = NULL;
+	if (l->input) l->input = NULL;
 
-	if (l->out_msg) release_message(l->out_msg); l->out_msg = NULL;
-	if (l->out_text.p) gale_free(l->out_text.p); l->out_text.p = NULL;
-	if (l->output) release_output_buffer(l->output); l->output = NULL;
+	if (l->out_msg) l->out_msg = NULL;
+	if (l->out_text.p) l->out_text.p = NULL;
+	if (l->output) l->output = NULL;
 }
 
 int link_receive_q(struct gale_link *l) {
@@ -434,8 +408,7 @@ void link_subscribe(struct gale_link *l,struct gale_text spec) {
 		return;
 	}
 
-	if (l->out_gimme.p) gale_free(l->out_gimme.p);
-	l->out_gimme = gale_text_dup(spec);
+	l->out_gimme = spec;
 }
 
 void link_put(struct gale_link *l,struct gale_message *m) {
@@ -446,7 +419,8 @@ void link_put(struct gale_link *l,struct gale_message *m) {
 		return;
 	}
 
-	link = gale_malloc(sizeof(*link));
+	gale_create(link);
+	link->msg = m;
 	if (NULL == l->out_queue)
 		link->next = link;
 	else {
@@ -457,7 +431,6 @@ void link_put(struct gale_link *l,struct gale_message *m) {
 
 	++l->queue_num;
 	l->queue_mem += message_size(m);
-	addref_message(link->msg = m);
 	gale_dprintf(7,"-> enqueueing message [%p]\n",m);
 }
 
@@ -467,9 +440,7 @@ void link_will(struct gale_link *l,struct gale_message *m) {
 		return;
 	}
 
-	if (l->out_will) release_message(l->out_will);
 	l->out_will = m;
-	if (l->out_will) addref_message(l->out_will);
 }
 
 int link_queue_num(struct gale_link *l) {
@@ -484,7 +455,12 @@ size_t link_queue_mem(struct gale_link *l) {
 
 void link_queue_drop(struct gale_link *l) {
 	if (l->old) return;
-	if (NULL != l->out_queue) release_message(dequeue(l));
+	if (NULL != l->out_queue) dequeue(l);
+}
+
+int link_version(struct gale_link *l) {
+	return l->in_version;
+	return PROTOCOL_VERSION;
 }
 
 struct gale_message *link_get(struct gale_link *l) {

@@ -39,28 +39,11 @@ int gale_send(struct gale_client *);
    the actual message from the gale_link -- see link.h.) */
 int gale_next(struct gale_client *);
 
-/* -- puff header management ------------------------------------------------*/
+/* -- standard fragment utilities -------------------------------------------*/
 
-/* Parse a Gale message body for headers.
-
-   next    Pointer to a pointer, initially set to the beginning of the data
-   key     Pointer to a pointer, initially uninitialized
-   data    Pointer to a pointer, initially uninitialized
-   end     Pointer to the end of the message (data + data_size)
-
-   After calling, "key" will point to the (NUL-terminated) first header name
-   ("From") and "data" will point to the (NUL-terminated) contents of the
-   header.  These point into the message data itself, which is munched as a
-   side effect (NULs are introduced).
-
-   "next" is advanced to point to the remainder of the message after the first
-   header, so you can loop back and call the routine again to get the next
-   header.
-
-   The routine returns zero when no more headers are found, at which point
-   "next" points to the message body. */
-
-int parse_header(char **next,char **key,char **data,char *end);
+struct gale_fragment *gale_make_id_class(void);
+struct gale_fragment *gale_make_id_instance(struct gale_text terminal);
+struct gale_fragment *gale_make_id_time(void);
 
 /* -- gale user id management ---------------------------------------------- */
 
@@ -71,7 +54,7 @@ void disable_gale_akd(); /* Increases the "suppress count" */
 void enable_gale_akd();  /* Decreases the "suppress count" */
 
 /* Look up an ID by the local naming conventions. */
-/*owned*/ struct auth_id *lookup_id(struct gale_text);
+struct auth_id *lookup_id(struct gale_text);
 
 /* Find our own ID, generate keys if necessary. */
 struct auth_id *gale_user();
@@ -102,7 +85,7 @@ struct gale_message *encrypt_message(int num,struct auth_id **id,
 
 /* Verify a message's digital signature.  
    Returns sender's id (see gauth.h; free yourself), NULL if unsuccessful. */
-struct auth_id *verify_message(struct gale_message *);
+struct auth_id *verify_message(struct gale_message *,struct gale_message **);
 
 /* Decrypt a message.  
    Returns the recipient, NULL if unsuccessful or not encrypted.

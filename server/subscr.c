@@ -15,7 +15,6 @@ struct sub {
 
 struct node {
 	struct gale_text spec;
-	size_t alloc;
 	struct node *child;
 	struct node *next;
 	int num,size;
@@ -25,7 +24,7 @@ struct node {
 static int stamp = 0;
 static wch null = 0;
 static const struct gale_text empty = { &null,0 };
-static struct node root = { { &null,0 },0,NULL,NULL,0,0,NULL };
+static struct node root = { { &null,0 },NULL,NULL,0,0,NULL };
 static struct connect *list = NULL;
 
 static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
@@ -33,7 +32,7 @@ static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 	size_t i;
 
 	gale_dprintf(3,"[%d] subscribing to \"%s\"\n",
-		sub->connect->rfd,gale_text_hack(spec));
+		sub->connect->rfd,gale_text_to_local(spec));
 
 	if (spec.l == 0) {
 		gale_dprintf(4,"+++ adding connection to node\n");
@@ -53,10 +52,9 @@ static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 		child = child->next;
 
 	if (child == NULL) {
-		gale_dprintf(4,"+++ new node \"%s\"\n",gale_text_hack(spec));
-		node = gale_malloc(sizeof(struct node));
-		node->spec = gale_text_dup(spec);
-		node->alloc = node->spec.l;
+		gale_dprintf(4,"+++ new node \"%s\"\n",gale_text_to_local(spec));
+		gale_create(node);
+		node->spec = spec;
 		node->child = NULL;
 		node->next = ptr->child;
 		ptr->child = node;
@@ -72,11 +70,10 @@ static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 
 	if (i != child->spec.l) {
 		gale_dprintf(4,"+++ truncating \"%s\" node to \"%s\"\n",
-			gale_text_hack(child->spec),
-			gale_text_hack(gale_text_left(spec,i)));
-		node = gale_malloc(sizeof(struct node));
-		node->spec = gale_text_dup(gale_text_right(child->spec,-i));
-		node->alloc = node->spec.l;
+			gale_text_to_local(child->spec),
+			gale_text_to_local(gale_text_left(spec,i)));
+		gale_create(node);
+		node->spec = gale_text_right(child->spec,-i);
 		node->child = child->child;
 		node->next = NULL;
 		node->array = child->array;
@@ -88,7 +85,7 @@ static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 		child->spec = gale_text_left(child->spec,i);
 	} else
 		gale_dprintf(4,"+++ matched \"%s\"\n",
-			gale_text_hack(child->spec));
+			gale_text_to_local(child->spec));
 
 	add(child,gale_text_right(spec,-i),sub);
 }
@@ -103,7 +100,7 @@ static void remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 	int i;
 
 	gale_dprintf(3,"[%d] unsubscribing from \"%s\"\n",
-	             sub->connect->rfd,gale_text_hack(spec));
+	             sub->connect->rfd,gale_text_to_local(spec));
 
 	while (spec.l != 0) {
 		parent = ptr;
@@ -117,7 +114,7 @@ static void remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 			!gale_text_compare(ptr->spec,
 				gale_text_left(spec,ptr->spec.l)));
 		gale_dprintf(4,"--- matched \"%s\"\n",
-			gale_text_hack(ptr->spec));
+			gale_text_to_local(ptr->spec));
 		spec = gale_text_right(spec,-ptr->spec.l);
 	}
 
@@ -148,10 +145,6 @@ static void remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 		else
 			parent->child = ptr->next;
 
-		free_gale_text(ptr->spec);
-		if (ptr->array) gale_free(ptr->array);
-		gale_free(ptr);
-
 		if (parent->num) {
 			gale_dprintf(4,"--- parent has connections, done\n");
 			return;
@@ -171,26 +164,14 @@ static void remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 
 	prev = ptr->child;
 	gale_dprintf(4,"--- merging with singleton child \"%s\"\n",
-		gale_text_hack(prev->spec));
+		gale_text_to_local(prev->spec));
 
-	if (ptr->alloc < ptr->spec.l + prev->spec.l) {
-		struct gale_text tmp;
-		ptr->alloc = ptr->spec.l + prev->spec.l;
-		tmp = new_gale_text(ptr->alloc);
-		gale_text_append(&tmp,ptr->spec);
-		free_gale_text(ptr->spec);
-		ptr->spec = tmp;
-	}
-
-	gale_text_append(&ptr->spec,prev->spec);
-
-	if (ptr->array) gale_free(ptr->array);
+	ptr->spec = gale_text_concat(2,ptr->spec,prev->spec);
 	ptr->array = prev->array;
 	ptr->num = prev->num;
 	ptr->size = prev->size;
 	ptr->child = prev->child;
 
-	free_gale_text(prev->spec);
 	gale_free(prev);
 }
 
@@ -204,7 +185,7 @@ static void subscr(struct connect *conn,
 	conn->stamp = stamp;
 
 	gale_dprintf(3,"--- subscribing to all of \"%s\"\n",
-		gale_text_hack(conn->subscr));
+		gale_text_to_local(conn->subscr));
 
 	while (gale_text_token(conn->subscr,':',&cat)) {
 		sub.flag = 1;
@@ -250,7 +231,7 @@ static void transmit(struct node *ptr,struct gale_text spec,
 			gale_text_left(spec,ptr->spec.l))) 
 		{
 			gale_dprintf(4,"*** matched \"%s\"\n",
-				gale_text_hack(ptr->spec));
+				gale_text_to_local(ptr->spec));
 			transmit(ptr,gale_text_right(spec,-ptr->spec.l),
 				msg,avoid);
 		}
@@ -264,7 +245,7 @@ void subscr_transmit(struct gale_message *msg,struct connect *avoid) {
 
 	while (gale_text_token(msg->cat,':',&cat)) {
 		gale_dprintf(3,"*** transmitting \"%s\", avoiding [%d]\n",
-			gale_text_hack(cat),
+			gale_text_to_local(cat),
 			avoid ? avoid->rfd : -1);
 		transmit(&root,cat,msg,avoid);
 	}
