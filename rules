@@ -21,11 +21,11 @@ CPPFLAGS = $(INCLUDES) $(DEFINES)
 LDLIBS = -L$(TOP)/lib -lgale $(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB) $(CGIC_LIB)
 
 all::
-	@make --no-print-directory subdirs TARGET=all
+	@$(MAKE) --no-print-directory subdirs TARGET=all
 all:: $(BIN_TARGETS) $(LIB_TARGETS)
 
 install::
-	@make --no-print-directory subdirs TARGET=install
+	@$(MAKE) --no-print-directory subdirs TARGET=install
 install:: \
 	$(addprefix $(BIN_DIR)/,$(BIN_TARGETS)) \
 	$(addprefix $(LIB_DIR)/,$(LIB_TARGETS)) \
@@ -33,11 +33,11 @@ install:: \
 
 clean::
 	@echo rm: object files, executables, and libraries.
-	@$(RM) *.o $(BIN_TARGETS) $(LIB_TARGETS)
-	@make --no-print-directory subdirs TARGET=clean
+	@$(RM) *.o core $(BIN_TARGETS) $(LIB_TARGETS)
+	@$(MAKE) --no-print-directory subdirs TARGET=clean
 
 subdirs:
-	@for sub in $(SUBDIRS) "" ; do [ -z "$$sub" ] || make -C $$sub $(TARGET) || exit 1 ; done
+	@for sub in $(SUBDIRS) "" ; do [ -z "$$sub" ] || $(MAKE) -C $$sub $(TARGET) || exit 1 ; done
 
 %.o: %.c
 	@echo $^ '->' $@
@@ -54,6 +54,7 @@ subdirs:
 %.a: %.o
 	@echo $^ '->' $@
 	@ar ru $@ $^
+	@ranlib $@
 
 $(BIN_DIR)/%: % mkdir/$(BIN_DIR)
 	@echo $* '->' $(BIN_DIR)

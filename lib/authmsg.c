@@ -5,7 +5,7 @@
 #include "gale/all.h"
 #include "auth.h"
 
-struct gale_message *sign_message(const char *id,struct gale_message *in) {
+struct gale_message *sign_message(struct gale_id *id,struct gale_message *in) {
 	char *hdr = sign_data(id,in->data,in->data + in->data_size);
 	int len = strlen(hdr) + 13;
 	struct gale_message *out = new_message();
@@ -17,11 +17,13 @@ struct gale_message *sign_message(const char *id,struct gale_message *in) {
 	return out;
 }
 
-struct gale_message *encrypt_message(const char *id,struct gale_message *in) {
+struct gale_message *encrypt_message(struct gale_id *id,struct gale_message *in) {
 	char *cend,*crypt = gale_malloc(in->data_size + ENCRYPTION_PADDING);
-	char *hdr = encrypt_data(id,in->data,in->data + in->data_size,crypt,&cend);
+	char *hdr = encrypt_data(id,in->data,
+	                         in->data + in->data_size,crypt,&cend);
 	int len = strlen(hdr) + 14;
 	struct gale_message *out = new_message();
+	out->category = gale_strdup(in->category);
 	out->data = gale_malloc(out->data_size = len + cend - crypt);
 	sprintf(out->data,"Encryption: %s\r\n",hdr);
 	memcpy(out->data + len,crypt,cend - crypt);

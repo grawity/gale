@@ -22,7 +22,7 @@ static struct connect *list = NULL;
 static struct attach *try = NULL;
 
 static void add_connect(int fd) {
-	struct connect *conn = new_connect(fd,fd,20,262144);
+	struct connect *conn = new_connect(fd,fd);
 	conn->next = list;
 	list = conn;
 }
@@ -195,7 +195,7 @@ int main(int argc,char *argv[]) {
 	if (optind != argc) usage();
 
 	gale_dprintf(0,"starting gale server\n");
-	openlog(argv[0],LOG_PID,LOG_DAEMON);
+	openlog(argv[0],LOG_PID,LOG_LOCAL5);
 
 	if (uname(&un)) 
 		gale_alert(GALE_ERROR,"uname",errno);

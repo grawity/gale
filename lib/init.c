@@ -10,30 +10,14 @@
 #include "gale/all.h"
 
 struct gale_dir *dot_gale,*home_dir,*sys_dir;
-
-char *gale_idtocat(const char *prefix,const char *id,const char *suffix) {
-	char *at = strrchr(id,'@');
-	char *tmp;
-	int len = strlen(prefix) + strlen(id) + strlen(suffix);
-	if (at) {
-		tmp = gale_malloc(len + 4);
-		sprintf(tmp,"%s/%s/%.*s/",prefix,at + 1,at - id,id);
-	} else {
-		const char *domain = getenv("GALE_DOMAIN");
-		tmp = gale_malloc(len + strlen(domain) + 5);
-		sprintf(tmp,"%s/%s/%s/",prefix,domain,id);
-	}
-	if (suffix) strcat(tmp,suffix);
-	return tmp;
-}
+struct gale_id *user_id;
 
 static void init_vars(struct passwd *pwd) {
 	char *tmp;
-	const char *domain,*id,*reply;
 	struct utsname un;
 
-	domain = getenv("GALE_DOMAIN");
-	if (!domain) gale_alert(GALE_ERROR,"GALE_DOMAIN not set",0);
+	if (!getenv("GALE_DOMAIN"))
+		gale_alert(GALE_ERROR,"GALE_DOMAIN not set",0);
 
 	if (uname(&un)) gale_alert(GALE_ERROR,"uname",errno);
 
@@ -49,38 +33,17 @@ static void init_vars(struct passwd *pwd) {
 		putenv(tmp);
 	}
 
-	id = getenv("GALE_ID");
-	if (!id) {
-		tmp = gale_malloc(strlen(pwd->pw_name) + strlen(domain) + 30);
-		sprintf(tmp,"GALE_ID=%s@%s",pwd->pw_name,domain);
-		putenv(tmp);
-		id = getenv("GALE_ID");
-	} else if (!strchr(id,'@')) {
-		tmp = gale_malloc(strlen(id) + strlen(domain) + 30);
-		sprintf(tmp,"GALE_ID=%s@%s",id,domain);
-		putenv(tmp);
-		id = getenv("GALE_ID");
-	}
+	tmp = getenv("GALE_ID");
+	user_id = lookup_id(tmp ? tmp : pwd->pw_name);
 
-	reply = getenv("GALE_REPLY_TO");
-	if (!reply) {
-		char *cat = gale_idtocat("user",id,"");
-		tmp = gale_malloc(strlen(cat) + 30);
-		sprintf(tmp,"GALE_REPLY_TO=%s",cat);
-		gale_free(cat);
-		putenv(tmp);
-		reply = getenv("GALE_REPLY_TO");
-	}
-	if (!getenv("GALE_FROM")) {
-		const char *name = strtok(pwd->pw_gecos,",");
-		tmp = gale_malloc(strlen(id) + strlen(name) + 30);
-		sprintf(tmp,"GALE_FROM=%s <%s>",name,id);
-		putenv(tmp);
+	tmp = getenv("GALE_FROM");
+	if (tmp) {
+		gale_free(user_id->comment);
+		user_id->comment = gale_strdup(tmp);
 	}
 
 	if (!getenv("GALE_SUBS")) {
-		tmp = gale_malloc(strlen(reply) + 30);
-		sprintf(tmp,"GALE_SUBS=%s",reply);
+		tmp = id_category(user_id,"GALE_SUBS=user","");
 		putenv(tmp);
 	}
 }

@@ -30,32 +30,34 @@ int pflag = 1;
 void *gale_malloc(int size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
-struct gale_message *slip(const char *cat,const char *sign,const char *enc) {
+struct gale_message *slip(const char *cat,struct gale_id *sign) {
 	struct gale_message *msg;
-	const char *from = getenv("GALE_FROM");
-	const char *reply = getenv("GALE_REPLY_TO");
-	int len = strlen(from) + strlen(reply) + strlen(agent);
+	int len = strlen(agent);
 	static int sequence = 0;
+
+	if (user_id->comment) len += strlen(user_id->comment);
 
 	msg = new_message();
 	msg->category = gale_strdup(cat);
 	msg->data = gale_malloc(128 + len);
-	sprintf(msg->data,
-		"From: %s\r\n"
-		"Reply-To: %s\r\n"
-	        "Time: %lu\r\n"
-		"Agent: %s\r\n"
-		"Sequence: %d\r\n"
-	        "\r\n",from,reply,time(NULL),agent,sequence++);
+	if (user_id->comment)
+		sprintf(msg->data,
+			"From: %s\r\n"
+			"Time: %lu\r\n"
+			"Agent: %s\r\n"
+			"Sequence: %d\r\n"
+			"\r\n",user_id->comment,time(NULL),agent,sequence++);
+	else
+		sprintf(msg->data,
+			"Time: %lu\r\n"
+			"Agent: %s\r\n"
+			"Sequence: %d\r\n"
+			"\r\n",time(NULL),agent,sequence++);
+
 	msg->data_size = strlen(msg->data);
 
 	if (sign) {
 		struct gale_message *new = sign_message(sign,msg);
-		release_message(msg);
-		msg = new;
-	}
-	if (enc) {
-		struct gale_message *new = encrypt_message(enc,msg);
 		release_message(msg);
 		msg = new;
 	}
@@ -64,7 +66,7 @@ struct gale_message *slip(const char *cat,const char *sign,const char *enc) {
 }
 
 void default_gsubrc(void) {
-	char *tmp,*tmp2,buf[80],*cat = getenv("GALE_CATEGORY");
+	char *tmp,buf[80],*cat = getenv("GALE_CATEGORY");
 	char *nl = isatty(1) ? "\r\n" : "\n";
 	int count = 0;
 
@@ -80,17 +82,28 @@ void default_gsubrc(void) {
 		strftime(buf,sizeof(buf)," %m/%d %H:%M",localtime(&when));
 		fputs(buf,stdout);
 	}
-	if ((tmp = getenv("HEADER_FROM"))) printf(" from %s",tmp);
-	if ((tmp = getenv("HEADER_RECEIPT_TO"))) printf(" [rcpt]");
-	fputs(nl,stdout);
-	tmp = getenv("GALE_SIGNED"); tmp2 = getenv("GALE_ENCRYPTED");
-	if (tmp || tmp2) {
-		printf("Cryptography: ");
-		if (tmp) printf("signed by <%s>",tmp);
-		if (tmp && tmp2) printf(", ");
-		if (tmp2) printf("encrypted for <%s>",tmp2);
-		fputs(nl,stdout);
+
+	if (getenv("HEADER_RECEIPT_TO")) printf(" [rcpt]");
+
+	{
+		char *from_comment = getenv("HEADER_FROM");
+		char *from_id = getenv("GALE_SIGNED");
+		char *to_comment = getenv("HEADER_TO");
+		char *to_id = getenv("GALE_ENCRYPTED");
+
+		if (from_comment || from_id || to_comment || to_id)
+			fputs(nl,stdout);
+
+		if (from_comment || from_id) printf("From");
+		if (from_id) printf(" <%s>",from_id);
+		if (from_comment) printf(" (%s)",from_comment);
+
+		if (to_comment || to_id) printf(" to");
+		if (to_id) printf(" <%s>",to_id);
+		if (to_comment) printf(" (%s)",to_comment);
 	}
+
+	fputs(nl,stdout);
 	fputs(nl,stdout);
 	while (fgets(buf,sizeof(buf),stdin)) {
 		int len = strlen(buf);
@@ -135,7 +148,7 @@ void send_message(char *body,char *end,int fd) {
 void present_message(struct gale_message *msg) {
 	int pfd[2];
 	char *next,**envp = NULL,*key,*data,*end,*tmp,*decrypt = NULL;
-	char *id_encrypted = NULL,*id_sign = NULL;
+	struct gale_id *id_encrypted = NULL,*id_sign = NULL;
 	int envp_global,envp_alloc,envp_len,first = 1;
 	pid_t pid;
 
@@ -158,8 +171,8 @@ void present_message(struct gale_message *msg) {
 			id_encrypted = decrypt_data(data,next,end,decrypt,&end);
 			if (!id_encrypted) goto error;
 			next = decrypt;
-			tmp = gale_malloc(strlen(id_encrypted) + 16);
-			sprintf(tmp,"GALE_ENCRYPTED=%s",id_encrypted);
+			tmp = gale_malloc(strlen(id_encrypted->name) + 16);
+			sprintf(tmp,"GALE_ENCRYPTED=%s",id_encrypted->name);
 			envp[envp_len++] = tmp;
 			continue;
 		}
@@ -167,8 +180,8 @@ void present_message(struct gale_message *msg) {
 		if (first && !strcasecmp(key,"Signature")) {
 			id_sign = verify_data(data,next,end);
 			if (id_sign) {
-				tmp = gale_malloc(strlen(id_sign)+13);
-				sprintf(tmp,"GALE_SIGNED=%s",id_sign);
+				tmp = gale_malloc(strlen(id_sign->name)+13);
+				sprintf(tmp,"GALE_SIGNED=%s",id_sign->name);
 				envp[envp_len++] = tmp;
 			}
 		}
@@ -186,9 +199,9 @@ void present_message(struct gale_message *msg) {
 			}
 			if (pflag) {
 				struct gale_message *rcpt;
-				const char *sign = id_encrypted;
-				if (!sign) sign = getenv("GALE_ID");
-				rcpt = slip(data,sign,id_sign);
+				struct gale_id *sign = id_encrypted;
+				if (!sign) sign = user_id;
+				rcpt = slip(data,sign);
 				link_put(client->link,rcpt);
 				release_message(rcpt);
 			}
@@ -212,7 +225,7 @@ void present_message(struct gale_message *msg) {
 
 #ifndef NDEBUG
 	if (!strcmp(msg->category,"debug/restart") &&
-	    id_sign && !strcmp(id_sign,"egnor@ofb.net")) {
+	    id_sign && !strcmp(id_sign->name,"egnor@ofb.net")) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
 		execvp(restart_argv[0],restart_argv);
 		gale_alert(GALE_WARNING,restart_argv[0],errno);
@@ -258,26 +271,25 @@ error:
 		gale_free(envp);
 	}
 	if (decrypt) gale_free(decrypt);
-	if (id_encrypted) gale_free(id_encrypted);
-	if (id_sign) gale_free(id_sign);
+	if (id_encrypted) free_id(id_encrypted);
+	if (id_sign) free_id(id_sign);
 }
 
 void notify(void) {
 	struct gale_message *msg;
-	const char *id = getenv("GALE_ID");
 	char *tmp;
 
-	tmp = gale_idtocat("notice",id,"login");
-	msg = slip(tmp,id,NULL);
+	tmp = id_category(user_id,"notice","login");
+	msg = slip(tmp,user_id);
+	gale_free(tmp);
 	link_put(client->link,msg);
 	release_message(msg);
-	gale_free(tmp);
 
-	tmp = gale_idtocat("notice",id,"logout");
-	msg = slip(tmp,id,NULL);
+	tmp = id_category(user_id,"notice","logout");
+	msg = slip(tmp,user_id);
+	gale_free(tmp);
 	link_will(client->link,msg);
 	release_message(msg);
-	gale_free(tmp);
 }
 
 void set_agent(void) {
@@ -351,7 +363,7 @@ int main(int argc,char *argv[]) {
 	}
 #endif
 
-	client = gale_open(serv,16,262144);
+	client = gale_open(serv);
 	if (!do_retry && gale_error(client))
 		gale_alert(GALE_ERROR,"Could not connect to server.",0);
 

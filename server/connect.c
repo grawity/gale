@@ -5,7 +5,7 @@
 #include "subscr.h"
 #include "server.h"
 
-struct connect *new_connect(int rfd,int wfd,int num,int mem) {
+struct connect *new_connect(int rfd,int wfd) {
 	struct connect *conn = gale_malloc(sizeof(struct connect));
 	conn->rfd = rfd;
 	conn->wfd = wfd;
@@ -13,7 +13,6 @@ struct connect *new_connect(int rfd,int wfd,int num,int mem) {
 	conn->subscr = NULL;
 	conn->next = NULL;
 	conn->retry = NULL;
-	link_limits(conn->link,num,mem);
 	return conn;
 }
 

@@ -1,17 +1,36 @@
+done:
+signature not optional, more rationalized from/id
+get rid of 262144
+make timeout and countout work in gwatch
+spaces in categories
+makefile -> gnumakefile
+make key generator
+overwrite .gale-public-key as appropriate
+check gsend running from cron: works for me!?
+why doesn't "cat=notice" work in glcgi? (it seems to now... sigh)
+why does it crash? (fixed big messages)
+gzgw: smarter about crossposted messages
+
+to do:
+negative categories in sent messages
+signing with other keys
+add flag to gsub to add to the defaults
+fix time on logout message
+make gwatchrc happen
+fix "yesterday noon", maybe clean up getdate
+make gwrite wrapper to gsend
 clean up include files
 error reporting in glcgi
 command-line interface to logs (log server)
 summary log view in CGI, links, URL detection, menus, other spiffiness
 $var expansion in gale.conf
-ping thingy
 multiple signatures
 multiple encryption
 documentation (HTML)
-user notification
 markup language
-new gsend protocol for efficiency
+new gsubrc protocol for efficiency
 better log schema (headers in particular)
-get rid of 262144
+move to ECC
 
-limits on category (line as a whole?) (message size during collection?)
+limits on category (line as a whole?)
 verification of tree structure

@@ -50,7 +50,7 @@ void gale_retry(struct gale_client *client) {
 	gale_alert(GALE_NOTICE,"server connection ok",0);
 }
 
-struct gale_client *gale_open(const char *spec,int num,int mem) {
+struct gale_client *gale_open(const char *spec) {
 	struct gale_client *client;
 
 	client = gale_malloc(sizeof(*client));
@@ -59,7 +59,6 @@ struct gale_client *gale_open(const char *spec,int num,int mem) {
 	client->subscr = spec ? gale_strdup(spec) : NULL;
 	client->socket = -1;
 	client->link = new_link();
-	link_limits(client->link,num,mem);
 
 	if (!client->server) gale_alert(GALE_ERROR,"$GALE_SERVER not set\n",0);
 

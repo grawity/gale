@@ -5,7 +5,6 @@ GALE_SERVER	must set
 GALE_SYS_DIR	($HOME)/etc/gale
 GALE_DIR	$HOME/.gale
 
-GALE_REPLY_TO	user/domain/username
 GALE_FROM	Real Name <id>
 
-GALE_SUBS	$GALE_REPLY_TO
+GALE_SUBS	user/domain/id

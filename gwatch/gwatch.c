@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 
 #include "gale/all.h"
 
@@ -19,24 +20,29 @@ int count_subs = 0,count_pings = 0;
 const char *tty,*receipt = NULL,*gwatchrc = "gwatchrc";
 
 int max_num = 0;
-int max_secs = 0;
+int so_far = 0;
 
 enum { m_login, m_logout, m_ping };
 
 void *gale_malloc(int size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
+void bye(int x) {
+	(void) x;
+	exit(0);
+}
+
 void watch_cat(const char *cat) {
 	subs[count_subs++] = cat;
 }
 
-void watch_ping(const char *cat,const char *id) {
+void watch_ping(const char *cat,struct gale_id *id) {
 	struct gale_message *msg;
 	if (!receipt) {
 		const char *host = getenv("HOST");
 		char *tmp = gale_malloc(strlen(host) + 20);
 		sprintf(tmp,"%s.%d",host,(int) getpid());
-		receipt = gale_idtocat("receipt",getenv("GALE_ID"),tmp);
+		receipt = id_category(user_id,"receipt",tmp);
 		gale_free(tmp);
 		watch_cat(receipt);
 	}
@@ -56,9 +62,9 @@ void watch_ping(const char *cat,const char *id) {
 	pings[count_pings++] = msg;
 }
 
-void watch_id(const char *id) {
-	watch_ping(gale_idtocat("user",id,"ping"),id);
-	watch_cat(gale_idtocat("notice",id,""));
+void watch_id(struct gale_id *id) {
+	watch_ping(id_category(id,"user","ping"),id);
+	watch_cat(id_category(id,"notice",""));
 }
 
 void watch_domain(const char *id) {
@@ -94,7 +100,7 @@ void read_file(const char *fn) {
 		else if (!strcmp(var,"ping"))
 			watch_ping(value,NULL);
 		else if (!strcmp(var,"id"))
-			watch_id(value);
+			watch_id(lookup_id(value));
 		else if (!strcmp(var,"domain"))
 			watch_domain(value);
 		else
@@ -102,25 +108,6 @@ void read_file(const char *fn) {
 	} while (num == 2);
 
 	fclose(fp);
-}
-
-void usage(void) {
-	fprintf(stderr,
-		"%s\n"
-		"usage: gwatch [flags] cat\n"
-		"flags: -n          Do not fork (default if -m, -t, or stdout redirected)\n"
-		"       -k          Do not kill other gwatch processes\n"
-		"       -K          Kill other gwatch processes and terminate\n"
-		"       -r          Do not retry server connection\n"
-		"       -i id       Watch user \"id\"\n"
-		"       -d domain   Watch domain \"domain\"\n"
-		"       -p cat      Send a \"ping\" to the given category\n"
-		"       -m num      Exit after num responses received\n"
-		"       -s count    Exit after count seconds pass\n"
-		"       -w file     Use config file (default \"spylist\")\n"
-		"       -f rc       Use script file (default \"gwatchrc\")\n"
-		,GALE_BANNER);
-	exit(1);
 }
 
 void open_client(void) {
@@ -138,7 +125,7 @@ void open_client(void) {
 		len += strlen(subs[i]);
 	}
 
-	client = gale_open(spec,count_pings,262144);
+	client = gale_open(spec);
 	gale_free(spec);
 }
 
@@ -151,25 +138,31 @@ void send_pings(void) {
 	}
 }
 
-void incoming(int type,const char *id,const char *agent,const char *from,
-              int seq) 
+void incoming(
+	int type,
+	struct gale_id *id,
+	const char *agent,
+	const char *from,
+	int seq
+)
 {
-	char *flag;
-	(void) seq; (void) id; (void) agent;
+	(void) seq; (void) agent;
 	switch (type) {
-	case m_login: flag = "<login>"; break;
-	case m_logout: flag = "<logout>"; break;
-	case m_ping: flag = "<ping>"; break;
+	case m_login: printf("<login>"); break;
+	case m_logout: printf("<logout>"); break;
+	case m_ping: printf("<ping>"); break;
 	}
-	printf("%s %s\r\n",flag,from);
+	if (id) printf(" <%s>",id->name);
+	if (from) printf(" (%s)",from);
+	printf("\r\n");
 	fflush(stdout);
 }
 
 void process_message(struct gale_message *msg) {
 	int type,len = strlen(msg->category);
 	char *next,*key,*data,*end;
-	char *id_sign = NULL,*id_encrypt = NULL,*decrypt = NULL;
-	char *agent = NULL,*from = NULL;
+	struct gale_id *id_sign = NULL,*id_encrypt = NULL;
+	char *decrypt = NULL,*agent = NULL,*from = NULL;
 	int sequence = -1,first = 1;
 
 	if (len >= 7 && !strcmp(msg->category + len - 7,"/logout"))
@@ -178,6 +171,8 @@ void process_message(struct gale_message *msg) {
 		type = m_login;
 	else
 		type = m_ping;
+
+	if (type != m_logout && max_num != 0 && ++so_far == max_num) bye(0);
 
 	next = msg->data;
 	end = next + msg->data_size;
@@ -199,7 +194,7 @@ void process_message(struct gale_message *msg) {
 
 #ifndef NDEBUG
 	if (!strcmp(msg->category,"debug/restart") && 
-	    id_sign && !strcmp(id_sign,"egnor@ofb.net")) {
+	    id_sign && !strcmp(id_sign->name,"egnor@ofb.net")) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
 		execvp(restart_argv[0],restart_argv);
 		gale_alert(GALE_WARNING,restart_argv[0],errno);
@@ -209,9 +204,28 @@ void process_message(struct gale_message *msg) {
 	incoming(type,id_sign,agent,from,sequence);
 
 error:
-	if (id_sign) gale_free(id_sign);
-	if (id_encrypt) gale_free(id_encrypt);
+	if (id_sign) free_id(id_sign);
+	if (id_encrypt) free_id(id_encrypt);
 	if (decrypt) gale_free(decrypt);
+}
+
+void usage(void) {
+	fprintf(stderr,
+		"%s\n"
+		"usage: gwatch [flags] cat\n"
+		"flags: -n          Do not fork (default if -m, -t, or stdout redirected)\n"
+		"       -k          Do not kill other gwatch processes\n"
+		"       -K          Kill other gwatch processes and terminate\n"
+		"       -r          Do not retry server connection\n"
+		"       -i id       Watch user \"id\"\n"
+		"       -d domain   Watch domain \"domain\"\n"
+		"       -p cat      Send a \"ping\" to the given category\n"
+		"       -m num      Exit after num responses received\n"
+		"       -s count    Exit after count seconds pass\n"
+		"       -w file     Use config file (default \"spylist\")\n"
+		"       -f rc       Use script file (default \"gwatchrc\")\n"
+		,GALE_BANNER);
+	exit(1);
 }
 
 int main(int argc,char *argv[]) {
@@ -228,17 +242,19 @@ int main(int argc,char *argv[]) {
 	subs = gale_malloc(sizeof(char*) * argc);
 	pings = gale_malloc(sizeof(struct gale_message *) * argc);
 
+	signal(SIGALRM,bye);
+
 	while ((arg = getopt(argc,argv,"hnkKi:d:p:m:s:w:f:")) != EOF) 
 	switch (arg) {
 	case 'n': do_fork = 0; break;
 	case 'k': do_kill = 0; break;
 	case 'K': if (tty) gale_kill(tty,1); return 0;
 	case 'r': do_retry = 0; break;
-	case 'i': watch_id(optarg); break;
+	case 'i': watch_id(lookup_id(optarg)); break;
 	case 'd': watch_domain(optarg); break;
 	case 'p': watch_ping(optarg,NULL); break;
 	case 'm': max_num = atoi(optarg); do_fork = 0; break;
-	case 's': max_secs = atoi(optarg); do_fork = 0; break;
+	case 's': alarm(atoi(optarg)); do_fork = 0; break;
 	case 'w': read_file(optarg);
 	case 'f': gwatchrc = optarg;
 	case 'h':

@@ -10,9 +10,10 @@ void *gale_malloc(int size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
 struct gale_message *msg;
-int alloc = 0;
-int have_from = 0,have_time = 0,have_type = 0,have_replyto = 0;
+int aflag = 0,alloc = 0;
+int have_from = 0,have_to = 0,have_time = 0,have_type = 0;
 const char *pflag = NULL;
+struct gale_id *recipient = NULL;
 
 void reserve(int len) {
 	char *tmp;
@@ -34,21 +35,21 @@ void headers(void) {
 			"Content-type: text/plain\r\n");
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
-	if (!have_from) {
-		char *tmp = getenv("GALE_FROM");
-		reserve(20 + strlen(tmp));
-		sprintf(msg->data + msg->data_size,"From: %s\r\n",tmp);
+	if (!aflag && !have_from && user_id->comment) {
+		reserve(20 + strlen(user_id->comment));
+		sprintf(msg->data + msg->data_size,
+		        "From: %s\r\n",user_id->comment);
+		msg->data_size += strlen(msg->data + msg->data_size);
+	}
+	if (!have_to && recipient && recipient->comment) {
+		reserve(20 + strlen(recipient->comment));
+		sprintf(msg->data + msg->data_size,
+		        "To: %s\r\n",recipient->comment);
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
 	if (!have_time) {
 		reserve(20);
 		sprintf(msg->data + msg->data_size,"Time: %lu\r\n",time(NULL));
-		msg->data_size += strlen(msg->data + msg->data_size);
-	}
-	if (!have_replyto) {
-		char *tmp = getenv("GALE_REPLY_TO");
-		reserve(20 + strlen(tmp));
-		sprintf(msg->data + msg->data_size,"Reply-To: %s\r\n",tmp);
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
 	if (pflag) {
@@ -63,34 +64,33 @@ void headers(void) {
 }
 
 void usage(void) {
+	struct gale_id *id = lookup_id("username@domain");
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-suU] [-et id] [-p cat] cat\n"
-		"flags: -s          Sign message with your private key\n"
-		"       -e id       Encrypt message with <id>'s public key\n"
-		"       -t id       Default category without encryption\n"
+		"usage: gsend [-uU] [-et id] [-p cat] cat\n"
+		"flags: -e id       Encrypt message with <id>'s public key\n"
+		"       -a          Do not sign message (anonymous)\n"
 		"       -r          Do not retry server connection\n"
 		"       -p cat      Request a return receipt\n"
 		"       -u          Expect user-supplied headers\n"
 		"       -U          Ditto, and don't supply default headers\n"
-		"With -e or -t, cat defaults to \"user/domain/username\".\n"
-		,GALE_BANNER);
+		"With -e, cat defaults to \"%s\".\n"
+		,GALE_BANNER,id_category(id,"user",""));
 	exit(1);
 }
 
 int main(int argc,char *argv[]) {
 	struct gale_client *client;
-	int arg,uflag = 0,sflag = 0,rflag = 0;
+	int arg,uflag = 0,rflag = 0;
 	int ttyin = isatty(0),newline = 1;
-	char *cp,*tmp,*eflag = NULL,*tflag = NULL;
+	char *cp,*tmp,*eflag = NULL;
 
 	gale_init("gsend");
 
-	while ((arg = getopt(argc,argv,"hse:t:p:ruU")) != EOF) 
+	while ((arg = getopt(argc,argv,"hae:t:p:ruU")) != EOF) 
 	switch (arg) {
-	case 's': sflag++; break;
+	case 'a': aflag = 1; break;
 	case 'e': eflag = optarg; break;
-	case 't': tflag = optarg; break;
 	case 'p': pflag = optarg; break;
 	case 'r': rflag = 1; break;
 	case 'u': uflag = 1; break;
@@ -101,18 +101,19 @@ int main(int argc,char *argv[]) {
 
 	msg = new_message();
 
+	if (eflag) {
+		gale_keys();
+		recipient = lookup_id(eflag);
+	}
+
 	if (optind == argc && eflag)
-		msg->category = gale_idtocat("user",eflag,"");
-	else if (optind == argc && tflag)
-		msg->category = gale_idtocat("user",tflag,"");
+		msg->category = id_category(recipient,"user","");
 	else if (optind != argc - 1)
 		usage();
 	else
 		msg->category = gale_strdup(argv[optind]);
 
-	if (sflag || eflag) gale_keys();
-
-	client = gale_open(NULL,1,262144);
+	client = gale_open(NULL);
 
 	while (gale_error(client)) {
 		if (rflag) gale_alert(GALE_ERROR,"could not contact server",0);
@@ -139,8 +140,6 @@ int main(int argc,char *argv[]) {
 				have_type = 1;
 			else if (!strncasecmp(cp,"Time:",5)) 
 				have_time = 1;
-			else if (!strncasecmp(cp,"Reply-To:",9))
-				have_replyto = 1;
 			else if (!strcmp(cp,"\n")) {
 				headers();
 				uflag = 0;
@@ -157,13 +156,13 @@ int main(int argc,char *argv[]) {
 		}
 	}
 
-	if (sflag) {
-		struct gale_message *new = sign_message(NULL,msg);
+	if (!aflag) {
+		struct gale_message *new = sign_message(user_id,msg);
 		release_message(msg);
 		msg = new;
 	}
-	if (eflag) {
-		struct gale_message *new = encrypt_message(eflag,msg);
+	if (recipient) {
+		struct gale_message *new = encrypt_message(recipient,msg);
 		release_message(msg);
 		msg = new;
 	}

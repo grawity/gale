@@ -7,7 +7,7 @@ struct gale_client {
 	char *server,*subscr;
 };
 
-struct gale_client *gale_open(const char *spec,int num,int mem);
+struct gale_client *gale_open(const char *spec);
 void gale_close(struct gale_client *);
 void gale_retry(struct gale_client *);
 int gale_error(struct gale_client *);

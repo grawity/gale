@@ -35,6 +35,7 @@ struct gale_link *new_link(void) {
 	l->queue_size = l->queue_head = l->queue_tail = 0;
 	l->queue = NULL;
 	l->queue_mem = l->queue_max = 0;
+	link_limits(l,32,262144);
 	return l;
 }
 
@@ -43,7 +44,7 @@ void free_link(struct gale_link *l) {
 	if (l->in_buf) gale_free(l->in_buf);
 	if (l->out_sub) gale_free(l->out_sub);
 	if (l->in_sub) gale_free(l->in_sub);
-	if (l->in_msg) release_message(l->out_msg);
+	if (l->in_msg) release_message(l->in_msg);
 	if (l->out_msg) release_message(l->out_msg);
 	if (l->in_will) release_message(l->in_will);
 	if (l->out_will) release_message(l->out_will);
@@ -108,18 +109,27 @@ static void in_msg(struct gale_link *l,char *cmd) {
 	char *cp = strtok(cmd," ");
 	if (msg == NULL) return;
 	msg->data_size = atoi(cp ? cp : "");
-	if (cp) cp = strtok(NULL," ");
+	if (cp) cp = strtok(NULL,"");
 	msg->category = gale_strdup(cp ? cp : "");
-	msg->data = gale_malloc(msg->data_size);
+	if (msg->data_size > l->queue_max)
+		msg->data = NULL;
+	else
+		msg->data = gale_malloc(msg->data_size);
 	l->in_msg = msg;
 }
 
 static void in_msg_done(struct gale_link *l) {
+	if (!l->in_msg->data) {
+		release_message(l->in_msg);
+		l->in_msg = NULL;
+	}
 	if (l->in_will_mode) {
 		l->in_will_mode = 0;
-		if (l->in_will) release_message(l->in_will);
-		l->in_will = l->in_msg;
-		l->in_msg = NULL;
+		if (l->in_msg) {
+			if (l->in_will) release_message(l->in_will);
+			l->in_will = l->in_msg;
+			l->in_msg = NULL;
+		}
 	}
 }
 
@@ -159,7 +169,7 @@ static void incoming(struct gale_link *l,int min) {
 
 	len = l->in_len - l->in_ptr;
 	if (len > l->in_msg->data_size) len = l->in_msg->data_size;
-	memcpy(l->in_msg->data,l->in_buf + l->in_ptr,len);
+	if (l->in_msg->data) memcpy(l->in_msg->data,l->in_buf + l->in_ptr,len);
 	l->in_ptr += len;
 	if (len < l->in_msg->data_size) {
 		l->in_len = len;
@@ -173,8 +183,15 @@ int link_receive(struct gale_link *l,int fd) {
 	int r;
 	if (!link_receive_q(l)) return 0;
 	if (l->in_buffer_mode) {
-		r = read(fd,l->in_msg->data + l->in_len,
-		         l->in_msg->data_size - l->in_len);
+		if (l->in_msg->data)
+			r = read(fd,l->in_msg->data + l->in_len,
+			         l->in_msg->data_size - l->in_len);
+		else {
+			char throwaway[8192];
+			unsigned int len = l->in_msg->data_size - l->in_len;
+			if (len > sizeof(throwaway)) len = sizeof(throwaway);
+			r = read(fd,throwaway,len);
+		}
 		if (r <= 0) return -1;
 		l->in_len += r;
 		if (l->in_len == l->in_msg->data_size) {
