@@ -44,10 +44,11 @@ test_oop_LDADD = $(lib_LTLIBRARIES)
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \
 	> $(PACKAGE)-$(VERSION).tar.bz2
-	if test -d ../../gdist ; then \
-	mv $(PACKAGE)-$(VERSION).* ../../gdist ; \
-	ln -sf $(PACKAGE)-$(VERSION).tar.gz ../../gdist/$(PACKAGE).tar.gz ; \
-	ln -sf $(PACKAGE)-$(VERSION).tar.bz2 ../../gdist/$(PACKAGE).tar.bz2 ; \
+	if test -d /ofb/www/download/liboop ; then \
+	cd /ofb/www/download/liboop && \
+	mv "$(shell pwd)/$(PACKAGE)-$(VERSION)".* . && \
+	ln -sf $(PACKAGE)-$(VERSION).tar.gz $(PACKAGE).tar.gz && \
+	ln -sf $(PACKAGE)-$(VERSION).tar.bz2 $(PACKAGE).tar.bz2 && \
 	fi
 	@echo '** NOW TAG THE CVS REPOSITORY! **'
 

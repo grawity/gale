@@ -40,7 +40,7 @@ struct gale_time gale_key_time(const struct gale_key_assertion *);
  *  \return Liboop continuation code (usually OOP_CONTINUE). */
 typedef void *gale_key_call(oop_source *oop,struct gale_key *key,void *user);
 
-enum { search_private = 1, search_slow = 2, search_all = -1 };
+enum { search_private = 1, search_slow = 2, search_all = 3, search_harder = 4 };
 void gale_key_search(oop_source *source,
 	struct gale_key *,int flags,
 	gale_key_call *,void *user);

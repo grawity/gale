@@ -264,7 +264,7 @@ static void on_search(struct gale_time now,oop_source *oop,
 		gale_time_seconds(retry_interval)))) goto skip;
 
 	old = gale_key_public(key,now);
-	if (NULL != old) {
+	if (NULL != old && !(flags & search_harder)) {
 		struct gale_data random = gale_crypto_random(sizeof(unsigned));
 		const unsigned variant = refresh_interval +
 			(* (unsigned *) random.p) % refresh_interval;

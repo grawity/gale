@@ -110,7 +110,7 @@ void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 void usage(void) {
         fprintf(stderr,
                 "%s\n"
-                "usage: gkinfo [-hikvx] (address [address ...] | [-t] < keyfile)\n"
+                "usage: gkinfo [-hikmvxy] (address [address ...] | [-t] < keyfile)\n"
 		"flags: -h          Display this message\n"
 		"       -i          Output key ID only\n"
 		"       -k          Input exact key ID only (not location)\n"
@@ -118,6 +118,7 @@ void usage(void) {
 		"       -t          Trust keyfile contents\n"
 		"       -v          Verbose output\n"
 		"       -x          Disable remote key retrieval; implies -k\n"
+		"       -y          Force remote key retrieval; implies -k\n"
                 ,GALE_BANNER);
 	exit(1);
 }
@@ -128,13 +129,14 @@ int main(int argc,char *argv[]) {
 
 	gale_init("gkinfo",argc,argv);
 
-	while ((arg = getopt(argc,argv,"hikmtvxdD")) != EOF) switch (arg) {
+	while ((arg = getopt(argc,argv,"hikmtvxydD")) != EOF) switch (arg) {
 	case 'i': do_name_only = 1; break;
 	case 'k': do_location = 0; break;
 	case 'm': do_members = 1; break;
 	case 't': do_trust_input = 1; break;
 	case 'v': do_verbose = 1; break;
 	case 'x': flags &= ~search_slow; do_location = 0; break;
+	case 'y': flags |= search_harder; do_location = 0; break;
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
 	case 'h':

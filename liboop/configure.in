@@ -66,8 +66,8 @@ AC_CHECK_LIB(wwwcore,HTEvent_setRegisterCallback,[
 
 AC_CHECK_LIB(resolv,res_query)
 if test -z "$no_wacky_libs" ; then
-  AC_CHECK_LIB(nsl,main)
-  AC_CHECK_LIB(socket,socket)
+  AC_SEARCH_LIBS(gethostbyname,nsl)
+  AC_SEARCH_LIBS(socket,socket)
 fi
 
 test yes = "$GCC" && 
