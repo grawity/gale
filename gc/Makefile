@@ -63,8 +63,8 @@ AS = @AS@
 CC = gcc
 DLLTOOL = @DLLTOOL@
 DL_LIBS = -ldl
-GALE_LIBS = -L${exec_prefix}/lib ${top_builddir}/lib/libgale.la -ltermcap ${top_builddir}/gc/libgc.a -lrsaref ${top_builddir}/liboop/liboop-adns.la -ladns -lresolv ${top_builddir}/liboop/liboop.la
-INCLUDES = -DGALE_SYS_DIR=\"${prefix}/etc/gale\" -I${top_srcdir}/include -I${top_builddir}/include -I${prefix}/include
+GALE_LIBS = ${top_builddir}/lib/libgale.la -ltermcap ${top_builddir}/gc/libgc.a -lrsaref ${top_builddir}/liboop/liboop-adns.la -ladns -lresolv ${top_builddir}/liboop/liboop.la
+INCLUDES = -DGALE_SYS_DIR=\"${prefix}/etc/gale\" -I${top_srcdir}/include -I${top_builddir}/include 
 LD = /usr/bin/ld
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LN_S = ln -s
@@ -75,7 +75,7 @@ PACKAGE = gale
 PROG_LDCONFIG = /sbin/ldconfig
 RANLIB = ranlib
 READLINE_LIBS = -lreadline
-VERSION = 0.90c
+VERSION = 0.91
 YACC = bison -y
 ZEPHYR_LIBS = 
 
@@ -92,8 +92,8 @@ LIBRARIES =  $(lib_LIBRARIES)
 
 
 DEFS = -DHAVE_CONFIG_H -I. -I$(srcdir) -I../include/gale
-CPPFLAGS = -I${top_srcdir}/liboop -I${top_srcdir}/gc/include -I/ofb/include
-LDFLAGS = -L/ofb/lib
+CPPFLAGS = -I${top_srcdir}/liboop -I${top_srcdir}/gc/include -I/ofb/include -I/home/egnor/include
+LDFLAGS = -L/ofb/lib -L/home/egnor/lib
 LIBS = -lnsl 
 libgc_a_LIBADD = 
 libgc_a_OBJECTS = 
