@@ -5,7 +5,7 @@ supplier(category,cid,connection)
 
 consumer(category,connection)
   indexed by category: so we can propagate updates
-  indexed by consumer: so we can remove them when the connection goes down
+  indexed by connection: so we can remove them when the connection goes down
 
 incomplete(category,connection)
   indexed by category: so we know which suppliers claim to be complete 

@@ -83,6 +83,7 @@ ZEPHYR_LIBS = @ZEPHYR_LIBS@
 
 AUTOMAKE_OPTIONS = foreign 1.2
 bin_SCRIPTS = gale-config gale-install
+EXTRA_DIST = gale.spec
 @BUILD_GZGW_TRUE@gzgw_dir = gzgw
 @BUILD_GZGW_FALSE@gzgw_dir = 
 @BUILD_RSAREF_TRUE@rsaref_dir = rsaref
@@ -91,8 +92,10 @@ bin_SCRIPTS = gale-config gale-install
 @BUILD_GC_FALSE@gc_dir = 
 @BUILD_GLXML_TRUE@glxml_dir = glxml
 @BUILD_GLXML_FALSE@glxml_dir = 
+@BUILD_LIBOOP_TRUE@liboop_dir = liboop
+@BUILD_LIBOOP_FALSE@liboop_dir = 
 
-SUBDIRS = ${gc_dir} ${rsaref_dir} 	lib server gsend gsub gwatch kutils gdomain 	${gzgw_dir} ${glxml_dir} include
+SUBDIRS = ${gc_dir} ${rsaref_dir} ${liboop_dir} 	lib server gsend gsub gwatch kutils gdomain 	${gzgw_dir} ${glxml_dir} include
 
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
@@ -110,8 +113,8 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = tar
 GZIP_ENV = --best
-DIST_SUBDIRS =  gc rsaref lib server gsend gsub gwatch kutils gdomain \
-gzgw glxml include
+DIST_SUBDIRS =  gc rsaref liboop lib server gsend gsub gwatch kutils \
+gdomain gzgw glxml include
 all: all-redirect
 .SUFFIXES:
 $(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 

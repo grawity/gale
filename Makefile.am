@@ -2,6 +2,7 @@
 
 AUTOMAKE_OPTIONS = foreign 1.2
 bin_SCRIPTS = gale-config gale-install
+EXTRA_DIST = gale.spec
 
 if BUILD_GZGW
 gzgw_dir = gzgw
@@ -27,7 +28,13 @@ else
 glxml_dir =
 endif
 
-SUBDIRS = ${gc_dir} ${rsaref_dir} \
+if BUILD_LIBOOP
+liboop_dir = liboop
+else
+liboop_dir =
+endif
+
+SUBDIRS = ${gc_dir} ${rsaref_dir} ${liboop_dir} \
 	lib server gsend gsub gwatch kutils gdomain \
 	${gzgw_dir} ${glxml_dir} include
 
