@@ -116,7 +116,7 @@ struct gale_text gale_text_from(struct gale_encoding *e,const char *p,int l) {
 	gale_global->enc_console = NULL;
 	gale_create_array(buf,l);
 
-	inbuf = p;
+	inbuf = (ICONV_CONST char *) p;
 	inbytes = l;
 	outbuf = (char *) buf;
 	outbytes = sizeof(wch) * l;
@@ -176,7 +176,7 @@ char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
 		to_ucs(&copy[inbytes]);
 	}
 
-	inbuf = (const char *) copy;
+	inbuf = (ICONV_CONST char *) copy;
 	inbytes = sizeof(wch) * t.l;
 	outbuf = buf;
 	outbytes = alloc;
