@@ -97,14 +97,14 @@ gale_call_error gale_queue_error;
  *  \param link The ::gale_link to keep connected.
  *  \param server The server to connect to.  Normally ::null_text for the
  *                default server.
- *  \param avoid_local Normally zero.  Nonzero to avoid connecting to the
- *                     local host or numerically smaller IP addresses.
- *                     (Used by the server to avoid loops.)
+ *  \param avoid_port Normally zero.  Nonzero to avoid connecting to the
+ *                    local host or numerically smaller IP addresses at
+ *                    the specified port.  (Used by the server to avoid loops.)
  *  \return A server handle you can use to disconnect the link later.
  *  \sa gale_reopen(), gale_close(), gale_on_connect(), gale_on_disconnect() */
 struct gale_server *gale_make_server(
 	oop_source *oop,struct gale_link *link,
-	struct gale_text server,int avoid_local);
+	struct gale_text server,int avoid_port);
 
 /** Disconnect from a Gale server.
  *  Gracefully closes a Gale server connection.
