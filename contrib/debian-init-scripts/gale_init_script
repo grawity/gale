@@ -51,22 +51,40 @@ test -r "$DEFAULTS" && . "$DEFAULTS"
 : "${RUN_GDOMAIN:=true}"
 : "${GALE_USER:=gale}"
 
+start_galed() {
+    #start-stop-daemon --start --quiet --chuid "$GALE_USER" \
+	#--exec "$GALED"
+    su - gale -c "$GALED"
+}
+
+stop_galed() {
+    start-stop-daemon --stop --quiet --user "$GALE_USER" \
+	--exec "$GALED" || echo -n "...failed"
+}
+
+start_gdomian() {
+    #start-stop-daemon --start --quiet --chuid "$GALE_USER" \
+	#--exec "$GDOMAIN"
+    su - gale -c "$GDOMAIN"
+}
+
+stop_gdomain() {
+    start-stop-daemon --stop --quiet --user "$GALE_USER" \
+	--exec "$GDOMAIN" || echo -n "...failed"
+}
+
 case "$1" in
   start)
 	echo -n "Starting $DESC:"
 
 	if [ "$RUN_GALED" = true ]; then
 	    echo -n " $GALED_NAME"
-	    #start-stop-daemon --start --quiet --chuid "$GALE_USER" \
-		#--exec "$GALED"
-	    su - gale -c "$GALED"
+	    start_galed
 	fi
 
 	if [ "$RUN_GDOMAIN" = true ]; then
 	    echo -n " $GDOMAIN_NAME"
-	    #start-stop-daemon --start --quiet --chuid "$GALE_USER" \
-		#--exec "$GDOMAIN"
-	    su - gale -c "$GDOMAIN"
+	    start_gdomain
 	fi
 
 	echo "."
@@ -76,14 +94,12 @@ case "$1" in
 
 	if [ "$RUN_GALED" = true ]; then
 	    echo -n " $GALED_NAME"
-	    start-stop-daemon --stop --quiet --user "$GALE_USER" \
-		--exec "$GALED" || echo -n "...failed"
+	    stop_galed
 	fi
 
 	if [ "$RUN_GDOMAIN" = true ]; then
 	    echo -n " $GDOMAIN_NAME"
-	    start-stop-daemon --stop --quiet --user "$GALE_USER" \
-		--exec "$GDOMAIN" || echo -n "...failed"
+	    stop_gdomain
 	fi
 
 	echo "."
@@ -93,28 +109,22 @@ case "$1" in
 
 	if [ "$RUN_GDOMAIN" = true ]; then
 	    echo -n " $GDOMAIN_NAME"
-	    start-stop-daemon --stop --quiet --user "$GALE_USER" \
-		--exec "$GDOMAIN" || echo -n "...failed"
+	    stop_gdomain
 	fi
 
 	if [ "$RUN_GALED" = true ]; then
 	    echo -n " $GALED_NAME"
-	    start-stop-daemon --stop --quiet --user "$GALE_USER" \
-		--exec "$GALED" || echo -n "...failed"
+	    stop_galed
 	fi
 
 	sleep 1
 
 	if [ "$RUN_GALED" = true ]; then
-	    #start-stop-daemon --start --quiet --chuid "$GALE_USER" \
-		#--exec "$GALED"
-	    su - gale -c "$GALED"
+	    start_galed
 	fi
 
 	if [ "$RUN_GDOMAIN" = true ]; then
-	    #start-stop-daemon --start --quiet --chuid "$GALE_USER" \
-		#--exec "$GDOMAIN"
-	    su - gale -c "$GDOMAIN"
+	    start_domain
 	fi
 
 	echo "."
