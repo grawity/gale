@@ -13,10 +13,11 @@
 void usage(void) {
         fprintf(stderr,
                 "%s\n"
-                "usage: gkgen [-hn] [-s id] [-r file] [-u file] id ['comment']\n"
+                "usage: gkgen [-hn] [-s id] [-t nm=val] [-r file] [-u file] id ['comment']\n"
 		"flags: -h          Display this message\n"
 		"       -n          Do not erase existing keys\n"
 		"       -s id       Create a redirector to another id\n"
+		"       -t nm=val   Include text fragment 'nm' set to 'val'\n"
 		"       -r file     Write pRivate key to this file\n"
 		"       -u file     Write pUblic key to this file\n"
                 ,GALE_BANNER);
@@ -25,32 +26,57 @@ void usage(void) {
 
 int main(int argc,char *argv[]) {
 	struct auth_id *id;
-	struct gale_text out_pub = null_text,out_priv = null_text,comment;
-	struct auth_id *redirect = NULL;
+	struct gale_text out_pub = null_text,out_priv = null_text;
+	struct gale_group extra = gale_group_empty();
+	struct gale_fragment frag;
 	int arg,trust;
 	int do_wipe = 1;
 
 	gale_init("gkgen",argc,argv);
 	disable_gale_akd();
 
-	while ((arg = getopt(argc,argv,"hnr:u:s:")) != EOF) {
+	while ((arg = getopt(argc,argv,"hnr:u:s:t:")) != EOF) {
 	struct gale_text str = !optarg ? null_text :
 		gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (arg) {
 	case 'n': do_wipe = 0; break;
 	case 'r': out_priv = str; break;
 	case 'u': out_pub = str; break;
-	case 's': init_auth_id(&redirect,str); 
-	          break;
+	case 's': 
+		frag.type = frag_text;
+		frag.name = G_("key.redirect");
+		frag.value.text = str;
+		gale_group_add(&extra,frag);
+	        break;
+	case 't': 
+		frag.type = frag_text;
+		frag.name = null_text;
+		gale_text_token(str,'=',&frag.name);
+		frag.value.text = frag.name;
+		if (!gale_text_token(str,'=',&frag.value.text))
+			frag.value.text = null_text;
+		gale_group_add(&extra,frag);
+		break;
+
 	case 'h':
 	case '?': usage();
 	} }
 
+	frag.type = frag_text;
+	frag.name = G_("key.owner");
 	switch (argc - optind) {
-	case 2: comment = gale_text_from(gale_global->enc_cmdline,argv[optind + 1],-1); break;
-	case 1: comment = null_text; break;
-	default:  usage();
+	case 2: 
+		frag.value.text = gale_text_from(
+			gale_global->enc_cmdline,
+			argv[optind + 1],-1); 
+		break;
+	case 1: 
+		frag.value.text = null_text; 
+		break;
+	default:  
+		usage();
 	}
+	gale_group_add(&extra,frag);
 
 	init_auth_id(&id,gale_text_from(gale_global->enc_cmdline,argv[optind],-1));
 	if (!gale_text_compare(G_("ROOT"),_ga_signer(auth_id_name(id))))
@@ -70,11 +96,7 @@ int main(int argc,char *argv[]) {
 		}
 	}
 
-	if (NULL == redirect)
-		auth_id_gen(id,comment);
-	else
-		auth_id_redirect(id,comment,redirect);
-
+	auth_id_gen(id,extra);
 	trust = _ga_trust_pub(id); /* mildly expensive to call */
 	if (0 != out_pub.l || !trust) {
 		struct inode inode;

@@ -220,14 +220,23 @@ struct gale_encoding;
 struct gale_text _gale_text_literal(const wchar_t *,size_t len); /* internal */
 
 /** Concatenate text strings.  
- *  The first argument \a count is the number of strings to concatenate; 
- *  the other arguments are the strings.
+ *  The first argument \a count is the number of strings passed.
+ *  \param count The number of strings to concatenate.
+ *  \return The concatenated string.
+ *  \sa gale_text_concat_array()
  *  \code 
  *  struct gale_text stuff = G_("hi hi");
  *  struct gale_text foobar = gale_text_concat(3,G_("foo ["),stuff,G_("] bar"));
  *  assert(0 == gale_text_compare(foobar,G_("foo [hi hi] bar")));
  *  \endcode */
 struct gale_text gale_text_concat(int count,...);
+
+/** Concatenate an array of text strings.
+ *  \param count The number of members in \a array.
+ *  \param array The strings to concatenate, in order.
+ *  \return The concatenated string.
+ *  \sa gale_text_concat() */
+struct gale_text gale_text_concat_array(int count,struct gale_text *array);
 
 /** Extract the leftmost substring of \a len characters.  
  *  If \a len is larger than the length of the string, the entire string 
@@ -352,12 +361,9 @@ void *gale_map_find(struct gale_map *map,struct gale_data key);
  *  This example counts the number of keys in a map:
  *  \code
  *  struct gale_map *map = ...;
- *  struct gale_data *ptr = NULL,key = null;
+ *  struct gale_data key = null_data;
  *  int count = 0;
- *  while (gale_map_walk(map,ptr,&key,NULL)) {
- *      ptr = &key;
- *      ++count;
- *  }
+ *  while (gale_map_walk(map,&key,&key,NULL)) ++count;
  *  \endcode
  *  \param map The map to traverse.
  *  \param after The key to search for.
@@ -668,10 +674,6 @@ void gale_dprintf(int level,const char *fmt,...);
 /** Debugging printf.  Will add \a indent levels of indentation.
  *  \todo Fix this to be less gross! */
 void gale_diprintf(int level,int indent,const char *fmt,...);
-
-/** Debugging output.  I'm not sure what this is for.
- *  \todo Fix this to be less gross! */
-void gale_dmessage(int level,struct old_gale_message *msg);
 /*@}*/
 
 /** \name Connection Management

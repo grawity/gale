@@ -79,7 +79,7 @@ static int walk(struct wt_node *node,const struct gale_data *after,
 
 	if (x < 0 && NULL != node->data) {
 		void *ptr = gale_get_ptr(node->data);
-		if (NULL != *data) *data = ptr;
+		if (NULL != data) *data = ptr;
 		if (NULL == ptr) node->data = NULL;
 		else {
 			if (NULL != key) *key = node->key;

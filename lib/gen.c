@@ -45,9 +45,7 @@ static void stash(char * const * argv) {
 	}
 }
 
-static void clear(struct auth_id *id,struct gale_text comment) {
-	struct gale_fragment frag;
-
+static void clear(struct auth_id *id,struct gale_group extra) {
 	id->pub_time_slow = gale_time_zero();
 	id->pub_time_fast = gale_time_zero();
 	id->pub_data = gale_group_empty();
@@ -61,11 +59,7 @@ static void clear(struct auth_id *id,struct gale_text comment) {
 	id->priv_data = gale_group_empty();
 	id->priv_inode = _ga_init_inode();
 
-	frag.type = frag_text;
-	frag.name = G_("key.owner");
-	frag.value.text = comment;
-	gale_group_add(&id->pub_data,frag);
-	gale_group_add(&id->priv_data,frag);
+	gale_group_append(&id->pub_data,extra);
 }
 
 static void write_priv(struct auth_id *id) {
@@ -122,24 +116,7 @@ static void write_pub(struct auth_id *id) {
 	}
 }
 
-void auth_id_redirect(
-	struct auth_id *id,struct gale_text comment,
-	struct auth_id *dest)
-{
-	struct gale_fragment frag;
-
-	clear(id,comment);
-	id->priv_data = gale_group_empty();
-
-	frag.type = frag_text;
-	frag.name = G_("key.redirect");
-	frag.value.text = auth_id_name(dest);
-	gale_group_add(&id->pub_data,frag);
-
-	write_pub(id);
-}
-
-void auth_id_gen(struct auth_id *id,struct gale_text comment) {
+void auth_id_gen(struct auth_id *id,struct gale_group extra) {
 	int err;
 	R_RSA_PROTO_KEY proto;
 	R_RSA_PUBLIC_KEY *rsapub;
@@ -147,7 +124,7 @@ void auth_id_gen(struct auth_id *id,struct gale_text comment) {
 	struct gale_fragment frag;
 	const char *bits;
 
-	clear(id,comment);
+	clear(id,extra);
 
 	proto.bits = 0;
 	bits = getenv("GALE_AUTH_BITS");

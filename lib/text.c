@@ -29,6 +29,26 @@ struct gale_text gale_text_concat(int count,...) {
 	return text;
 }
 
+struct gale_text gale_text_concat_array(int count,struct gale_text *array) {
+	struct gale_text ret;
+	wch *buffer;
+	int i;
+
+	/* first, count */
+	ret.l = 0;
+	for (i = 0; i < count; ++i) ret.l += array[i].l;
+	gale_create_array(buffer,ret.l);
+	ret.p = buffer;
+
+	/* then, copy */
+	for (i = 0; i < count; ++i) {
+		memcpy(buffer,array[i].p,array[i].l * sizeof(*buffer));
+		buffer += array[i].l;
+	}
+
+	return ret;
+}
+
 struct gale_text _gale_text_literal(const wchar_t *sz,size_t len) {
 	struct gale_text text;
 	assert(sizeof(wchar_t) == sizeof(wch));

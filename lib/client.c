@@ -133,6 +133,11 @@ struct gale_server *gale_open(
 	return s;
 }
 
+void gale_reopen(struct gale_server *serv,struct gale_text subscr) {
+	serv->sub = subscr;
+	if (link_get_fd(serv->link) >= 0) link_subscribe(serv->link,serv->sub);
+}
+
 void gale_close(struct gale_server *s) {
 	gale_report_remove(gale_global->report,server_report,s);
 	link_on_error(s->link,NULL,NULL);
@@ -155,7 +160,16 @@ struct auth_id *gale_user(void) {
 	struct auth_id *user_id = lookup_id(gale_var(G_("GALE_ID")));
 	if (!auth_id_public(user_id) 
 	&&  !auth_id_private(user_id))
-		auth_id_gen(user_id,gale_var(G_("GALE_FROM")));
+	{
+		struct gale_fragment frag;
+		struct gale_group group = gale_group_empty();
+
+		frag.name = G_("key.owner");
+		frag.type = frag_text;
+		frag.value.text = gale_var(G_("GALE_FROM"));
+		gale_group_add(&group,frag);
+		auth_id_gen(user_id,group);
+	}
 
 	return user_id;
 }

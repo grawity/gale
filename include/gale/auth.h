@@ -19,9 +19,7 @@ struct gale_text auth_id_comment(struct auth_id *);
 int auth_id_public(struct auth_id *);
 int auth_id_private(struct auth_id *);
 
-void auth_id_gen(struct auth_id *,struct gale_text comment);
-void auth_id_redirect(struct auth_id *,struct gale_text comment,
-                      struct auth_id *dest);
+void auth_id_gen(struct auth_id *,struct gale_group extra);
 
 void export_auth_id(struct auth_id *,struct gale_data *data,int private);
 void import_auth_id(struct auth_id **,struct gale_data data,int private);

@@ -3,18 +3,18 @@
 lib_LTLIBRARIES = libgale.la
 
 # version:revision:age
-# current as of 0.99a
-libgale_la_LDFLAGS = -version-info 10:0:0
+# current as of 0.99cheese
+libgale_la_LDFLAGS = -version-info 11:0:0
 
 libgale_la_SOURCES = \
 	authgrp.c client.c connect.c find.c id.c init.c global.c \
-	input.c kill.c libgale.c link.c message.c output.c debug.c \
+	input.c kill.c libgale.c link.c oldmessage.c output.c debug.c \
 	standard.c cache.c \
 	crypt.c customs.c file.c gen.c \
 	keyid.c findkey.c privkey.c pubkey.c random.c sign.c \
 	dir.c error.c errpuff.c exec.c alloc.c server.c text.c time.c report.c\
 	pack.c term.c convert.c wcwidth.c \
-	fragment.c var.c weaktree.c
+	location.c message.c alias.c fragment.c var.c weaktree.c
 
 noinst_HEADERS = buffer.h \
-	common.h file.h id.h key.h pack.h random.h sign.h
+	common.h file.h id.h key.h pack.h random.h sign.h location.h
