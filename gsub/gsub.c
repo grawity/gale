@@ -8,11 +8,13 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <signal.h>
-#include <termcap.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
+
+#include <curses.h>
+#include <term.h>
 
 #include "gale/all.h"
 
@@ -65,7 +67,12 @@ struct gale_message *slip(const char *cat,struct gale_id *sign) {
 
 void tmode(char id[2]) {
 	char *cap;
-	if (do_termcap && (cap = tgetstr(id,NULL))) tputs(cap,1,putchar);
+	if (do_termcap && (cap = tgetstr(id,NULL))) 
+		tputs(cap,1,
+#ifdef hpux
+			(int(*)(char))
+#endif
+			putchar);
 }
 
 void print_id(const char *id,const char *dfl) {

@@ -53,7 +53,7 @@ subdirs:
 
 %: %.o
 	@echo $^ '->' $@
-	@$(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
+	$(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
 %: %.c
 	@echo $^ '->' $@

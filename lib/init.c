@@ -101,7 +101,7 @@ static void read_conf(const char *fn) {
 		sprintf(both,"%s=%s",var,value);
 
 		s = read_line(fp);
-		while (*s && isspace(*s)) {
+		while (s && *s && isspace(*s)) {
 			char *old = both;
 			do ++s; while (*s && isspace(*s));
 			if (*s == '#') break;
