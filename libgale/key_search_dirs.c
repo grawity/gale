@@ -26,12 +26,13 @@ struct dir_cache {
 static const int size_limit = 65536;
 static const int poll_interval = 10;
 
-static void get_file(int do_trust,struct dir_filename *f) {
+static void get_file(int trust,struct dir_filename *f) {
 	if (NULL == f->state || gale_file_changed(f->state)) {
 		struct gale_data d = gale_read_file(
-			f->name,size_limit,!do_trust,&f->state);
-		gale_key_retract(f->ass,do_trust);
-		f->ass = (0 != d.l) ? gale_key_assert(d,do_trust) : NULL;
+			f->name,size_limit,!trust,&f->state);
+		gale_key_retract(f->ass,trust);
+		f->ass = (0 == d.l) ? NULL
+		       : gale_key_assert(d,gale_get_file_time(f->state),trust);
 	}
 }
 
@@ -39,10 +40,14 @@ static void wipe_file(int do_trust,struct dir_filename *f,
 	const struct gale_key_assertion *one,
 	const struct gale_key_assertion *two)
 {
-	if (NULL == f->state || NULL == f->ass 
-	||  f->ass == one 
-	||  f->ass == two) 
+	if (NULL == f->state || NULL == f->ass) return;
+
+	if (f->ass == one || f->ass == two) {
+		const struct gale_time stamp = gale_key_time(f->ass);
+		if (gale_time_compare(stamp,gale_get_file_time(f->state)) > 0)
+			gale_set_file_time(f->state,stamp);
 		return;
+	}
 
 	if (gale_erase_file(f->state))
 		gale_alert(GALE_NOTICE,gale_text_concat(3,
@@ -150,14 +155,14 @@ void key_i_init_dirs(void) {
 	dot_auth = sub_dir(gale_global->dot_gale,G_("auth"),0700);
 	sys_auth = sub_dir(gale_global->sys_dir,G_("auth"),0777);
 
-	add_dir(sub_dir(sys_auth,G_("cache"),0777),cache_dir);
-
-	add_dir(sub_dir(sys_auth,G_("local"),0777),public_dir);
-	add_dir(sub_dir(dot_auth,G_("local"),0777),public_dir);
-
-	add_dir(sub_dir(sys_auth,G_("trusted"),0777),trusted_dir);
-	add_dir(sub_dir(dot_auth,G_("trusted"),0777),trusted_dir);
-
-	add_dir(sub_dir(sys_auth,G_("private"),0700),trusted_dir);
 	add_dir(sub_dir(dot_auth,G_("private"),0700),private_dir);
+	add_dir(sub_dir(sys_auth,G_("private"),0700),trusted_dir);
+
+	add_dir(sub_dir(dot_auth,G_("trusted"),0777),trusted_dir);
+	add_dir(sub_dir(sys_auth,G_("trusted"),0777),trusted_dir);
+
+	add_dir(sub_dir(dot_auth,G_("local"),0777),public_dir);
+	add_dir(sub_dir(sys_auth,G_("local"),0777),public_dir);
+
+	add_dir(sub_dir(sys_auth,G_("cache"),0777),cache_dir);
 }
