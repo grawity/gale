@@ -16,7 +16,7 @@ ZSubscription_t default_sub;
 ZSubscription_t *subs = &default_sub;
 int num_subs = 1,sub_alloc = 0;
 
-void *gale_malloc(int size) { return malloc(size); }
+void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { return free(ptr); }
 
 u_short port;

@@ -25,7 +25,7 @@ char *tty,*agent;
 int do_ping = 1;
 int do_termcap = 0;
 
-void *gale_malloc(int size) { return malloc(size); }
+void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
 struct gale_message *slip(const char *cat,struct gale_id *sign) {
@@ -176,7 +176,8 @@ void present_message(struct gale_message *msg) {
 	int pfd[2];
 	char *next,**envp = NULL,*key,*data,*end,*tmp,*decrypt = NULL;
 	struct gale_id *id_encrypted = NULL,*id_sign = NULL;
-	int envp_global,envp_alloc,envp_len,first = 1;
+	struct gale_message *rcpt = NULL;
+	int envp_global,envp_alloc,envp_len,first = 1,status;
 	pid_t pid;
 
 	envp_global = 0;
@@ -225,12 +226,10 @@ void present_message(struct gale_message *msg) {
 				continue;
 			}
 			if (do_ping) {
-				struct gale_message *rcpt;
 				struct gale_id *sign = id_encrypted;
 				if (!sign) sign = user_id;
+				if (rcpt) release_message(rcpt);
 				rcpt = slip(data,sign);
-				link_put(client->link,rcpt);
-				release_message(rcpt);
 			}
 		}
 
@@ -277,6 +276,7 @@ void present_message(struct gale_message *msg) {
 		if (rc) {
 			execl(rc,rcprog,NULL);
 			gale_alert(GALE_WARNING,rc,errno);
+			exit(1);
 		}
 		default_gsubrc();
 		exit(0);
@@ -288,7 +288,19 @@ void present_message(struct gale_message *msg) {
 	send_message(next,end,pfd[1]);
 	close(pfd[1]);
 
-	if (pid > 0) waitpid(pid,NULL,0);
+	status = -1;
+	if (pid > 0) {
+		waitpid(pid,&status,0);
+		if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+			status = 0;
+		else
+			status = -1;
+	}
+
+	if (rcpt && !status) {
+		link_put(client->link,rcpt);
+		release_message(rcpt);
+	}
 
 error:
 	if (envp) {

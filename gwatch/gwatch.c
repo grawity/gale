@@ -24,7 +24,7 @@ int so_far = 0;
 
 enum { m_login, m_logout, m_ping };
 
-void *gale_malloc(int size) { return malloc(size); }
+void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
 void bye(int x) {

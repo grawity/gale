@@ -7,7 +7,7 @@
 
 #include "gale/all.h"
 
-void *gale_malloc(int size) { return malloc(size); }
+void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
 struct gale_message *msg;
