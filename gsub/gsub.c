@@ -121,14 +121,14 @@ void send_message(char *body,char *end,int fd) {
 		while (body != tmp) {
 			int r = write(fd,body,tmp - body);
 			if (r <= 0) {
-				perror("write");
+				gale_alert(GALE_WARNING,"write",errno);
 				return;
 			}
 			body += r;
 		}
 		if (tmp != end) {
 			if (write(fd,"\n",1) != 1) {
-				perror("write");
+				gale_alert(GALE_WARNING,"write",errno);
 				return;
 			}
 			++tmp;
@@ -144,14 +144,6 @@ void present_message(struct gale_message *msg) {
 	char *id_encrypted = NULL,*id_signed = NULL;
 	int envp_global,envp_alloc,envp_len,first = 1;
 	pid_t pid;
-
-	if (gflag) {
-		end = msg->category;
-		while ((end = strstr(end,"/ping"))) {
-			end += 5;
-			if (!*end || *end == ':') return;
-		}
-	}
 
 	envp_global = 0;
 	for (envp = environ; *envp; ++envp) ++envp_global;
@@ -225,10 +217,18 @@ void present_message(struct gale_message *msg) {
 		envp[envp_len++] = tmp;
 	}
 
+	if (gflag) {
+		end = msg->category;
+		while ((end = strstr(end,"/ping"))) {
+			end += 5;
+			if (!*end || *end == ':') goto error;
+		}
+	}
+
 	envp[envp_len] = NULL;
 
 	if (pipe(pfd)) {
-		perror("pipe");
+		gale_alert(GALE_WARNING,"pipe",errno);
 		goto error;
 	}
 
@@ -243,16 +243,17 @@ void present_message(struct gale_message *msg) {
 		if (pfd[0] != 0) close(pfd[0]);
 		if (rcprog) {
 			execl(rcprog,rcprog,NULL);
-			perror(rcprog);
+			gale_alert(GALE_WARNING,rcprog,errno);
 		} else {
 			execl(dir_file(dot_gale,"gsubrc"),"gsubrc",NULL);
-			if (errno != ENOENT) perror("gsubrc");
+			if (errno != ENOENT)
+				gale_alert(GALE_WARNING,"gsubrc",errno);
 		}
 		default_gsubrc();
 		exit(0);
 	}
 
-	if (pid < 0) perror("fork");
+	if (pid < 0) gale_alert(GALE_WARNING,"fork",errno);
 
 	close(pfd[0]);
 	send_message(next,end,pfd[1]);
@@ -280,7 +281,7 @@ void startup(void) {
 	if (!tty) return;
 	if ((dir = strrchr(tty,'/'))) tty = dir + 1;
 	if (uname(&un)) {
-		perror("uname");
+		gale_alert(GALE_WARNING,"uname",errno);
 		exit(1);
 	}
 
@@ -291,7 +292,7 @@ void startup(void) {
 	if (!kflag) {
 		pdir = opendir(dir_file(dot_gale,"."));
 		if (pdir == NULL) {
-			perror("opendir");
+			gale_alert(GALE_WARNING,"opendir",errno);
 			exit(1);
 		}
 		while ((de = readdir(pdir)))
