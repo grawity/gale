@@ -1,0 +1,11 @@
+GALE_LOG
+GALE_DOMAIN	must set
+GALE_ID		username
+GALE_KEY_DIR
+GALE_SERVER	must set
+GALE_DIR	$HOME/.gale
+
+GALE_REPLY_TO	user/domain/username
+GALE_FROM	Real Name <id>
+
+GALE_SUBS	$GALE_REPLY_TO

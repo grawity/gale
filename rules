@@ -7,8 +7,12 @@ YACC = bison -y
 -include $(TOP)/defs.$(LAB)
 -include $(TOP)/defs.$(ARCH)
 
+ifndef VERSION
+VERSION := $(shell cat $(TOP)/version)
+endif
+
 INCLUDES = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC) $(DB_INC) $(CGIC_INC)
-DEFINES = -DGALE_CONF=\"$(GALE_CONF)\" -DSTDC_HEADERS
+DEFINES = -DGALE_CONF=\"$(GALE_CONF)\" -DGALE_VERSION=\"$(VERSION)\" -DSTDC_HEADERS
 
 WARNINGS = -W -Wimplicit -Wreturn-type -Wunused -Wswitch -Wtrigraphs -Wformat \
 	-Wchar-subscripts -Wparentheses
@@ -22,19 +26,10 @@ all:: $(BIN_TARGETS) $(LIB_TARGETS)
 
 install::
 	@make --no-print-directory subdirs TARGET=install
-install:: $(BIN_TARGETS) $(LIB_TARGETS)
-ifdef BIN_TARGETS
-	@mkdir -p $(BIN_DIR)
-	[ -z "$(BIN_TARGETS)" ] || cp $(BIN_TARGETS) $(BIN_DIR)
-endif
-ifdef LIB_TARGETS
-	@mkdir -p $(LIB_DIR)
-	[ -z "$(LIB_TARGETS)" ] || cp $(LIB_TARGETS) $(LIB_DIR)
-endif
-ifdef HEADERS
-	@mkdir -p $(INC_DIR)
-	[ -z "$(HEADERS)" ] || cp $(HEADERS) $(INC_DIR)
-endif
+install:: \
+	$(addprefix $(BIN_DIR)/,$(BIN_TARGETS)) \
+	$(addprefix $(LIB_DIR)/,$(LIB_TARGETS)) \
+	$(addprefix $(INC_DIR)/,$(HEADERS))
 
 clean::
 	$(RM) *.o $(BIN_TARGETS) $(LIB_TARGETS)
@@ -42,3 +37,35 @@ clean::
 
 subdirs:
 	@for sub in $(SUBDIRS) "" ; do [ -z "$$sub" ] || make -C $$sub $(TARGET) || exit 1 ; done
+
+%.o: %.c
+	@echo $^ '->' $@
+	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $*.c -o $@
+
+%: %.o
+	@echo $^ '->' $@
+	@$(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
+
+%: %.c
+	@echo $^ '->' $@
+	@$(CC) $(CFLAGS) $(CPPFLAGS) $*.c -o $@ $(LDFLAGS) $(LDLIBS)
+
+%.a: %.o
+	@echo $^ '->' $@
+	@ar ru $@ $^
+
+$(BIN_DIR)/%: % mkdir/$(BIN_DIR)
+	@echo $* '->' $(BIN_DIR)
+	@mv $@ $@.tmp.$$$$
+	@cp $* $(BIN_DIR)/$*
+
+$(LIB_DIR)/%.a: %.a mkdir/$(LIB_DIR)
+	@echo $*.a '->' $(LIB_DIR)
+	@cp $*.a $(LIB_DIR)/$*.a
+
+$(INC_DIR)/%.h: %.h mkdir/$(INC_DIR)
+	@echo $*.h '->' $(INC_DIR)
+	@cp $*.h $(INC_DIR)/$*.h
+
+mkdir/%:
+	@[ -d $* ] || echo mkdir $* && mkdir -p $*

@@ -1,11 +1,16 @@
-interface to logs
-return receipts
+check key generation messages; should gsend give a notice during encryption?
+error reporting in glcgi
+reply-to, new convention for user/, still (user/domain/user)
+command-line interface to logs (log server)
+summary log view in CGI, links, URL detection, menus, other spiffiness
+ping thingy
 multiple signatures
 multiple encryption
 documentation (HTML)
 user notification
 markup language
-new gsend protocol
+new gsend protocol for efficiency
+better log schema (headers in particular)
 
 limits on category (line as a whole?) (message size during collection?)
 verification of tree structure
