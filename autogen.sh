@@ -5,11 +5,6 @@ test -z "$srcdir" && srcdir=.
 ORIGDIR=`pwd`
 cd $srcdir
 
-# hack for a cluster I use often ...
-if [ -d /usr/ug/share/aclocal ]; then
-	ACLOCAL_FLAGS="$ACLOCAL_FLAGS --acdir=/usr/ug/share/aclocal"
-fi
-
 for I in . liboop; do
     (   cd $I
 	libtoolize --copy --force
