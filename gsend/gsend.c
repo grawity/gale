@@ -154,9 +154,6 @@ static void prepare_message() {
 
 		/* Sign with our key by default. */
 		msg->from[from_count++] = user;
-
-		/* Add the default fragments to the message. */
-		headers();
 	}
 
 	collapse(msg->from,from_count);
@@ -188,6 +185,11 @@ static void prepare_message() {
 	frag.type = frag_text;
 	frag.value.text = body;
 	gale_group_add(&msg->data,frag);
+
+	if (do_identify) {
+		/* Add the default fragments to the message. */
+		headers();
+	}
 
 	/* Add the message to the outgoing queue. */
 	gale_pack_message(oop,msg,on_pack,NULL);
