@@ -148,7 +148,7 @@ static int read_file(const char *dir,int mode,const char *file) {
 	up_dir(dot_gale);
 	if (fd < 0) {
 		if (errno == ENOENT) return -1;
-		perror(file);
+		gale_alert(GALE_WARNING,file,errno);
 		exit(1);
 	}
 	return fd;
@@ -180,7 +180,7 @@ static int write_file(const char *dir,int dmode,const char *file,int fmode) {
 	fd = creat(dir_file(dot_gale,file),fmode);
 	up_dir(dot_gale);
 	if (fd < 0) {
-		perror(file);
+		gale_alert(GALE_WARNING,file,errno);
 		exit(1);
 	}
 	return fd;
@@ -236,7 +236,7 @@ void gale_keys(void) {
 	else {
 		umask(i = umask(0));
 		if (chmod(tmp,(0666 & ~i) | 0444)) {
-			perror(tmp);
+			gale_alert(GALE_WARNING,tmp,errno);
 			exit(1);
 		}
 	}
