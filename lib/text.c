@@ -147,6 +147,14 @@ struct gale_data gale_text_as_data(struct gale_text text) {
 	return data;
 }
 
+struct gale_text gale_text_from_data(struct gale_data data) {
+	struct gale_text text;
+	text.p = (wch *) data.p;
+	text.l = data.l / sizeof(wch);
+	assert(0 == (data.l % sizeof(wch)));
+	return text;
+}
+
 struct gale_text gale_text_from_latin1(const char *pch,int len) {
 	struct gale_text text;
 	size_t i;

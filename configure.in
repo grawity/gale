@@ -32,9 +32,13 @@ dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_YACC
+PROG_LDCONFIG=:
 
 dnl System type checks.
 case "$host" in
+  *-linux-*)
+    AC_PATH_PROG(PROG_LDCONFIG, ldconfig, :, $PATH:/usr/sbin:/sbin)
+    ;;
   *-sgi-irix6*)
     if test -n "$LPATH" ; then
       LDFLAGS="-Wl,-rpath,$LPATH $LDFLAGS"
@@ -164,6 +168,7 @@ AC_SUBST(ZEPHYR_LIBS)
 AC_SUBST(READLINE_LIBS)
 AC_SUBST(DL_LIBS)
 AC_SUBST(GALE_LIBS)
+AC_SUBST(PROG_LDCONFIG)
 
 AM_CONDITIONAL(BUILD_GZGW,test x$build_gzgw = xtrue)
 AM_CONDITIONAL(BUILD_RSAREF,test x$build_rsaref = xtrue)

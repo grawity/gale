@@ -11,7 +11,8 @@ struct attach *new_attach(void) {
 	struct attach *att;
 	gale_create(att);
 	att->server = null_text;
-	att->subs = null_text;
+	att->in_subs = null_text;
+	att->out_subs = null_text;
 	att->next = NULL;
 	att->connect = NULL;
 	att->time.tv_sec = 0;

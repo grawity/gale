@@ -43,7 +43,7 @@ int main(int argc,char *argv[]) {
 		struct passwd *pwd = getpwuid(getuid());
 		struct gale_text domain = gale_var(G_("GALE_DOMAIN"));
 		if (!pwd) gale_alert(GALE_ERROR,"who are you?",0);
-		if (check.p)
+		if (check.l)
 			gale_alert(GALE_WARNING,"ignoring specified key name",0);
 		check = gale_text_concat(3,
 			gale_text_from_local(pwd->pw_name,-1),
@@ -55,7 +55,7 @@ int main(int argc,char *argv[]) {
 	_ga_import_pub(&id,key,&inode,IMPORT_TRUSTED);
 	if (!id) gale_alert(GALE_ERROR,"could not import public key",0);
 
-	if (check.p && gale_text_compare(check,id->name))
+	if (check.l && gale_text_compare(check,id->name))
 		gale_alert(GALE_ERROR,"permission denied to sign public key",0);
 	if (id->sig.id)
 		_ga_warn_id(G_("key \"%\" already signed"),id);

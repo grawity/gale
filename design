@@ -1,0 +1,119 @@
+supplier(category,cid,connection)
+  indexed by category: so we can respond to "watch" requests
+  indexed by cid: so we can respond to "fetch" requests
+  indexed by connection: so we can remove them when the connection goes down
+
+consumer(category,connection)
+  indexed by category: so we can propagate updates
+  indexed by consumer: so we can remove them when the connection goes down
+
+incomplete(category,connection)
+  indexed by category: so we know which suppliers claim to be complete 
+  indexed by connection: so we can remove them when the connection goes down
+
+publishes(connection,expression)
+  indexed by connection: so we can remove trie hooks when the connection goes down
+
+matches(+category,+expression)
+  ... computed via trie magic ...
+
+waiting(cid,connection)
+  indexed by cid: so we know who to send it to
+  indexed by connection: so we can remove them when the connection goes down
+
+pending(cid,connection)
+  indexed by cid: so we can remove it when the answer comes in
+  indexed by connection: so we can remove it when the connection goes down
+
+---
+
+when publish(expression) received on connection:
+  retract supplier(category,cid,connection):
+    consumer(category,watch_connection):
+      transmit retract(category,cid) on watch_connection.
+  retract publishes(connection,old_expression):
+    consumer(category,_) && matches(category,old_expression):
+      transmit forget(category) on connection.
+      retract incomplete(category,connection):
+        NOT incomplete(category,_):
+          consumer(category,watch_connection):
+            transmit complete(category) on watch_connection.
+  assert publishes(connection,expression).
+  consumer(category,_) && matches(category,expression):
+    transmit watch(category) on connection.
+
+when watch(category) received on connection:
+  NOT consumer(category,_):
+    publishes(pub_connection,expression) && matches(category,expression):
+      transmit watch(category) on pub_connection.
+      assert incomplete(category,pub_connection).
+  assert consumer(category,connection).
+  supplier(category,cid,_):
+    transmit assert(category,cid) on connection.
+  NOT incomplete(category,_):
+    transmit complete(category) on connection.
+
+when forget(category) received on connection:
+  retract consumer(category,connection):
+    NOT consumer(category,_):
+      retract supplier(category,_,_).
+      retract incomplete(category,_).
+      publishes(pub_connection,expression) && matches(category,expression):
+        transmit forget(category) on pub_connection.
+
+when assert(category,cid) received on connection:
+  NOT supplier(category,cid,_):
+    consumer(category,watch_connection):
+      transmit assert(category,cid) on watch_connection.
+  assert supplier(category,cid,connection).
+  waiting(cid,_) && NOT pending(cid,connection):
+    transmit fetch(cid) on connection.
+    assert pending(cid,connection).
+
+when retract(category,cid) received on connection:
+  retract supplier(category,cid,connection):
+    NOT supplier(category,cid,_):
+      consumer(category,watch_connection):
+        transmit retract(category,cid) on watch_connection.
+
+when complete(category) received on connection:
+  retract incomplete(category,connection):
+    NOT incomplete(category,_):
+      consumer(category,watch_connection):
+        transmit complete(category) on watch_connection.
+
+when fetch(cid) received on connection:
+  cache(cid,data):
+    transmit supply(cid,data) on connection.
+  NOT waiting(cid,_):
+    supplier(_,cid,supply_connection):
+      transmit fetch(cid) on supply_connection.
+      assert pending(cid,supply_connection).
+  pending(_,cid,_):
+    assert waiting(cid,connection).
+  ELSE:
+    transmit miss(cid) on connection.
+
+when supply(cid,data) received on connection:
+  retract waiting(cid,wait_connection):
+    transmit supply(cid,data) on wait_connection.
+  retract pending(cid,_).
+
+when miss(cid) received on connection:
+  retract pending(cid,connection):
+    NOT pending(cid,_):
+      retract waiting(cid,wait_connection):
+        transmit miss(cid) on wait_connection.
+
+when connection is closed:
+  retract waiting(cid,connection).
+  consumer(category,connection):
+    emulate forget(category) from connection.
+  pending(cid,connection):
+    emulate miss(cid) from connection.
+  publishes(connection,expression):
+    emulate publish(-) from connection.
+  supplier(category,cid,connection):
+    emulate retract(category,cid) from connection.
+  incomplete(category,connection):
+    emulate complete(category) from connection.

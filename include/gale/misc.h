@@ -101,6 +101,7 @@ int gale_text_to_number(struct gale_text);
 struct gale_text gale_text_from_number(int n,int base,int pad);
 
 struct gale_data gale_text_as_data(struct gale_text);
+struct gale_text gale_text_from_data(struct gale_data);
 
 typedef struct gale_text gale_text_from(const char *,int len);
 typedef char *gale_text_to(struct gale_text);

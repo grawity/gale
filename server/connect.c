@@ -59,7 +59,7 @@ int post_select(struct connect *conn,fd_set *r,fd_set *w) {
 		}
 	}
 	sub = link_subscribed(conn->link);
-	if (sub.p) subscribe_connect(conn,sub);
+	if (0 != sub.l) subscribe_connect(conn,sub);
 	while ((msg = link_get(conn->link))) subscr_transmit(msg,conn);
 	return 0;
 }

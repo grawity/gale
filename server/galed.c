@@ -145,8 +145,8 @@ static void loop(void) {
 			}
 			add_connect(fd);
 			list->retry = att;
-			link_subscribe(list->link,att->subs);
-			subscribe_connect(list,att->subs);
+			link_subscribe(list->link,att->in_subs);
+			subscribe_connect(list,att->out_subs);
 			if (aprev)
 				att = aprev->next = att->next;
 			else
@@ -164,7 +164,10 @@ static void add_links(void) {
 	gale_text_token(str,';',&link);
 
 	att = new_attach();
-	att->subs = G_("+");
+	att->in_subs = gale_var(G_("GALE_LINKS_INCOMING"));
+	if (!att->in_subs.l) att->in_subs = G_("+");
+	att->out_subs = gale_var(G_("GALE_LINKS_OUTGOING"));
+	if (!att->out_subs.l) att->out_subs = G_("+");
 	att->server = link;
 	att->next = try;
 	try = att;

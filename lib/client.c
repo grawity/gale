@@ -12,7 +12,7 @@
 #define MAX_RETRY 60
 
 struct auth_id *gale_user(void) {
-	if (!auth_id_public(gale_global->user_id))
+	if (!auth_id_public(gale_global->user_id) && !auth_id_private(gale_global->user_id))
 		auth_id_gen(gale_global->user_id,gale_var(G_("GALE_FROM")));
 
 	return gale_global->user_id;

@@ -37,6 +37,9 @@ release: dist
 
 install-data-local: config
 
+install-exec-local:
+	$(PROG_LDCONFIG) || true
+
 config: common.sh config.sh
 	sysconfdir=$(sysconfdir) ; \
 	sbindir=$(sbindir) ; \

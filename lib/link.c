@@ -20,6 +20,7 @@
 
 #define SIZE_LIMIT 262144
 #define PROTOCOL_VERSION 1
+#define CID_LENGTH 20
 
 struct link {
 	struct gale_message *msg;
@@ -37,13 +38,13 @@ struct gale_link {
 	struct input_buffer *input;                     /* version 0 */
 	u32 in_opcode,in_length;
 	struct gale_message *in_msg,*in_puff,*in_will;
-	struct gale_text in_gimme;
+	struct gale_text in_gimme,*in_text;
 	int in_version;
 
 	struct gale_text in_publish;                    /* version 1 */
 	struct gale_text in_watch,in_forget,in_complete;
 	struct pair in_assert,in_retract;
-	struct gale_data in_fetch_cid,in_miss_cid,in_supply_cid;
+	struct gale_data in_fetch_cid,in_miss_cid,in_supply_cid,*in_cid;
 	struct gale_data in_supply_data;
 
 	/* output stuff */
@@ -58,6 +59,7 @@ struct gale_link {
 	struct gale_text out_publish;			/* version 1 */
 	struct gale_wt *out_watch,*out_complete,*out_assert;
 	struct gale_wt *out_fetch,*out_supply;
+	struct gale_data out_cid,out_data;
 };
 
 static void * const st_yes = (void *) 0x1;
@@ -88,7 +90,7 @@ static struct gale_message *dequeue(struct gale_link *l) {
 /* -- input state machine --------------------------------------------------- */
 
 typedef void istate(struct input_state *inp);
-static istate ist_version,ist_idle,ist_message,ist_subscribe,ist_unknown;
+static istate ist_version,ist_idle,ist_message,ist_text,ist_cid,ist_unknown;
 
 static void ifn_version(struct input_state *inp) {
 	struct gale_link *l = (struct gale_link *) inp->private;
@@ -96,6 +98,7 @@ static void ifn_version(struct input_state *inp) {
 	gale_unpack_u32(&inp->data,&version);
 	if (version > PROTOCOL_VERSION) l->in_version = PROTOCOL_VERSION;
 	else l->in_version = version;
+	l->in_length = 0;
 	ist_idle(inp);
 }
 
@@ -120,7 +123,18 @@ static void ifn_opcode(struct input_state *inp) {
 		ist_message(inp);
 		break;
 	case opcode_gimme:
-		ist_subscribe(inp);
+	case opcode_publish:
+	case opcode_watch:
+	case opcode_forget:
+	case opcode_complete:
+		ist_text(inp);
+		break;
+	case opcode_assert:
+	case opcode_retract:
+	case opcode_fetch:
+	case opcode_miss:
+	case opcode_supply:
+		ist_cid(inp);
 		break;
 	default:
 		ist_unknown(inp);
@@ -128,6 +142,7 @@ static void ifn_opcode(struct input_state *inp) {
 }
 
 static void ist_idle(struct input_state *inp) {
+	assert(0 == ((struct gale_link *) inp->private)->in_length);
 	inp->next = ifn_opcode;
 	inp->ready = input_always_ready;
 	inp->data.p = NULL;
@@ -224,24 +239,111 @@ static void ist_message(struct input_state *inp) {
 		inp->ready = input_always_ready;
 }
 
-static void ifn_subscribe_category(struct input_state *inp) {
+static void ifn_text(struct input_state *inp) {
 	struct gale_link *l = (struct gale_link *) inp->private;
 	size_t len = inp->data.l / gale_wch_size();
-	assert(opcode_gimme == l->in_opcode);
+	struct gale_text text;
 	assert(l->in_length == inp->data.l);
-	if (gale_unpack_text_len(&inp->data,len,&l->in_gimme))
+	l->in_length -= inp->data.l;
+	if (gale_unpack_text_len(&inp->data,len,l->in_text))
 		ist_idle(inp);
-	else {
-		l->in_gimme = null_text;
+	else
 		ist_unknown(inp);
+}
+
+static int ifn_text_ready(struct input_state *inp) {
+	struct gale_link *l = (struct gale_link *) inp->private;
+	switch (l->in_opcode) {
+	case opcode_gimme:
+	case opcode_publish:
+		/* only keep the last */
+		return 1;
+	default:
+		/* block until they've read it */
+		return (0 == l->in_text->l);
 	}
 }
 
-static void ist_subscribe(struct input_state *inp) {
-	inp->next = ifn_subscribe_category;
-	inp->ready = input_always_ready;
+static void ist_text(struct input_state *inp) {
+	struct gale_link *l = (struct gale_link *) inp->private;
+
+	inp->next = ifn_text;
+	inp->ready = ifn_text_ready;
 	inp->data.l = ((struct gale_link *) inp->private)->in_length;
 	inp->data.p = NULL;
+
+	switch (l->in_opcode) {
+	case opcode_gimme: 	l->in_text = &l->in_gimme; break;
+	case opcode_publish:	l->in_text = &l->in_publish; break;
+	case opcode_watch:	l->in_text = &l->in_watch; break;
+	case opcode_forget:	l->in_text = &l->in_forget; break;
+	case opcode_complete:	l->in_text = &l->in_complete; break;
+	case opcode_assert:	l->in_text = &l->in_assert.cat; break;
+	case opcode_retract:	l->in_text = &l->in_retract.cat; break;
+	default: assert(0);
+	}
+}
+
+static void ifn_supply_data(struct input_state *inp) {
+	struct gale_link *l = (struct gale_link *) inp->private;
+	assert(inp->data.l == l->in_length);
+	l->in_length -= inp->data.l;
+	l->in_supply_data = inp->data;
+	ist_idle(inp);
+}
+
+static void ifn_cid(struct input_state *inp) {
+	struct gale_link *l = (struct gale_link *) inp->private;
+	assert(CID_LENGTH == inp->data.l);
+	l->in_length -= inp->data.l;
+	*(l->in_cid) = inp->data;
+
+	/* Figure out what comes next. */
+	switch (l->in_opcode) {
+	case opcode_assert:
+	case opcode_retract:
+		ist_text(inp);
+		break;
+	case opcode_fetch:
+	case opcode_miss:
+		ist_idle(inp);
+		break;
+	case opcode_supply:
+		inp->next = ifn_supply_data;
+		inp->data.l = l->in_length;
+		inp->data.p = gale_malloc(l->in_length);
+		inp->ready = input_always_ready;
+		break;
+	default:
+		assert(0);
+	}
+}
+
+static int ifn_cid_ready(struct input_state *inp) {
+	struct gale_link *l = (struct gale_link *) inp->private;
+	return (0 == l->in_cid->l);
+}
+
+static void ist_cid(struct input_state *inp) {
+	struct gale_link *l = (struct gale_link *) inp->private;
+	if (l->in_length < CID_LENGTH) {
+		ist_unknown(inp);
+		return;
+	}
+
+	inp->next = ifn_cid;
+	inp->ready = ifn_cid_ready;
+	inp->data.l = CID_LENGTH;
+	inp->data.p = gale_malloc(CID_LENGTH);
+
+	switch (l->in_opcode) {
+	case opcode_assert:	l->in_cid = &l->in_assert.cid; break;
+	case opcode_retract:	l->in_cid = &l->in_retract.cid; break;
+	case opcode_fetch:	l->in_cid = &l->in_fetch_cid; break;
+	case opcode_miss:	l->in_cid = &l->in_miss_cid; break;
+	case opcode_supply:	l->in_cid = &l->in_supply_cid; break;
+	default: assert(0);
+	}
 }
 
 static void ifn_unknown(struct input_state *inp) {
@@ -311,6 +413,18 @@ static void ofn_text(struct output_state *out,struct output_context *ctx) {
 	ost_idle(out);
 }
 
+static void ofn_data(struct output_state *out,struct output_context *ctx) {
+	struct gale_link *l = (struct gale_link *) out->private;
+	send_data(ctx,l->out_data);
+	ost_idle(out);
+}
+
+static void ofn_cid(struct output_state *out,struct output_context *ctx) {
+	struct gale_link *l = (struct gale_link *) out->private;
+	send_data(ctx,l->out_cid);
+	out->next = ofn_data;
+}
+
 static void ofn_idle(struct output_state *out,struct output_context *ctx) {
 	struct gale_link *l = (struct gale_link *) out->private;
 	struct gale_data data,key;
@@ -326,11 +440,59 @@ static void ofn_idle(struct output_state *out,struct output_context *ctx) {
 	/* version 1 */
 
 	       if (gale_wt_walk(l->out_watch,NULL,&key,&ptr)) {
+		out->next = ofn_text;
+		l->out_text = gale_text_from_data(key);
+		gale_wt_add(l->out_watch,key,NULL);
+		if (ptr == st_yes) gale_pack_u32(&data,opcode_watch);
+		else { 
+			gale_pack_u32(&data,opcode_forget);
+			assert(ptr == st_no); 
+		}
+		gale_pack_u32(&data,l->out_text.l * gale_wch_size());
 	} else if (gale_wt_walk(l->out_fetch,NULL,&key,&ptr)) {
+		assert(st_yes == ptr);
+		out->next = ofn_cid;
+		l->out_cid = key;
+		l->out_data = null_data;
+		gale_pack_u32(&data,opcode_fetch);
+		gale_pack_u32(&data,l->out_cid.l + l->out_data.l);
+		assert(CID_LENGTH == l->out_cid.l);
 	} else if (0 != l->out_publish.l) {
+		out->next = ofn_text;
+		l->out_text = l->out_publish;
+		l->out_publish = null_text;
+		gale_pack_u32(&data,opcode_publish);
+		gale_pack_u32(&data,l->out_text.l * gale_wch_size());
 	} else if (gale_wt_walk(l->out_supply,NULL,&key,&ptr)) {
+		out->next = ofn_cid;
+		l->out_cid = key;
+		assert(ptr != st_yes);
+		if (st_no == ptr) {
+			l->out_data = null_data;
+			gale_pack_u32(&data,opcode_miss);
+		} else {
+			l->out_data = * (struct gale_data *) ptr;
+			gale_pack_u32(&data,opcode_supply);
+		}
+		gale_pack_u32(&data,l->out_cid.l + l->out_data.l);
+		assert(CID_LENGTH == l->out_cid.l);
 	} else if (gale_wt_walk(l->out_assert,NULL,&key,&ptr)) {
+		out->next = ofn_cid;
+		l->out_cid = key;
+		l->out_data = null_data;
+		if (st_yes == ptr) gale_pack_u32(&data,opcode_assert);
+		else {
+			gale_pack_u32(&data,opcode_retract);
+			assert(st_no == ptr);
+		}
+		gale_pack_u32(&data,l->out_cid.l + l->out_data.l);
 	} else if (gale_wt_walk(l->out_complete,NULL,&key,&ptr)) {
+		assert(ptr == st_yes);
+		out->next = ofn_text;
+		l->out_text = gale_text_from_data(key);
+		gale_wt_add(l->out_complete,key,NULL);
+		gale_pack_u32(&data,opcode_complete);
+		gale_pack_u32(&data,l->out_text.l * gale_wch_size());
 	} else 
 
 	/* version 0 */

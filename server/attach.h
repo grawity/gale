@@ -10,7 +10,8 @@
 
 struct attach {
 	struct gale_text server;
-	struct gale_text subs;
+	struct gale_text in_subs;
+	struct gale_text out_subs;
 	struct attach *next;
 
 	struct gale_connect *connect;

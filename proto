@@ -18,22 +18,20 @@ All numbers appear in network byte order.
 
 Opcode 0x00000000: puff (transmit a message)
 Opcode 0x00000001: will (register a message to transmit upon disconnection)
-+--+--+--+--+--+--+--+--+--+--+--+-||-+-
-| cat. len. | message category ... || |
-+--+--+--+--+--+--+--+--+--+--+--+-||-+-
++--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+-
+| cat. len. | message category ... || | 0  0  0  0|
++--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+-
             |<--- category length --->|
-                  (in characters)
-  ____________________________________________________________________________
- /                                                                            \
+                    (in bytes)
 
                             |<------------ length (in bytes) ------------>|
- / -+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+-||-+- \
-(   |   type    |  length   | F.N. len. | frag. name ... || | value... || |   )
- \ -+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+-||-+- /
+   -+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+-||-+-
+... |   type    |  length   | F.N. len. | frag. name ... || | value... || | ...
+   -+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+-||-+-
                                         |<---- FN len. ---->|
-                                           (in characters)
-
- \__ Repeated any number of times; this is called a "fragment list" ... ______/
+    |                                      (in characters)                |
+    |                                                                     |
+    |<--- Repeated; this (with the zero) is called a "fragment list". --->|
 
 Opcode 0x00000002: gimme (subscribe to puffs)
 +--+--+--+--+--+--+--+--+-||-+
@@ -69,20 +67,20 @@ Opcode 0x00000006: complete (all known IDs retrieved for a resource)
 
 Opcode 0x00000007: assert (associate an ID with a resource)
 Opcode 0x00000008: retract (remove an ID-resource association)
-+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--||-+
-| ID (MD5 hash of resource data)                | category ... || |
-+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--||-+
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--||-+
+| ID (length and MD5 hash of resource data)                 | category ... || |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--||-+
 
 Opcode 0x00000009: fetch (retrieve the data corresponding to an ID)
 Opcode 0x0000000A: miss (cannot find the data corresponding to an ID)
-+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-| ID                                            |
-+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+| ID                                                        |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 
 Opcode 0x0000000B: supply (return the data corresponding to an ID)
-+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+
-| ID                                            | data ... || |
-+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+
+| ID                                                        | data ... || |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+
 
 *** Notes ***
 
@@ -133,10 +131,9 @@ Fragment Name           Type	Description
 -------------		----	-----------
 security/encrypted	data	An encapsulated, encrypted message.
 security/signature	data	An encapsulated, digitally signed message.
-   +--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+--+--+--+--+--+--+-||-+
-   | sig. len. | signature data ...   || | reserved* | fragment list ... || |
-   +--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+--+--+--+--+--+--+-||-+
-   * must equal zero
+   +--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+--+--+-||-+
+   | sig. len. | signature data ...   || | fragment list ... || |
+   +--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+--+--+-||-+
 
 message/subject		text	Subject
 message/keywords	text	--
