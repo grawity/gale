@@ -68,10 +68,21 @@ static void init_vars(struct passwd *pwd) {
 	user_id = lookup_id(tmp ? tmp : pwd->pw_name);
 
 	tmp = getenv("GALE_FROM");
+	if (!tmp) {
+		char *gecos = pwd->pw_gecos;
+		char *comma = strchr(gecos,',');
+		if (!comma) comma = gecos + strlen(gecos);
+		tmp = gale_malloc(30 + comma - gecos);
+		sprintf(tmp,"GALE_FROM=%.*s",comma - gecos,gecos);
+		putenv(tmp);
+	}
+
+#if 0
 	if (tmp) {
 		gale_free(user_id->comment);
 		user_id->comment = gale_strdup(tmp);
 	}
+#endif
 
 	if (!getenv("GALE_SUBS")) {
 		tmp = id_category(user_id,"GALE_SUBS=user","");

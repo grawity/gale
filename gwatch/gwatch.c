@@ -50,12 +50,12 @@ void watch_ping(const char *cat,struct gale_id *id) {
 	msg->data_size = strlen(msg->data);
 
 	if (id) {
-		struct gale_message *new = encrypt_message(id,msg);
+		struct gale_message *new = encrypt_message(1,&id,msg);
 		release_message(msg);
 		msg = new;
 	}
 
-	pings[count_pings++] = msg;
+	if (msg) pings[count_pings++] = msg;
 }
 
 void watch_id(struct gale_id *id) {
@@ -148,7 +148,7 @@ void incoming(
 	case m_logout: printf("<logout>"); break;
 	case m_ping: printf("<ping>"); break;
 	}
-	if (id) printf(" <%s>",id->name);
+	if (id) printf(" <%s>",auth_id_name(id));
 	if (from) printf(" (%s)",from);
 	printf("\r\n");
 	fflush(stdout);
@@ -158,8 +158,8 @@ void process_message(struct gale_message *msg) {
 	int type,len = strlen(msg->category);
 	char *next,*key,*data,*end;
 	struct gale_id *id_sign = NULL,*id_encrypt = NULL;
-	char *decrypt = NULL,*agent = NULL,*from = NULL;
-	int sequence = -1,first = 1;
+	char *agent = NULL,*from = NULL;
+	int sequence = -1;
 
 	if (len >= 7 && !strcmp(msg->category + len - 7,"/logout"))
 		type = m_logout;
@@ -170,19 +170,14 @@ void process_message(struct gale_message *msg) {
 
 	if (type != m_logout && max_num != 0 && ++so_far == max_num) bye(0);
 
+	id_encrypt = decrypt_message(msg,&msg);
+	if (!msg) goto error;
+
+	id_sign = verify_message(msg);
+
 	next = msg->data;
 	end = next + msg->data_size;
 	while (parse_header(&next,&key,&data,end)) {
-		if (first && !strcasecmp(key,"Encryption")) {
-			decrypt = gale_malloc(end - next + DECRYPTION_PADDING);
-			id_encrypt = decrypt_data(data,next,end,decrypt,&end);
-			if (!id_encrypt) goto error;
-			next = decrypt;
-			continue;
-		}
-		if (first && !strcasecmp(key,"Signature"))
-			id_sign = verify_data(data,next,end);
-		first = 0;
 		if (!strcasecmp(key,"Agent")) agent = data;
 		if (!strcasecmp(key,"From")) from = data;
 		if (!strcasecmp(key,"Sequence")) sequence = atoi(data);
@@ -190,7 +185,7 @@ void process_message(struct gale_message *msg) {
 
 #ifndef NDEBUG
 	if (!strcmp(msg->category,"debug/restart") && 
-	    id_sign && !strcmp(id_sign->name,"egnor@ofb.net")) {
+	    id_sign && !strcmp(auth_id_name(id_sign),"egnor@ofb.net")) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
 		gale_restart();
 	}
@@ -201,7 +196,7 @@ void process_message(struct gale_message *msg) {
 error:
 	if (id_sign) free_id(id_sign);
 	if (id_encrypt) free_id(id_encrypt);
-	if (decrypt) gale_free(decrypt);
+	if (msg) release_message(msg);
 }
 
 void usage(void) {

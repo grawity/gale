@@ -40,7 +40,7 @@ struct gale_message *slip(const char *cat,struct gale_id *sign) {
 	int len = strlen(agent);
 	static int sequence = 0;
 
-	if (user_id->comment) len += strlen(user_id->comment);
+	if (auth_id_comment(user_id)) len += strlen(auth_id_comment(user_id));
 
 	/* Create a new message. */
 	msg = new_message();
@@ -48,13 +48,14 @@ struct gale_message *slip(const char *cat,struct gale_id *sign) {
 	msg->data = gale_malloc(128 + len);
 
 	/* A few obvious headers. */
-	if (user_id->comment)
+	if (auth_id_comment(user_id))
 		sprintf(msg->data,
 			"From: %s\r\n"
 			"Time: %lu\r\n"
 			"Agent: %s\r\n"
 			"Sequence: %d\r\n"
-			"\r\n",user_id->comment,time(NULL),agent,sequence++);
+			"\r\n",
+		        auth_id_comment(user_id),time(NULL),agent,sequence++);
 	else
 		sprintf(msg->data,
 			"Time: %lu\r\n"
@@ -67,8 +68,10 @@ struct gale_message *slip(const char *cat,struct gale_id *sign) {
 	/* Sign the message, if appropriate. */
 	if (sign) {
 		struct gale_message *new = sign_message(sign,msg);
-		release_message(msg);
-		msg = new;
+		if (new) {
+			release_message(msg);
+			msg = new;
+		}
 	}
 
 	return msg;
@@ -119,7 +122,7 @@ void default_gsubrc(void) {
 		printf(" [rcpt]");
 	fputs(nl,stdout);
 
-	/* Print who the message is from and to.
+	/* Print who the message is from and to. */
 	{
 		char *from_comment = getenv("HEADER_FROM");
 		char *from_id = getenv("GALE_SIGNED");
@@ -206,10 +209,10 @@ void present_message(struct gale_message *msg) {
 	int pfd[2];             /* Pipe file descriptors. */
 
 	/* Lots of crap.  Discussed below, where they're used. */
-	char *next,**envp = NULL,*key,*data,*end,*tmp,*decrypt = NULL;
+	char *next,**envp = NULL,*key,*data,*end,*tmp;
 	struct gale_id *id_encrypted = NULL,*id_sign = NULL;
 	struct gale_message *rcpt = NULL;
-	int envp_global,envp_alloc,envp_len,first = 1,status;
+	int envp_global,envp_alloc,envp_len,status;
 	pid_t pid;
 
 	/* Count the number of global environment variables. */
@@ -227,36 +230,27 @@ void present_message(struct gale_message *msg) {
 	sprintf(next,"GALE_CATEGORY=%s",msg->category);
 	envp[envp_len++] = next;
 
+	/* Decrypt, if necessary. */
+	id_encrypted = decrypt_message(msg,&msg);
+	if (!msg) goto error;
+	if (id_encrypted) {
+		tmp = gale_malloc(strlen(auth_id_name(id_encrypted)) + 16);
+		sprintf(tmp,"GALE_ENCRYPTED=%s",auth_id_name(id_encrypted));
+		envp[envp_len++] = tmp;
+	}
+
+	/* Verify a signature, if possible. */
+	id_sign = verify_message(msg);
+	if (id_sign) {
+		tmp = gale_malloc(strlen(auth_id_name(id_sign))+13);
+		sprintf(tmp,"GALE_SIGNED=%s",auth_id_name(id_sign));
+		envp[envp_len++] = tmp;
+	}
+
 	/* Go through the message headers. */
 	next = msg->data;
 	end = msg->data + msg->data_size;
 	while (parse_header(&next,&key,&data,end)) {
-
-		/* Decrypt, if we can. */
-		if (first && !decrypt && !strcasecmp(key,"Encryption")) {
-			decrypt = gale_malloc(end - next + DECRYPTION_PADDING);
-			id_encrypted = decrypt_data(data,next,end,decrypt,&end);
-			if (!id_encrypted) goto error;
-			next = decrypt;
-			tmp = gale_malloc(strlen(id_encrypted->name) + 16);
-			sprintf(tmp,"GALE_ENCRYPTED=%s",id_encrypted->name);
-			envp[envp_len++] = tmp;
-			continue;
-		}
-
-		/* Verify a signature, if we can. */
-		if (first && !strcasecmp(key,"Signature")) {
-			id_sign = verify_data(data,next,end);
-			if (id_sign) {
-				tmp = gale_malloc(strlen(id_sign->name)+13);
-				sprintf(tmp,"GALE_SIGNED=%s",id_sign->name);
-				envp[envp_len++] = tmp;
-			}
-		}
-
-		/* No longer the first header, so signature and encryption
-                   headers are no longer valid. */
-		first = 0;
 
 		/* Process receipts, if we do. */
 		if (do_ping && !strcasecmp(key,"Receipt-To")) {
@@ -300,7 +294,7 @@ void present_message(struct gale_message *msg) {
 #ifndef NDEBUG
 	/* In debug mode, restart if we get a properly authorized message. */
 	if (!strcmp(msg->category,"debug/restart") &&
-	    id_sign && !strcmp(id_sign->name,"egnor@ofb.net")) {
+	    id_sign && !strcmp(auth_id_name(id_sign),"egnor@ofb.net")) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
 		gale_restart();
 	}
@@ -362,10 +356,7 @@ void present_message(struct gale_message *msg) {
 	}
 
 	/* Put the receipt on the queue, if we have one. */
-	if (rcpt && !status) {
-		link_put(client->link,rcpt);
-		release_message(rcpt);
-	}
+	if (rcpt && !status) link_put(client->link,rcpt);
 
 error:
 	/* Clean up after ourselves. */
@@ -373,9 +364,10 @@ error:
 		while (envp_global != envp_len) gale_free(envp[envp_global++]);
 		gale_free(envp);
 	}
-	if (decrypt) gale_free(decrypt);
 	if (id_encrypted) free_id(id_encrypted);
 	if (id_sign) free_id(id_sign);
+	if (msg) release_message(msg);
+	if (rcpt) release_message(rcpt);
 }
 
 /* Send a login notification, arrange for a logout notification. */
@@ -480,6 +472,8 @@ int main(int argc,char **argv) {
 
 	/* Generate keys so people can send us messages. */
 	gale_keys();
+	if (!auth_id_private(user_id)) 
+		auth_id_gen(user_id,getenv("GALE_FROM"));
 
 #ifndef NDEBUG
 	/* If in debug mode, listen to debug/ for restart messages. */

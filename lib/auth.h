@@ -8,4 +8,9 @@ char *sign_data(struct gale_id *eid,const char *data,const char *end);
 char *encrypt_data(struct gale_id *eid,const char *data,const char *dend,
                    char *out,char **oend);
 
+struct gale_id *verify_data(const char *sig,const char *data,const char *end);
+struct gale_id *decrypt_data(char *header,const char *data,const char *end,
+                             char *out,char **oend);
+
+
 #endif

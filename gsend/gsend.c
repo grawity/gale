@@ -48,16 +48,16 @@ void headers(void) {
 	}
 
 	/* These are fairly obvious. */
-	if (!aflag && !have_from && user_id->comment) {
-		reserve(20 + strlen(user_id->comment));
+	if (!aflag && !have_from && auth_id_comment(user_id)) {
+		reserve(20 + strlen(auth_id_comment(user_id)));
 		sprintf(msg->data + msg->data_size,
-		        "From: %s\r\n",user_id->comment);
+		        "From: %s\r\n",auth_id_comment(user_id));
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
-	if (!have_to && recipient && recipient->comment) {
-		reserve(20 + strlen(recipient->comment));
+	if (!have_to && recipient && auth_id_comment(recipient)) {
+		reserve(20 + strlen(auth_id_comment(recipient)));
 		sprintf(msg->data + msg->data_size,
-		        "To: %s\r\n",recipient->comment);
+		        "To: %s\r\n",auth_id_comment(recipient));
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
 	if (!have_time) {
@@ -83,7 +83,7 @@ void usage(void) {
 	fprintf(stderr,
 		"%s\n"
 		"usage: gsend [-uU] [-e id] [-p cat] cat\n"
-		"flags: -e id       Encrypt message with <id>'s public key\n"
+		"flags: -e id       Send private message to <id>\n"
 		"       -a          Do not sign message (anonymous)\n"
 		"       -r          Do not retry server connection\n"
 		"       -p cat      Request a return receipt\n"
@@ -121,11 +121,16 @@ int main(int argc,char *argv[]) {
 	/* Create a new message object to send. */
 	msg = new_message();
 
+	if (eflag || !aflag) {
+		gale_keys();
+		if (!auth_id_public(user_id)) 
+			auth_id_gen(user_id,getenv("GALE_FROM"));
+	}
+
 	/* If encrypting, look up the recipient. */
 	if (eflag) {
 		/* Generate our keys, in case we're sending to ourselves.
 		   They should really exist by that point, but hey... */
-		gale_keys();
 		recipient = lookup_id(eflag);
 	}
 
@@ -154,7 +159,7 @@ int main(int argc,char *argv[]) {
 	/* If stdin is a TTY, prompt the user. */
 	if (ttyin) {
 		printf("Message for %s in category \"%s\":\n",
-			recipient ? recipient->name : "*everyone*",
+			recipient ? auth_id_name(recipient) : "*everyone*",
 			msg->category);
 		printf("(End your message with EOF or a solitary dot.)\n");
 	}
@@ -215,15 +220,18 @@ int main(int argc,char *argv[]) {
 	/* Sign the message, unless we shouldn't. */
 	if (!aflag) {
 		struct gale_message *new = sign_message(user_id,msg);
-		release_message(msg);
-		msg = new;
+		if (new) {
+			release_message(msg);
+			msg = new;
+		}
 	}
 
 	/* Ounce is being completely psychotic right now. */
 	if (recipient) {
-		struct gale_message *new = encrypt_message(recipient,msg);
+		struct gale_message *new = encrypt_message(1,&recipient,msg);
 		release_message(msg);
 		msg = new;
+		if (msg == NULL) gale_alert(GALE_ERROR,"encryption failure",0);
 	}
 
 	/* Add the message to the outgoing queue. */

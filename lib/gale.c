@@ -1,8 +1,10 @@
 #include <string.h>
 #include "gale/util.h"
 
-void *gale_realloc(const void *s,size_t len) {
-	return gale_memdup(s,len); /* XXX bad bad */
+void *gale_realloc(void *s,size_t len) {
+	void *n = s ? gale_memdup(s,len) : gale_malloc(len);
+	if (s) gale_free(s);
+	return n;
 }
 
 void *gale_memdup(const void *s,int len) {

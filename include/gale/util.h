@@ -43,7 +43,7 @@ pid_t gale_exec(const char *prog,char * const *argv,int *in,int *out,
    whatever allocation policy they want. */
 void *gale_malloc(size_t size);
 void gale_free(void *);
-void *gale_realloc(const void *,size_t);
+void *gale_realloc(void *,size_t);
 
 /* Duplicate memory, strings, counted strings, etc. */
 void *gale_memdup(const void *,int);

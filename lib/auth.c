@@ -99,16 +99,20 @@ static int read_file(const char *dir,int mode,const char *file) {
 }
 
 static int read_pub_key(struct gale_id *id,R_RSA_PUBLIC_KEY *key) {
-	int r,fd = read_file("public-keys",0777,id->name);
+	const char *name = auth_id_name(id);
+	int r,fd = read_file("public-keys",0777,name);
+	const char *at = strchr(name,'@');
 
-	if (fd < 0 && !strcmp(id->domain,getenv("GALE_DOMAIN"))) {
-		struct passwd *pwd = getpwnam(id->user);
+	if (fd < 0 && at && !strcmp(at + 1,getenv("GALE_DOMAIN"))) {
+		char *user = gale_strndup(name,at - name);
+		struct passwd *pwd = getpwnam(user);
 		if (pwd) {
 			char *tmp = gale_malloc(strlen(pwd->pw_dir) + 20);
 			sprintf(tmp,"%s/.gale-public-key",pwd->pw_dir);
 			fd = open(tmp,O_RDONLY);
 			gale_free(tmp);
 		}
+		gale_free(user);
 	}
 
 	if (fd < 0) return -1;
@@ -121,7 +125,7 @@ static int read_pub_key(struct gale_id *id,R_RSA_PUBLIC_KEY *key) {
 }
 
 static int read_priv_key(struct gale_id *id,R_RSA_PRIVATE_KEY *key) {
-	int r,fd = read_file("private-keys",0700,id->name);
+	int r,fd = read_file("private-keys",0700,auth_id_name(id));
 	if (fd < 0) return -1;
 	r = read(fd,key,sizeof(*key));
 	close(fd);
@@ -142,16 +146,24 @@ static int write_file(const char *dir,int dmode,const char *file,int fmode) {
 static void check_dot_key(void) {
 	struct stat dot,not_dot;
 	int dot_st,not_dot_st;
-	const char *dot_fn,*not_dot_fn;
+	const char *dot_fn,*not_dot_fn,*domain,*username;
+	char *tmp;
 
-	if (strcmp(user_id->domain,getenv("GALE_DOMAIN"))) return;
-	if (strcmp(user_id->user,getenv("LOGNAME"))) return;
+	domain = getenv("GALE_DOMAIN");
+	username = getenv("LOGNAME");
+	tmp = gale_malloc(strlen(domain) + strlen(username) + 2);
+	sprintf(tmp,"%s@%s",username,domain);
+	if (strcmp(auth_id_name(user_id),tmp)) {
+		gale_free(tmp);
+		return;
+	}
+	gale_free(tmp);
 
 	dot_fn = dir_file(home_dir,".gale-public-key");
 	dot_st = stat(dot_fn,&dot);
 
 	sub_dir(dot_gale,"public-keys",0777);
-	not_dot_fn = dir_file(dot_gale,user_id->name);
+	not_dot_fn = dir_file(dot_gale,auth_id_name(user_id));
 	not_dot_st = stat(not_dot_fn,&not_dot);
 
 	if (dot_st || not_dot_st ||
@@ -196,13 +208,13 @@ void gale_keys(void) {
 		rsa_err("R_GeneratePEMKeys");
 	gale_alert(GALE_NOTICE,"Done generating keys.",0);
 
-	fd = write_file("private-keys",0700,user_id->name,0600);
+	fd = write_file("private-keys",0700,auth_id_name(user_id),0600);
 	priv_key.bits = htonl(priv_key.bits);
 	write(fd,&priv_key,sizeof(priv_key));
 	priv_key.bits = ntohl(priv_key.bits);
 	close(fd);
 
-	fd = write_file("public-keys",0777,user_id->name,0666);
+	fd = write_file("public-keys",0777,auth_id_name(user_id),0666);
 	pub_key.bits = htonl(pub_key.bits);
 	write(fd,&pub_key,sizeof(pub_key));
 	pub_key.bits = ntohl(pub_key.bits);
@@ -225,9 +237,9 @@ char *sign_data(struct gale_id *id,const char *data,const char *end) {
 	i = R_SignFinal(&ctx,sig,&len,&priv_key);
 	if (i) rsa_err("R_SignFinal");
 
-	i = strlen(id->name);
+	i = strlen(auth_id_name(id));
 	ret = gale_malloc(ENCODED_CONTENT_LEN(len) + i + 10);
-	sprintf(ret,"RSA/MD5 %s ",id->name);
+	sprintf(ret,"RSA/MD5 %s ",auth_id_name(id));
 	if (R_EncodePEMBlock(ret + i + 9,&len,sig,len)) 
 		rsa_err("R_EncodePEMBlock");
 	ret[i + 9 + len] = '\0';
@@ -236,8 +248,8 @@ char *sign_data(struct gale_id *id,const char *data,const char *end) {
 }
 
 void bad_sig(struct gale_id *id,char *msg) {
-	char *tmp = gale_malloc(128 + strlen(id->name) + strlen(msg));
-	sprintf(tmp,"CAN'T VALIDATE signature \"%s\"; %s",id->name,msg);
+	char *tmp = gale_malloc(128 + strlen(auth_id_name(id)) + strlen(msg));
+	sprintf(tmp,"CAN'T VALIDATE signature \"%s\"; %s",auth_id_name(id),msg);
 	gale_alert(GALE_WARNING,tmp,0);
 	gale_free(tmp);
 }
@@ -316,8 +328,8 @@ char *encrypt_data(struct gale_id *id,const char *data,const char *dend,
 	gale_keys();
 
 	if (read_pub_key(id,&key)) {
-		char *tmp = gale_malloc(128 + strlen(id->name));
-		sprintf(tmp,"Can't find key \"%s\"\r\n",id->name);
+		char *tmp = gale_malloc(128 + strlen(auth_id_name(id)));
+		sprintf(tmp,"Can't find key \"%s\"\r\n",auth_id_name(id));
 		gale_alert(GALE_ERROR,tmp,0);
 	}
 	get_random(&rand);
@@ -329,10 +341,10 @@ char *encrypt_data(struct gale_id *id,const char *data,const char *dend,
 		rsa_err("R_SealFinal");
 	*oend = out + outlen + part;
 
-	len = strlen(id->name);
+	len = strlen(auth_id_name(id));
 	tmp = gale_malloc(12 + len + ENCODED_CONTENT_LEN(sizeof(iv)) + 
 	                   ENCODED_CONTENT_LEN(ekeylen));
-	sprintf(tmp,"RSA/3DES %s ",id->name); len += 10;
+	sprintf(tmp,"RSA/3DES %s ",auth_id_name(id)); len += 10;
 	if (R_EncodePEMBlock(tmp + len,&enclen,iv,sizeof(iv)))
 		rsa_err("R_EncodePEMBlock");
 	tmp[len + enclen] = ' '; len += enclen + 1;
@@ -344,8 +356,17 @@ char *encrypt_data(struct gale_id *id,const char *data,const char *dend,
 }
 
 void bad_msg(struct gale_id *id,char *msg) {
-	char *tmp = gale_malloc(128 + strlen(id->name) + strlen(msg));
-	sprintf(tmp,"CAN'T DECRYPT message to \"%s\"; %s",id->name,msg);
+	const char *name = id ? auth_id_name(id) : NULL;
+	char *tmp;
+
+	if (name) {
+		tmp = gale_malloc(128 + strlen(name) + strlen(msg));
+		sprintf(tmp,"CAN'T DECRYPT message to \"%s\"; %s",name,msg);
+	} else {
+		tmp = gale_malloc(128 + strlen(msg));
+		sprintf(tmp,"CAN'T DECRYPT message; %s",msg);
+	}
+
 	gale_alert(GALE_WARNING,tmp,0);
 	gale_free(tmp);
 }
