@@ -367,7 +367,7 @@ void default_gsubrc(void) {
 			len += id_width(G_("GALE_FROM"),G_("unverified")) 
 			    +  from_name.l + 3;
 
-		while (len++ < termwid - 24) gale_print(stdout,0,G_(" "));
+		while (len++ < termwid - 25) gale_print(stdout,0,G_(" "));
 		gale_print(stdout,0,G_("--"));
 		if (0 == from_name.l)
 			print_id(G_("GALE_FROM"),G_("anonymous"));

@@ -336,16 +336,7 @@ struct gale_text gale_print_fragment(struct gale_fragment frag,int indent) {
 		else if (0 == gale_time_compare(gale_time_forever(),t))
 			return G_("(never)");
 		else
-		{
-			struct timeval tv;
-			time_t sec;
-			char buf[30];
-			gale_time_to(&tv,t);
-			sec = tv.tv_sec;
-			strftime(buf,sizeof(buf),"%Y-%m-%d %H:%M",
-				 localtime(&sec));
-			return gale_text_from(NULL,buf,-1);
-		}
+			return gale_time_format(t);
 
 	case frag_number:
 		return gale_text_from_number(frag.value.number,10,0);

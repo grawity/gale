@@ -135,12 +135,11 @@ struct gale_text gale_time_format(struct gale_time time) {
 	gale_time_to(&tv,time);
 	tv.tv_sec += 3600; /* GMT -> BMT */
 	tm = gmtime(&tv.tv_sec);
-	strftime(date,sizeof(date)," %d.%m.%Y",tm);
+	strftime(date,sizeof(date),"%Y.%m.%d @",tm);
 
-	beat = (3600*tm->tm_hour + 60*tm->tm_min + tm->tm_sec) * 10000 / 86400;
-	return gale_text_concat(5,G_("@"),
-		gale_text_from_number(beat / 10,10,3),
-		G_("."),
-		gale_text_from_number(beat % 10,10,1),
-		gale_text_from(NULL,date,-1));
+	beat = 100000 * (3600*tm->tm_hour + 60*tm->tm_min + tm->tm_sec) / 86400;
+	return gale_text_concat(4,
+		gale_text_from(NULL,date,-1),
+		gale_text_from_number(beat / 100,10,-3),
+		G_("."),gale_text_from_number(beat % 100,10,-2));
 }

@@ -57,13 +57,7 @@ void gale_alert(int severity,struct gale_text msg,int err) {
 	struct error_message *message;
 	struct gale_text stamp,prefix,label;
 
-	{
-		char timebuf[256];
-		time_t when = time(NULL);
-		strftime(timebuf,40,"%Y-%m-%d %H:%M:%S",localtime(&when));
-		stamp = gale_text_from(NULL,timebuf,-1);
-	}
-
+	stamp = gale_time_format(gale_time_now());
 	prefix = null_text;
 	if (gale_global && gale_global->error_prefix)
 		prefix = gale_text_concat(2,G_(" "),
