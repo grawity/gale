@@ -125,8 +125,12 @@ int main(int argc,char *argv[]) {
 		gale_retry(client);
 	}
 
-	if (ttyin)
-		printf("Enter your message.  End it with an EOF or a dot.\n");
+	if (ttyin) {
+		printf("Message for %s in category \"%s\":\n",
+			recipient ? recipient->name : "*everyone*",
+			msg->category);
+		printf("(End your message with EOF or a solitary dot.)\n");
+	}
 
 	if (uflag == 0) headers();
 
