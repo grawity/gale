@@ -3,7 +3,7 @@
 sysdepincdir = $(exec_prefix)/include/gale
 
 pkginclude_HEADERS = \
-	all.h auth.h client.h compat.h core.h crypto.o \
+	all.h auth.h client.h compat.h core.h crypto.h \
 	gsubrc.h key.h misc.h types.h globals.h
 sysdepinc_HEADERS = config.h
 
