@@ -11,7 +11,7 @@
 #include "gale/all.h"
 
 void *gale_malloc(size_t size) { return malloc(size); }
-void gale_free(void *ptr) { return free(ptr); }
+void gale_free(void *ptr) { free(ptr); }
 
 ZSubscription_t sub;
 
