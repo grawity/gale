@@ -5,6 +5,8 @@ extern int gale_debug;
 
 void gale_dprintf(int level,const char *fmt,...);
 void gale_daemon(int keep_tty);
+void gale_kill(const char *,int do_kill);
 void gale_cleanup(void (*)(void));
+void gale_do_cleanup();
 
 #endif
