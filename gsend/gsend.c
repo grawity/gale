@@ -109,7 +109,7 @@ void headers(void) {
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
 char *get_line(int tty)
 {
-	int alloc,len;
+	int alloc,len,num;
 	char *line;
 
 	(void) tty;
@@ -132,11 +132,12 @@ char *get_line(int tty)
 	len = 0;
 
 	do {
-		if (len == alloc) line = gale_realloc(line,alloc *= 2);
+		if (len + 40 > alloc) line = gale_realloc(line,alloc *= 2);
 		line[alloc - 2] = '\0';
 		if (!fgets(line + len,alloc - len,stdin)) break;
-		len += strlen(line + len);
-	} while (line[len - 1] != '\n');
+		num = strlen(line + len);
+		len += num;
+	} while (num && line[len - 1] != '\n');
 
 	if (!len) {
 		gale_free(line);
