@@ -97,7 +97,7 @@ static void set_select(oop_adapter_adns *a) {
 	FD_ZERO(&xfd);
 	gettimeofday(&now,NULL);
 	adns_beforeselect(a->state,&maxfd,&rfd,&wfd,&xfd,&out,&buf,&now);
-	oop_select_set(a->select,maxfd,&rfd,&wfd,out);
+	oop_select_set(a->select,maxfd,&rfd,&wfd,&xfd,out);
 }
 
 static void *on_process(oop_source *source,struct timeval when,void *data) {
@@ -133,14 +133,12 @@ static void *on_process(oop_source *source,struct timeval when,void *data) {
 
 static void *on_select(
 	oop_adapter_select *select,
-	int num,fd_set *rfd,fd_set *wfd,
+	int num,fd_set *rfd,fd_set *wfd,fd_set *xfd,
 	struct timeval now,void *data)
 {
 	oop_adapter_adns *a = (oop_adapter_adns *) data;
-	fd_set xfd;
 
-	FD_ZERO(&xfd);
-	adns_afterselect(a->state,num,rfd,wfd,&xfd,&now);
+	adns_afterselect(a->state,num,rfd,wfd,xfd,&now);
 	return on_process(a->source,OOP_TIME_NOW,a);
 }
 

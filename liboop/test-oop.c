@@ -21,6 +21,10 @@
 GMainLoop *glib_loop;
 #endif
 
+#ifdef HAVE_READLINE
+#include <readline/readline.h>
+#endif
+
 struct timer {
 	struct timeval tv;
 	int delay;
@@ -38,8 +42,11 @@ static void usage(void) {
 "         glib     GLib source adapter\n"
 #endif
 "sinks:   timer    some timers\n"
-"         echo     a stdin->stdout copy\n"
 "         signal   some signal handlers\n"
+"         echo     a stdin->stdout copy\n"
+#ifdef HAVE_READLINE
+"         readline like echo but with line editing\n"
+#endif
 #ifdef HAVE_ADNS
 "         adns     some asynchronous DNS lookups\n"
 #endif
@@ -80,23 +87,6 @@ void add_timer(oop_source *source,int interval) {
 	on_timer(source,timer->tv,timer);
 }
 
-/* -- echo ----------------------------------------------------------------- */
-
-static oop_call_fd on_data;
-static void *on_data(oop_source *source,int fd,oop_event event,void *data) {
-	char buf[BUFSIZ];
-	int r = read(fd,buf,sizeof(buf));
-	write(1,buf,r);
-	return OOP_CONTINUE;
-}
-
-static oop_call_signal stop_data;
-static void *stop_data(oop_source *source,int sig,void *data) {
-	source->cancel_fd(source,0,OOP_READ);
-	source->cancel_signal(source,SIGQUIT,stop_data,NULL);
-	return OOP_CONTINUE;
-}
-
 /* -- signal --------------------------------------------------------------- */
 
 static oop_call_signal on_signal;
@@ -117,6 +107,59 @@ static void *on_signal(oop_source *source,int sig,void *data) {
 	return OOP_CONTINUE;
 }
 
+/* -- echo ----------------------------------------------------------------- */
+
+static oop_call_fd on_data;
+static void *on_data(oop_source *source,int fd,oop_event event,void *data) {
+	char buf[BUFSIZ];
+	int r = read(fd,buf,sizeof(buf));
+	write(1,buf,r);
+	return OOP_CONTINUE;
+}
+
+static oop_call_signal stop_data;
+static void *stop_data(oop_source *source,int sig,void *data) {
+	source->cancel_fd(source,0,OOP_READ);
+	source->cancel_signal(source,SIGQUIT,stop_data,NULL);
+	return OOP_CONTINUE;
+}
+
+/* -- readline ------------------------------------------------------------- */
+
+#ifdef HAVE_READLINE
+
+static void on_readline(const char *input) {
+	if (NULL == input)
+		puts("\rreadline: EOF");
+	else {
+		fputs("readline: \"",stdout);
+		fputs(input,stdout);
+		puts("\"");
+	}
+}
+
+static void *stop_readline(oop_source *src,int sig,void *data) {
+	oop_readline_cancel(src);
+	src->cancel_signal(src,SIGQUIT,stop_readline,NULL);
+	rl_callback_handler_remove();
+	return OOP_CONTINUE;
+}
+
+static void add_readline(oop_source *src) {
+	rl_callback_handler_install("> ",(VFunction *) on_readline);
+	oop_readline_register(src);
+	src->on_signal(src,SIGQUIT,stop_readline,NULL);
+}
+
+#else
+
+static void add_readline(oop_source *src) {
+	fputs("sorry, readline not available\n",stderr);
+	usage();
+}
+
+#endif
+
 /* -- adns ----------------------------------------------------------------- */
 
 #ifdef HAVE_ADNS
@@ -129,7 +172,7 @@ static void *on_signal(oop_source *source,int sig,void *data) {
 oop_adns_query *q[NUM_Q];
 oop_adapter_adns *adns;
 
-void cancel_adns(void) {
+static void cancel_adns(void) {
 	int i;
 
 	for (i = 0; i < NUM_Q; ++i)
@@ -144,13 +187,13 @@ void cancel_adns(void) {
 	}
 }
 
-void *stop_lookup(oop_source *src,int sig,void *data) {
+static void *stop_lookup(oop_source *src,int sig,void *data) {
 	cancel_adns();
 	src->cancel_signal(src,SIGQUIT,stop_lookup,NULL);
 	return OOP_CONTINUE;
 }
 
-void *on_lookup(oop_adapter_adns *adns,adns_answer *reply,void *data) {
+static void *on_lookup(oop_adapter_adns *adns,adns_answer *reply,void *data) {
 	int i;
 	for (i = 0; i < NUM_Q; ++i) if (data == &q[i]) q[i] = NULL;
 
@@ -358,17 +401,24 @@ static void add_sink(oop_source *src,const char *name) {
 		return;
 	}
 
+	if (!strcmp(name,"signal")) {
+		src->on_signal(src,SIGINT,on_signal,NULL);
+		src->on_signal(src,SIGQUIT,on_signal,NULL);
+		return;
+	}
+
 	if (!strcmp(name,"echo")) {
 		src->on_fd(src,0,OOP_READ,on_data,NULL);
 		src->on_signal(src,SIGQUIT,stop_data,NULL);
 		return;
 	}
 
-	if (!strcmp(name,"signal")) {
-		src->on_signal(src,SIGINT,on_signal,NULL);
-		src->on_signal(src,SIGQUIT,on_signal,NULL);
+#ifdef HAVE_READLINE
+	if (!strcmp(name,"readline")) {
+		add_readline(src);
 		return;
 	}
+#endif
 
 #ifdef HAVE_ADNS
 	if (!strcmp(name,"adns")) {

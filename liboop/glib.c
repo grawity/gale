@@ -24,16 +24,17 @@ static int use_count = 0;
 static oop_source_sys *sys;
 static oop_adapter_select *sel;
 
-static fd_set read_set,write_set;
+static fd_set read_set,write_set,except_set;
 static int count;
 static void *ret = NULL;
 
 static void *on_select(
-	oop_adapter_select *s,int num,fd_set *r,fd_set *w,
-	struct timeval now,void *x) 
+	oop_adapter_select *s,int num,fd_set *r,fd_set *w,fd_set *x,
+	struct timeval now,void *unused) 
 {
 	read_set = *r;
 	write_set = *w;
+	except_set = *x;
 	count = num;
 	return &use_count;
 }
@@ -44,12 +45,17 @@ static gint on_poll(GPollFD *array,guint num,gint timeout) {
 
 	FD_ZERO(&read_set);
 	FD_ZERO(&write_set);
+	FD_ZERO(&except_set);
 	count = 0;
 	for (i = 0; i < num; ++i) {
 		if (array[i].events & G_IO_IN)
 			FD_SET(array[i].fd,&read_set);
 		if (array[i].events & G_IO_OUT)
 			FD_SET(array[i].fd,&write_set);
+		if (array[i].events & G_IO_PRI)
+			FD_SET(array[i].fd,&except_set);
+		/* {G_IO_,POLL}{ERR,HUP,INVAL} don't correspond to anything
+		   in select(2), and aren't `normal' events anyway. */
 		if (array[i].fd >= count)
 			count = 1 + array[i].fd;
 	}
@@ -57,7 +63,8 @@ static gint on_poll(GPollFD *array,guint num,gint timeout) {
 	tv.tv_sec = timeout / 1000;
 	tv.tv_usec = timeout % 1000;
 
-	oop_select_set(sel,count,&read_set,&write_set,timeout < 0 ? NULL : &tv);
+	oop_select_set(sel,count,&read_set,&write_set,&except_set,
+		       timeout < 0 ? NULL : &tv);
 	ret = oop_sys_run(sys);
 
 	if (&use_count != ret) {
@@ -71,6 +78,8 @@ static gint on_poll(GPollFD *array,guint num,gint timeout) {
 			array[i].revents |= G_IO_IN;
 		if (FD_ISSET(array[i].fd,&write_set))
 			array[i].revents |= G_IO_OUT;
+		if (FD_ISSET(array[i].fd,&except_set))
+			array[i].revents |= G_IO_PRI;
 	}
 
 	return count;

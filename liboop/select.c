@@ -9,7 +9,7 @@
 #include <assert.h>
 
 struct select_set {
-	fd_set rfd,wfd;
+	fd_set rfd,wfd,xfd;
 };
 
 struct oop_adapter_select {
@@ -33,8 +33,10 @@ oop_adapter_select *oop_select_new(
 	s->source = source;
 	FD_ZERO(&s->watch.rfd);
 	FD_ZERO(&s->watch.wfd);
+	FD_ZERO(&s->watch.xfd);
 	FD_ZERO(&s->active.rfd);
 	FD_ZERO(&s->active.wfd);
+	FD_ZERO(&s->active.xfd);
 	s->num_fd = 0;
 	s->do_timeout = 0;
 	s->is_active = 0;
@@ -58,19 +60,22 @@ static void deactivate(oop_adapter_select *s) {
 		s->num_fd_active = 0;
 		FD_ZERO(&s->active.rfd);
 		FD_ZERO(&s->active.wfd);
+		FD_ZERO(&s->active.xfd);
 	}
 }
 
 void oop_select_set(
 	oop_adapter_select *s,int num_fd,
-	fd_set *rfd,fd_set *wfd,struct timeval *timeout)
+	fd_set *rfd,fd_set *wfd,fd_set *xfd,struct timeval *timeout)
 {
 	int fd;
 	for (fd = 0; fd < num_fd || fd < s->num_fd; ++fd) {
 		int rfd_set = fd < num_fd && FD_ISSET(fd,rfd);
 		int wfd_set = fd < num_fd && FD_ISSET(fd,wfd);
+		int xfd_set = fd < num_fd && FD_ISSET(fd,xfd);
 		int w_rfd_set = fd < s->num_fd && FD_ISSET(fd,&s->watch.rfd);
 		int w_wfd_set = fd < s->num_fd && FD_ISSET(fd,&s->watch.wfd);
+		int w_xfd_set = fd < s->num_fd && FD_ISSET(fd,&s->watch.xfd);
 
 		if (rfd_set && !w_rfd_set) {
 			s->source->on_fd(s->source,fd,OOP_READ,on_fd,s);
@@ -90,6 +95,16 @@ void oop_select_set(
 		if (!wfd_set && w_wfd_set) {
 			s->source->cancel_fd(s->source,fd,OOP_WRITE);
 			FD_CLR(fd,&s->watch.wfd);
+		}
+
+		if (xfd_set && !w_xfd_set) {
+			s->source->on_fd(s->source,fd,OOP_EXCEPT,on_fd,s);
+			FD_SET(fd,&s->watch.xfd);
+		}
+
+		if (!xfd_set && w_xfd_set) {
+			s->source->cancel_fd(s->source,fd,OOP_EXCEPT);
+			FD_CLR(fd,&s->watch.xfd);
 		}
 	}
 
@@ -118,7 +133,7 @@ void oop_select_set(
 void oop_select_delete(oop_adapter_select *s) {
 	fd_set fd;
 	FD_ZERO(&fd);
-	oop_select_set(s,0,&fd,&fd,NULL);
+	oop_select_set(s,0,&fd,&fd,&fd,NULL);
 	oop_free(s);
 }
 
@@ -140,6 +155,10 @@ static void *on_fd(oop_source *source,int fd,oop_event event,void *data) {
 		assert(FD_ISSET(fd,&s->watch.wfd));
 		set_fd(fd,&s->active.wfd,&s->num_fd_active);
 		break;
+	case OOP_EXCEPT:
+		assert(FD_ISSET(fd,&s->watch.xfd));
+		set_fd(fd,&s->active.xfd,&s->num_fd_active);
+		break;
 	default:
 		assert(0);
 		break;
@@ -160,5 +179,5 @@ static void *on_collect(oop_source *source,struct timeval when,void *data) {
 	struct timeval now;
 	gettimeofday(&now,NULL);
 	deactivate(s);
-	return s->call(s,num,&set.rfd,&set.wfd,now,s->data);
+	return s->call(s,num,&set.rfd,&set.wfd,&set.xfd,now,s->data);
 }

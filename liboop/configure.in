@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(liboop,0.5)
+AM_INIT_AUTOMAKE(liboop,0.6)
 AC_CANONICAL_HOST
 
 dnl Use libtool for shared libraries
@@ -27,9 +27,15 @@ esac
 AC_CHECK_HEADERS(poll.h sys/select.h)
 
 AC_CHECK_LIB(adns,adns_init,[
-  AC_DEFINE(HAVE_ADNS)
   ADNS_LIBS="liboop-adns.la -ladns"
+  AC_DEFINE(HAVE_ADNS)
 ])
+
+AC_CHECK_LIB(readline,rl_callback_handler_install,[
+AC_CHECK_HEADER(readline/readline.h,[
+  READLINE_LIBS="liboop-rl.la -lreadline"
+  AC_DEFINE(HAVE_READLINE)
+])])
 
 AC_CHECK_PROG(PROG_GLIB_CONFIG,glib-config,glib-config)
 if test -n "$PROG_GLIB_CONFIG" ; then
@@ -60,4 +66,5 @@ AC_SUBST(GLIB_LIBS)
 AC_SUBST(ADNS_LIBS)
 AC_SUBST(WWW_INCLUDES)
 AC_SUBST(WWW_LIBS)
+AC_SUBST(READLINE_LIBS)
 AC_OUTPUT(Makefile)
