@@ -1,8 +1,10 @@
 #ifndef CRYPTO_I_H
 #define CRYPTO_I_H
 
-#include "crypto.h"
+#include "gale/crypto.h"
 #include "gale/types.h"
+
+#include <openssl/crypto.h>
 #include <openssl/rsa.h>
 
 void crypto_i_seed(void);
