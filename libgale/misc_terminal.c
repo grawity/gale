@@ -58,7 +58,10 @@ static void tmode(FILE *fp,char id[2]) {
 }
 
 static int okay(wch ch) {
-	return (ch >= 32 || ch == '\t');
+	if (ch == '\t') return 1;
+	if (ch < 0x20) return 0;
+	if (ch >= 0x7F && ch < 0xA0) return 0;
+	return 1;
 }
 
 int gale_column(int col,wch ch) {
