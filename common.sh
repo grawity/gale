@@ -11,7 +11,15 @@ fi
 
 CONF="$SYS_DIR/conf"
 
-[ -f "$CONF" ] && while read var value ; do
-	[ -z "$var" -o "x$var" = "x#" ] && continue
-	eval "CONF_$var=\"$value\""
-done < "$CONF"
+
+if [ -f "$CONF" ]; then
+	exec 3<"$CONF"
+
+	while read var value <&3 ; do
+		[ -z "$var" -o "x$var" = "x#" ] && continue
+		eval "CONF_$var=\"$value\""
+		echo "CONF_$var=\"$value\""
+	done
+
+	exec 3<&-
+fi
