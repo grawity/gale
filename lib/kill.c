@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <string.h>
+#include <signal.h>
 
 #include "gale/all.h"
 
@@ -49,4 +50,22 @@ void gale_kill(const char *class,int do_kill) {
 			}
 		closedir(pdir);
 	}
+}
+
+static int watch_fd;
+
+static void alarm_received(int sig) {
+	if (!isatty(watch_fd)) raise(SIGHUP);
+	gale_watch_tty(watch_fd);
+}
+
+void gale_watch_tty(int fd) {
+	struct sigaction act;
+	watch_fd = fd;
+	if (sigaction(SIGALRM,NULL,&act)) 
+		gale_alert(GALE_ERROR,"sigaction",errno);
+	act.sa_handler = alarm_received;
+	if (sigaction(SIGALRM,&act,NULL)) 
+		gale_alert(GALE_ERROR,"sigaction",errno);
+	alarm(15);
 }

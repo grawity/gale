@@ -1,6 +1,7 @@
 #include "buffer.h"
 #include "gale/misc.h"
 
+#include <errno.h>
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
@@ -92,12 +93,14 @@ int input_buffer_read(struct input_buffer *buf,int fd) {
 		vec[1].iov_base = buf->buffer;
 		vec[1].iov_len = sizeof(buf->buffer);
 		l = readv(fd,vec,2);
+		if (l < 0) return -(errno != EINTR);
 		if (l <= 0) return -1;
 		buf->remnant += l;
 	} else {
 		int l,r = buf->remnant;
 		if (NULL != buf->state.data.p) r -= buf->state.data.l;
 		l = read(fd,buf->buffer + r,sizeof(buf->buffer) - r);
+		if (l < 0) return -(errno != EINTR);
 		if (l <= 0) return -1;
 		buf->remnant += l;
 	}

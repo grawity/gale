@@ -1,6 +1,7 @@
 #include "buffer.h"
 #include "gale/misc.h"
 
+#include <errno.h>
 #include <sys/uio.h>
 #include <assert.h>
 #include <unistd.h>
@@ -76,7 +77,7 @@ int output_buffer_write(struct output_buffer *buf,int fd) {
 
 	if (0 == count) return 0;
 	w = writev(fd,vec,count);
-	if (w <= 0) return -1;
+	if (w <= 0) return -(errno != EINTR);
 
 	w += buf->remnant;
 	sptr = buf->stail;

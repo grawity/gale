@@ -129,7 +129,17 @@ void incoming(
 	struct gale_time when
 )
 {
-	printf("* %s:",gale_text_to_local(status));
+	struct timeval tv;
+	time_t tt;
+	char buf[80];
+	gale_time_to(&tv,when);
+	tt = tv.tv_sec;
+	strftime(buf,sizeof(buf),"%Y-%m-%d %H:%M:%S",localtime(&tt));
+
+	gale_tmode("md");
+	fputs("*",stdout);
+	gale_tmode("me");
+	printf(" %s %s:",buf,gale_text_to_local(status));
 
 	if (id) {
 		fputs(" <",stdout);
@@ -141,16 +151,6 @@ void incoming(
 
 	if (from.l) 
 		printf(" (%s)",gale_text_to_local(from));
-
-	{
-		struct timeval tv;
-		time_t tt;
-		char buf[80];
-		gale_time_to(&tv,when);
-		tt = tv.tv_sec;
-		strftime(buf,sizeof(buf)," %m/%d %H:%M",localtime(&tt));
-		fputs(buf,stdout);
-	}
 
 	printf("\r\n");
 	fflush(stdout);
@@ -279,13 +279,15 @@ int main(int argc,char *argv[]) {
 	open_client();
 
 	if (do_fork) gale_daemon(1);
-	if (tty) gale_kill(tty,do_kill);
+	if (tty) {
+		gale_kill(tty,do_kill);
+		gale_watch_tty(1);
+	}
 
 	send_pings();
 	for (;;) {
 		while (!gale_send(client) && !gale_next(client)) {
 			struct gale_message *msg;
-			if (tty && !isatty(1)) return 0;
 			while ((msg = link_get(client->link)))
 				process_message(msg);
 		}

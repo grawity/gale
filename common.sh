@@ -27,7 +27,7 @@ fi
 
 CONF="$SYS_DIR/conf"
 umask 022
-PATH="$bindir:$sbindir:$PATH"
+PATH="$bindir:$sbindir:$PATH:/usr/ucb"
 export PATH
 
 if [ -f "$CONF" ]; then

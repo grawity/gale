@@ -35,7 +35,6 @@ void add_fragment(struct gale_fragment *frag) {
 		frags = gale_realloc(frags,sizeof(*frags) * alloc);
 	}
 	frags[num++] = frag;
-	++num;
 
 	if (frag_text == frag->type) {
 		if (!gale_text_compare(frag->name,G_("message/sender")))

@@ -41,6 +41,9 @@ void gale_kill(const char *,int do_kill);
 void gale_cleanup(void (*)(void));
 /* Perform all the cleanup functions "early". */
 void gale_do_cleanup();
+/* Watch the given file descriptor; if it stops returning 1 to isatty(),
+   raise SIGHUP. */
+void gale_watch_tty(int fd);
 
 /* -- memory management ---------------------------------------------------- */
 

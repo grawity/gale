@@ -52,11 +52,6 @@ AC_CHECK_LIB(db,db_appinit,[
   have_libdb="yes"
 ])
 
-AC_CHECK_LIB(pq,PQsetdb,[
-  LIBS="-lpq $LIBS"
-  BUILD="$BUILD glsql"
-])
-
 AC_CHECK_LIB(zephyr,ZInitialize,[
   LIBS="-lzephyr -lcom_err $LIBS"
   BUILD="$BUILD gzgw"
@@ -144,7 +139,6 @@ AC_OUTPUT(
 	gsub/Makefile
 	gzgw/Makefile
 	glog/Makefile
-	glsql/Makefile
 	gsend/Makefile
 	gkeys/Makefile
 	gwatch/Makefile

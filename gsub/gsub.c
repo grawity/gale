@@ -42,8 +42,6 @@ int do_beep = 1;			/* Should we beep? */
 int do_termcap = 0;                     /* Should we highlight headers? */
 int sequence = 0;
 
-#define TIMEOUT 300			/* Interval to poll for tty death */
-
 void get_signal(int sig) {
 	sig_received = sig;
 }
@@ -131,6 +129,7 @@ void default_gsubrc(void) {
 	char *tmp,buf[80],*cat = getenv("GALE_CATEGORY");
 	char *nl = tty ? "\r\n" : "\n";
 	int count = 0;
+	time_t when;
 
 	/* Ignore messages to category /ping */
 	tmp = cat;
@@ -141,21 +140,31 @@ void default_gsubrc(void) {
 		tmp += 5;
 	}
 
+	/* The star. */
+	gale_tmode("md");
+	fputs("*",stdout);
+	gale_tmode("me");
+
+	/* Print the time */
+	if ((tmp = getenv("GALE_TIME_ID_TIME")))
+		printf(" %s",tmp);
+	else {
+		time_t when = time(NULL);
+		strftime(buf,sizeof(buf)," %Y-%m-%d %H:%M:%S",localtime(&when));
+		fputs(buf,stdout);
+	}
+
 	/* Format return receipts specially */
 	tmp = cat;
 	while ((tmp = strstr(tmp,"/receipt"))) {
 		tmp += 8;
 		if (!*tmp || *tmp == ':') {
 			char *from_comment = getenv("HEADER_FROM");
-			fputs("* Received by",stdout);
+			char *presence = getenv("GALE_TEXT_NOTICE_PRESENCE");
+			fputs(" received:",stdout);
+			if (presence) printf(" %s",presence);
 			print_id(getenv("GALE_SIGNED"),"unverified");
 			if (from_comment) printf(" (%s)",from_comment);
-			if ((tmp = getenv("HEADER_TIME"))) {
-				time_t when = atoi(tmp);
-				strftime(buf,sizeof(buf)," %m/%d %H:%M",
-					 localtime(&when));
-				fputs(buf,stdout);
-			}
 			fputs(nl,stdout);
 			fflush(stdout);
 			return;
@@ -163,15 +172,12 @@ void default_gsubrc(void) {
 	}
 
 	/* Print the header: category, time, et cetera */
-	putchar('[');
+	fputs(" [",stdout);
 	gale_tmode("md");
 	fputs(cat,stdout);
 	gale_tmode("me");
 	putchar(']');
 	if ((tmp = getenv("HEADER_TIME"))) {
-		time_t when = atoi(tmp);
-		strftime(buf,sizeof(buf)," %m/%d %H:%M",localtime(&when));
-		fputs(buf,stdout);
 	}
 	if (getenv("HEADER_RECEIPT_TO")) 
 		printf(" [rcpt]");
@@ -700,7 +706,10 @@ int main(int argc,char **argv) {
 	trap_signal(SIGHUP);
 	trap_signal(SIGTERM);
 	trap_signal(SIGINT);
-	if (tty) gale_kill(tty,do_kill);
+	if (tty) {
+		gale_kill(tty,do_kill);
+		gale_watch_tty(1);
+	}
 
 	/* Send a login message, as needed. */
 	if (!do_stealth) {
@@ -713,27 +722,9 @@ int main(int argc,char **argv) {
 	for (;;) {
 		int r = 0;
 
-		while (!sig_received
-		   &&  !gale_error(client) && r >= 0 && !gale_send(client)) {
-			fd_set fds;
-			struct timeval timeout;
+		while (0 == sig_received && !gale_send(client) 
+		   &&  0 == sig_received && !gale_next(client)) {
 			struct gale_message *msg;
-
-			FD_ZERO(&fds);
-			FD_SET(client->socket,&fds);
-			timeout.tv_sec = TIMEOUT;
-			timeout.tv_usec = 0;
-
-			r = select(FD_SETSIZE,(SELECT_ARG_2_T) &fds,NULL,NULL,
-			           &timeout);
-
-			/* Make sure the tty still exists. */
-			if (tty && !isatty(1)) exit(1);
-
-			if (r < 0 && errno == EINTR) r = 0;
-			if (r < 0) gale_alert(GALE_WARNING,"select",errno);
-			if (r > 0 && gale_next(client)) r = -1;
-
 			while ((msg = link_get(client->link)))
 				present_message(msg);
 		}
