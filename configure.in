@@ -90,7 +90,8 @@ if test -z "$no_wacky_libs" ; then
   AC_CHECK_LIB(socket,socket)
 fi
 
-AC_CHECK_LIB(termcap,tgetent,[LIBS="$LIBS -ltermcap"],[
+termcap_lib=""
+AC_CHECK_LIB(termcap,tgetent,[termcap_lib="-ltermcap"],[
   AC_CHECK_LIB(ncurses,tgetent)])
 AC_CHECK_LIB(resolv,res_query)
 

@@ -133,8 +133,10 @@ static void *on_packet(struct gale_link *l,struct gale_packet *packet,void *x) {
 	if (NULL != gale_key_public(cache->key,now))
 		end_search(cache);
 
-	if (gale_group_lookup(original,G_("answer/key/error"),frag_text,&frag)
-	&&  NULL != signer) {
+	if (NULL != signer
+	&& (gale_group_lookup(original,G_("answer/key/error"),frag_text,&frag)
+	||  gale_group_lookup(original,G_("answer.key.error"),frag_text,&frag)))
+	{
 		const struct gale_key_assertion *pub;
 		pub = gale_key_public(signer,now);
 		if (NULL != pub) {

@@ -5,6 +5,7 @@
 static oop_source *source;
 static struct gale_link *line;
 static struct gale_text subscriptions;
+static struct gale_location *domain_location = NULL;
 
 static void *on_error_packet(struct gale_packet *pkt,void *x) {
 	link_put(line,pkt);
@@ -31,12 +32,77 @@ static void *on_connected(struct gale_server *server,
 	return OOP_CONTINUE;
 }
 
-static void *on_packet(struct gale_link *link,struct gale_packet *pkt,void *x) {
-	/* ... process (and respond to) message ... */
+static void *on_response(struct gale_packet *pk,void *x) {
+	link_put(line,pk);
+}
+
+static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
+	struct gale_key *key = (struct gale_key *) x;
+	struct gale_key_assertion *pub = gale_key_public(key,gale_time_now());
+	struct gale_fragment frag;
+	struct gale_message *msg;
+
+	gale_create(msg);
+	gale_create_array(msg->to,2);
+	msg->to[0] = loc;
+	msg->to[1] = NULL;
+
+	gale_create_array(msg->from,2);
+	msg->from[0] = domain_location;
+	msg->from[1] = NULL;
+
+	msg->data = gale_group_empty();
+	if (NULL != pub) {
+		frag.name = G_("answer/key");
+		frag.type = frag_data;
+		frag.value.data = gale_key_raw(pub);
+	} else if (NULL == domain_location) 
+		return OOP_CONTINUE;
+	else {
+		frag.name = G_("answer/key/error");
+		frag.type = frag_text;
+		frag.value.text = gale_text_concat(3,
+			G_("domain server cannot find \""),
+			gale_key_name(key),
+			G_("\""));
+	}
+
+	gale_group_add(&msg->data,frag);
+	gale_pack_message(source,msg,on_response,NULL);
+}
+
+static void *on_key(oop_source *oop,struct gale_key *key,void *x) {
+	gale_find_exact_location(source,
+		gale_text_concat(2,G_("_gale.key."),gale_key_name(key)),
+		on_location,key);
 	return OOP_CONTINUE;
 }
 
-static void *on_query_location(struct gale_text name,
+static void *on_message(struct gale_message *msg,void *x) {
+	struct gale_fragment frag;
+	if (gale_group_lookup(msg->data,G_("question.key"),frag_text,&frag))
+		gale_key_search(source,
+			gale_key_handle(frag.value.text),
+			search_all & ~search_private & ~search_slow,
+			on_key,x);
+	return OOP_CONTINUE;
+}
+
+static void *on_request(struct gale_link *link,struct gale_packet *pk,void *x) {
+	gale_unpack_message(source,pk,on_message,x);
+	return OOP_CONTINUE;
+}
+
+static void *on_domain_location(
+	struct gale_text name,
+	struct gale_location *loc,void *x)
+{
+	domain_location = loc;
+	return OOP_CONTINUE;
+}
+
+static void *on_query_location(
+	struct gale_text name,
 	struct gale_location *loc,void *x) 
 {
 	struct gale_location *list[2] = { loc, NULL };
@@ -72,10 +138,15 @@ int main(int argc,char *argv[]) {
 	if (optind != argc) usage();
 
 	line = new_link(source);
-	link_on_message(line,on_packet,NULL);
+	link_on_message(line,on_request,NULL);
 	server = gale_make_server(source,line,null_text,0);
 	gale_on_connect(server,on_connected,NULL);
-	gale_find_location(source,G_("_gale.query"),on_query_location,NULL);
+	gale_find_exact_location(source,
+		gale_var(G_("GALE_DOMAIN")),
+		on_domain_location,NULL);
+	gale_find_location(source,
+		G_("_gale.query"),
+		on_query_location,NULL);
 
 	oop_sys_run(sys);
 	return 0;

@@ -814,7 +814,7 @@ int link_get_fd(struct gale_link *l) {
  *  \param l The link to shut down. 
  *  \sa delete_link() */
 void link_shutdown(struct gale_link *l) {
-	l->out_shutdown = 1;
+	l->out_shutdown = do_shutdown;
 	activate(l);
 }
 
