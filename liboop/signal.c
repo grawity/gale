@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <signal.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #define MAGIC 5131
 
@@ -21,7 +22,7 @@ struct sig_handler {
 struct sig_signal {
 	struct sig_handler *list,*ptr;
 	struct sigaction old;
-	int active;
+	volatile sig_atomic_t active;
 };
 
 struct oop_adapter_signal {
@@ -194,6 +195,11 @@ oop_adapter_signal *oop_signal_new(oop_source *source) {
 		oop_free(s);
 		return NULL;
 	}
+
+        fcntl(s->pipefd[0],F_SETFD,FD_CLOEXEC);
+        fcntl(s->pipefd[1],F_SETFD,FD_CLOEXEC);
+        fcntl(s->pipefd[0],F_SETFL,O_NONBLOCK);
+        fcntl(s->pipefd[1],F_SETFL,O_NONBLOCK);
 
 	s->oop.on_fd = sig_on_fd;
 	s->oop.cancel_fd = sig_cancel_fd;

@@ -19,6 +19,10 @@
 #include <sys/select.h>
 #endif
 
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+
 #define MAGIC 0x9643
 
 struct sys_time {
@@ -37,7 +41,7 @@ struct sys_signal_handler {
 struct sys_signal {
 	struct sys_signal_handler *list,*ptr;
 	struct sigaction old;
-	int active;
+	volatile sig_atomic_t active;
 };
 
 struct sys_file_handler {

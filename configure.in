@@ -5,6 +5,7 @@ AC_INIT(INSTALL)
 AM_INIT_AUTOMAKE(gale,0.99egg)
 AM_CONFIG_HEADER(include/gale/config.h:config.h.in)
 AC_CANONICAL_HOST
+AC_PROG_CC
 AM_PROG_LIBTOOL
 AM_MAINTAINER_MODE
 
@@ -34,7 +35,6 @@ no_wacky_libs=""
 GALE_LIBS="\${top_builddir}/libgale/libgale.la"
 
 dnl Checks for programs.
-AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_YACC
 PROG_LDCONFIG=:
