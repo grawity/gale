@@ -3,6 +3,7 @@
 SUBDIRS = @BUILD@
 AUTOMAKE_OPTIONS = foreign 1.2
 noinst_SCRIPTS = common.sh config.sh domain.sh
+EXTRA_DIST = common.sh config.sh domain.sh
 DIST_SUBDIRS = \
 	auth gdomain gkeys gsend gsub gwatch lib rsaref server \
 	gzgw glog glsql include
@@ -17,7 +18,7 @@ release: dist
 
 install-data-local: config
 
-config:
+config: common.sh config.sh
 	sysconfdir=$(sysconfdir) ; \
 	sbindir=$(sbindir) ; \
 	bindir=$(bindir) ; \
@@ -25,7 +26,7 @@ config:
 	export srcdir sysconfdir sbindir bindir ; \
 	sh $(srcdir)/config.sh
 
-domain:
+domain: common.sh domain.sh
 	sysconfdir=$(sysconfdir) ; \
 	sbindir=$(sbindir) ; \
 	bindir=$(bindir) ; \

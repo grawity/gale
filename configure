@@ -603,7 +603,7 @@ test -z "$INSTALL_SCRIPT" && INSTALL_SCRIPT='${INSTALL_PROGRAM}'
 
 PACKAGE=gale
 
-VERSION=0.16
+VERSION=0.17
 
 if test "`cd $srcdir && pwd`" != "`pwd`" && test -f $srcdir/config.status; then
   { echo "configure: error: source directory already configured; run "make distclean" there first" 1>&2; exit 1; }
@@ -1658,7 +1658,7 @@ if test -f "rsaref/source/rsa.c"; then
   echo "$ac_t""yes" 1>&6
   BUILD="rsaref $BUILD"
   CPPFLAGS="$CPPFLAGS -I\${top_srcdir}/rsaref/source"
-  LDFLAGS="$LDFLAGS -L\${top_builddir}/rsaref/source"
+  LDFLAGS="-L\${top_builddir}/rsaref/source $LDFLAGS"
 else
   echo "$ac_t""no" 1>&6
   echo $ac_n "checking for R_RandomInit in -lrsaref""... $ac_c" 1>&6
