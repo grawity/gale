@@ -30,7 +30,8 @@ static struct gale_text connect_report(void *d) {
 	struct connect *conn = (struct connect *) d;
 	struct sockaddr_in peer;
 	int len = sizeof(peer),fd = link_get_fd(conn->link);
-	if (getpeername(fd,&peer,&len) || AF_INET != peer.sin_family) 
+	if (getpeername(fd,(struct sockaddr *) &peer,&len) 
+	||  AF_INET != peer.sin_family) 
 		return null_text;
 
 	return gale_text_concat(7,
