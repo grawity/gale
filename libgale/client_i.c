@@ -34,7 +34,7 @@ struct gale_location *client_i_get(struct gale_text name) {
 		ret->parts[ret->part_count].l = at - last;
 		ret->part_count++;
 
-		if (-1 == ret->at_part && '@' == name.p[at])
+		if ('@' == name.p[at])
 			ret->at_part = ret->part_count;
 
 		last = at + 1;
