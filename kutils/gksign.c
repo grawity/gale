@@ -43,7 +43,7 @@ static void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 
 	{
 		const struct gale_key_assertion * const ass = 
-			gale_key_assert_group(data,0);
+			gale_key_assert_group(data,gale_time_now(),0);
 		const struct gale_data bits = gale_key_raw(ass);
 		if (0 == bits.l) 
 			gale_alert(GALE_ERROR,G_("cannot generate key"),0); 
@@ -88,7 +88,7 @@ int main(int argc,char *argv[]) {
 		struct gale_data key_bits = gale_read_from(0,0);
 		if (0 == key_bits.l)
 			gale_alert(GALE_ERROR,G_("could not read input"),errno);
-		ass = gale_key_assert(key_bits,1);
+		ass = gale_key_assert(key_bits,gale_time_forever(),1);
 	}
 
 	key = gale_key_owner(ass);

@@ -74,7 +74,7 @@ void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 	const struct gale_data * const data = (const struct gale_data *) user;
 	if (NULL == key) return OOP_CONTINUE;
-	print(gale_key_assert(*data,0));
+	print(gale_key_assert(*data,gale_time_forever(),0));
 	return OOP_CONTINUE;
 }
 
@@ -131,7 +131,7 @@ int main(int argc,char *argv[]) {
 		if (0 == key.l)
 			gale_alert(GALE_ERROR,G_("could not read stdin"),0);
 
-		ass = gale_key_assert(key,1);
+		ass = gale_key_assert(key,gale_time_forever(),1);
 		if (do_trust_input) 
 			print(ass);
 		else {
