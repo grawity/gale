@@ -27,7 +27,7 @@ struct sig_signal {
 
 struct oop_adapter_signal {
 	oop_source oop;
-	int magic,pipefd[2],pipeflag;
+	int magic,pipefd[2];
 	oop_source *source; /* backing source */
 	struct sig_signal sig[OOP_NUM_SIGNALS];
 	int num_events;
@@ -41,25 +41,9 @@ static oop_adapter_signal *verify_source(oop_source *source) {
 	return s;
 }
 
-static sigset_t block(void) {
-	sigset_t block,old;
-	sigfillset(&block);
-	sigprocmask(SIG_BLOCK,&block,&old);
-	return old;
-}
-
-static void unblock(sigset_t old) {
-	sigprocmask(SIG_SETMASK,&old,NULL);
-}
-
 static void do_pipe(struct oop_adapter_signal *s) {
-	const sigset_t old = block();
 	const char ch = '\0';
-	if (0 == s->pipeflag) {
-		s->pipeflag = 1;
-		write(s->pipefd[1],&ch,1);
-	}
-	unblock(old);
+	write(s->pipefd[1],&ch,1);
 }
 
 static void on_signal(int sig) {
@@ -81,16 +65,11 @@ static void *on_pipe(oop_source *source,int fd,oop_event event,void *user) {
 	oop_adapter_signal * const s = verify_source((oop_source *) user);
 	sigset_t save;
 	int i;
-	char ch;
+	char buf[4096];
 
 	assert(fd == s->pipefd[0]);
 	assert(OOP_READ == event);
-	assert(1 == s->pipeflag);
-
-	save = block();
-	read(s->pipefd[0],&ch,1);
-	s->pipeflag = 0;
-	unblock(save);
+	read(s->pipefd[0],buf,sizeof buf);
 
 	for (i = 0; i < OOP_NUM_SIGNALS; ++i) {
 		if (s->sig[i].active) {

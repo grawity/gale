@@ -357,15 +357,15 @@ void *oop_sys_run(oop_source_sys *sys) {
 		}
 
 		if (0 < rv) {
-			for (i = 0; i < sys->num_files && OOP_CONTINUE == ret; ++i)
+			for (i = 0; OOP_CONTINUE == ret && i < sys->num_files; ++i)
 				if (FD_ISSET(i,&xfd) && NULL != sys->files[i][OOP_EXCEPTION].f)
 					ret = sys->files[i][OOP_EXCEPTION].f(&sys->oop,i,OOP_EXCEPTION,
 					                          sys->files[i][OOP_EXCEPTION].v);
-			for (i = 0; i < sys->num_files && OOP_CONTINUE == ret; ++i)
+			for (i = 0; OOP_CONTINUE == ret && i < sys->num_files; ++i)
 				if (FD_ISSET(i,&wfd) && NULL != sys->files[i][OOP_WRITE].f)
 					ret = sys->files[i][OOP_WRITE].f(&sys->oop,i,OOP_WRITE,
 					                           sys->files[i][OOP_WRITE].v);
-			for (i = 0; i < sys->num_files && OOP_CONTINUE == ret; ++i)
+			for (i = 0; OOP_CONTINUE == ret && i < sys->num_files; ++i)
 				if (FD_ISSET(i,&rfd) && NULL != sys->files[i][OOP_READ].f)
 					ret = sys->files[i][OOP_READ].f(&sys->oop,i,OOP_READ,
 					                          sys->files[i][OOP_READ].v);
