@@ -63,7 +63,6 @@ static void on_signal(int sig) {
 
 static void *on_pipe(oop_source *source,int fd,oop_event event,void *user) {
 	oop_adapter_signal * const s = verify_source((oop_source *) user);
-	sigset_t save;
 	int i;
 	char buf[4096];
 
@@ -189,7 +188,6 @@ oop_adapter_signal *oop_signal_new(oop_source *source) {
 
 	s->source = source;
 	s->source->on_fd(s->source,s->pipefd[0],OOP_READ,on_pipe,s);
-	s->pipeflag = 0;
 	s->num_events = 0;
 
 	for (i = 0; i < OOP_NUM_SIGNALS; ++i) {
