@@ -1,13 +1,16 @@
 CC = gcc
-CFLAGS = -Wall -g
+CFLAGS = -Werror -Wall -g
 
 -include $(TOP)/defs
 -include $(TOP)/defs.$(HOST)
 -include $(TOP)/defs.$(LAB)
 -include $(TOP)/defs.$(ARCH)
 
-CPPFLAGS = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC) $(DB_INC)
-LDLIBS = -L$(TOP)/lib -lgale $(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB)
+INCLUDES = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC) $(DB_INC) $(CGIC_INC)
+DEFINES = -DGALE_CONF=\"$(GALE_CONF)\"
+
+CPPFLAGS = $(INCLUDES) $(DEFINES)
+LDLIBS = -L$(TOP)/lib -lgale $(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB) $(CGIC_LIB)
 
 all::
 	@make --no-print-directory subdirs TARGET=all

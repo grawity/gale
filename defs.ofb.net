@@ -1,5 +1,9 @@
 RSAREF_INC = -I/ofb/include
 RSAREF_LIB = -L/ofb/lib -lrsaref
+DB_INC = -I/ofb/include
+CGIC_INC = -I/ofb/include
 
 ZEPHYR_INC = -I/ofb/include
 ZEPHYR_LIB = -L/ofb/lib -lzephyr -lcom_err
+DB_LIB = -L/ofb/lib -ldb_g
+CGIC_LIB = -L/ofb/lib -lcgic

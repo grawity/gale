@@ -1,5 +1,9 @@
 RSAREF_INC = -I$(TOP)/../rsaref/source
+CGIC_INC = -I$(TOP)/../cgic
+CGIC_LIB = $(TOP)/../cgic/libcgic.a
 INC_DIR = $(HOME)/include/gale
+
+GALE_CONF = $(HOME)/etc/gale.conf
 
 ifdef ARCH
 RSAREF_LIB = $(TOP)/../rsaref/build.$(ARCH)/rsaref.a
