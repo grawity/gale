@@ -580,6 +580,11 @@ int main(int argc,char **argv) {
 	if (serv == NULL) 
 		gale_alert(GALE_ERROR,"No subscriptions specified.",0);
 
+	if (strstr(serv,":user/") || !strncmp(serv,"user/",5)) {
+		gale_alert(GALE_WARNING,
+		           "** NOTE **\a You use \"user/...\" (http://ofb.net/gale/warning.html)",0);
+	}
+
 	/* Look for a gsubrc.so */
 	load_gsubrc(rclib);
 

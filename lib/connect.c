@@ -33,7 +33,7 @@ struct gale_connect *make_connect(const char *serv) {
 	conn->array = NULL;
 	do {
 		struct sockaddr_in sin;
-		int fd = -1;
+		int i;
 		struct hostent *he;
 		const char *colon = strchr(cp,':');
 		char *name = NULL;
@@ -41,40 +41,46 @@ struct gale_connect *make_connect(const char *serv) {
 		if (!end) end = cp + strlen(cp);
 		if (!colon || colon > end) colon = end;
 
-		sin.sin_family = AF_INET;
-		sin.sin_port = htons(colon < end ? atoi(colon + 1) : DEF_PORT);
 		name = gale_strndup(cp,colon - cp);
-		if ((he = gethostbyname(name)))
-			memcpy(&sin.sin_addr,he->h_addr,sizeof(sin.sin_addr));
-		else {
+		he = gethostbyname(name);
+		if (!he) {
 			char *tmp = gale_malloc(strlen(name) + 128);
 			sprintf(tmp,"can't find host \"%s\"",name);
 			gale_alert(GALE_WARNING,tmp,0);
 			gale_free(tmp);
-		 	goto skip;
-		}
-		fd = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
-		if (fd < 0) goto skip;
-		if (fcntl(fd,F_SETFL,O_NONBLOCK)) goto skip;
-		if (connect(fd,(struct sockaddr *) &sin,sizeof(sin)) && 
-			errno != EINPROGRESS) 
-			goto skip;
-
-		if (alloc == conn->len) {
-			const int len = sizeof(conn->array[0]);
-			struct attempt *tmp = conn->array;
-			alloc = alloc ? alloc * 2 : 16;
-			conn->array = gale_malloc(alloc * len);
-			memcpy(conn->array,tmp,conn->len * len);
-			if (tmp) gale_free(tmp);
+		 	goto skip_host;
 		}
 
-		conn->array[conn->len].sock = fd;
-		conn->array[conn->len].sin = sin;
-		++(conn->len);
-		fd = -1;
-	skip:
-		if (fd != -1) close(fd);
+		sin.sin_family = AF_INET;
+		sin.sin_port = htons(colon < end ? atoi(colon + 1) : DEF_PORT);
+		for (i = 0; he->h_addr_list[i]; ++i) {
+			int fd = -1;
+			sin.sin_addr = * (struct in_addr *) he->h_addr_list[i];
+			fd = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
+			if (fd < 0) goto skip_addr;
+			if (fcntl(fd,F_SETFL,O_NONBLOCK)) goto skip_addr;
+			if (connect(fd,(struct sockaddr *) &sin,sizeof(sin)) && 
+			    errno != EINPROGRESS) 
+				goto skip_addr;
+
+			if (alloc == conn->len) {
+				const int len = sizeof(conn->array[0]);
+				struct attempt *tmp = conn->array;
+				alloc = alloc ? alloc * 2 : 16;
+				conn->array = gale_malloc(alloc * len);
+				memcpy(conn->array,tmp,conn->len * len);
+				if (tmp) gale_free(tmp);
+			}
+
+			conn->array[conn->len].sock = fd;
+			conn->array[conn->len].sin = sin;
+			++(conn->len);
+			fd = -1;
+		skip_addr:
+			if (fd != -1) close(fd);
+		}
+
+	skip_host:
 		if (name) gale_free(name);
 		cp = end;
 		if (*cp == ',') ++cp;
