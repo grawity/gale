@@ -98,8 +98,8 @@ int main(int argc,char *argv[]) {
 
 	while ((arg = getopt(argc,argv,"dDh")) != EOF)
 	switch (arg) {
-	case 'd': ++gale_debug; break;
-	case 'D': gale_debug += 5; break;
+	case 'd': ++gale_global->debug_level; break;
+	case 'D': gale_global->debug_level += 5; break;
 	case 'h':
 	case '?': usage();
 	}

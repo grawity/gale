@@ -1,5 +1,4 @@
 #include "common.h"
-#include "init.h"
 #include "file.h"
 #include "key.h"
 #include "id.h"
@@ -30,7 +29,6 @@ int main(int argc,char *argv[]) {
 	int arg;
 
 	gale_init("gksign",argc,argv);
-	_ga_init();
 
 	while ((arg = getopt(argc,argv,"h")) != EOF)
 	switch (arg) {

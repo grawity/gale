@@ -64,22 +64,6 @@ static int compare(struct cid a,struct cid b) {
 	return 0;
 }
 
-static struct gale_text sys(void) {
-	static int init = 0;
-	static struct gale_text dir;
-	if (init) return dir;
-	dir = sub_dir(sys_dir,G_("cache"),1777);
-	return dir;
-}
-
-static struct gale_text dot(void) {
-	static int init = 0;
-	static struct gale_text dir;
-	if (init) return dir;
-	dir = sub_dir(dot_gale,G_("cache"),0700);
-	return dir;
-}
-
 /* -------------------------------------------------------------------------- */
 
 static struct gale_text encode(struct cid cid) {
@@ -307,8 +291,8 @@ int cache_find_raw(struct gale_data id,struct gale_data *data) {
 	struct cid cid;
 	struct gale_text name = encode(cid);
 	if (!to_cid(&cid,id)) return 1;
-	if (find(cid,dot(),name,data)) return 1;
-	if (find(cid,sys(),name,data)) return 1;
+	if (find(cid,gale_global->user_cache,name,data)) return 1;
+	if (find(cid,gale_global->system_cache,name,data)) return 1;
 	return 0;
 }
 
@@ -319,5 +303,6 @@ void cache_store(struct gale_data id,struct gale_group data) {
 void cache_store_raw(struct gale_data id,struct gale_data data)  {
 	struct cid cid;
 	if (!to_cid(&cid,id)) return;
-	store(cid,sys(),data) || store(cid,dot(),data);
+	store(cid,gale_global->system_cache,data) || 
+	store(cid,gale_global->user_cache,data);
 }

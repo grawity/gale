@@ -1,11 +1,12 @@
 #include "gale/core.h"
 #include "gale/misc.h"
+#include "gale/globals.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
 extern char **environ;
-static char **env_ref;
 
 struct gale_environ {
 	char **ptr;
@@ -23,7 +24,7 @@ void gale_set(struct gale_text name,struct gale_text value) {
 	for (envp = environ; *envp && strncmp(*envp,text,len); ++envp) ;
 	if (*envp) {
 		*envp = text;
-		env_ref = environ;
+		gale_global->environ = environ;
 	} else {
 		size_t num = envp - environ;
 		char **new_env;
@@ -31,10 +32,9 @@ void gale_set(struct gale_text name,struct gale_text value) {
 		memcpy(new_env,environ,num * sizeof(*new_env));
 		new_env[num] = text;
 		new_env[num + 1] = NULL;
-		env_ref = environ = new_env;
+		gale_global->environ = environ = new_env;
 	}
 }
-
 
 struct gale_environ *gale_save_environ(void) {
 	struct gale_environ *env;
@@ -49,7 +49,7 @@ struct gale_environ *gale_save_environ(void) {
 void gale_restore_environ(struct gale_environ *env) {
 	size_t num;
 	for (num = 0; env->ptr[num]; ++num) ;
-	gale_create_array(env_ref,num + 1);
-	memcpy(env_ref,env->ptr,sizeof(*env_ref) * (num + 1));
-	environ = env_ref;
+	gale_create_array(gale_global->environ,num + 1);
+	memcpy(gale_global->environ,env->ptr,sizeof(*env->ptr) * (num + 1));
+	environ = gale_global->environ;
 }

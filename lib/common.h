@@ -1,10 +1,9 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#include "gale/config.h"
-#include "gale/auth.h"
-#include "gale/misc.h"
-#include "gale/types.h"
+/* Common stuff for auth routines. */
+
+#include "gale/all.h"
 #include "global.h"
 #include "rsaref.h"
 

@@ -71,7 +71,10 @@ void read_file(struct gale_text fn) {
 	int num;
 	struct gale_text file;
 
-	file = dir_search(fn,1,dot_gale,sys_dir,null_text);
+	file = dir_search(fn,1,
+	                  gale_global->dot_gale,
+	                  gale_global->sys_dir,
+	                  null_text);
 	if (!file.l) {
 		gale_alert(GALE_WARNING,gale_text_to_local(fn),ENOENT);
 		return;

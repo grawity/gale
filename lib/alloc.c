@@ -15,6 +15,10 @@ void *gale_malloc_atomic(size_t len) {
 	return GC_malloc_atomic(len);
 }
 
+void *gale_malloc_safe(size_t len) {
+	return GC_malloc_uncollectable(len);
+}
+
 void gale_free(void *ptr) {
 	GC_free(ptr);
 }
@@ -29,6 +33,7 @@ void gale_finalizer(void *obj,void (*f)(void *,void *),void *data) {
 
 /* -------------------------------------------------------------------------- */
 
+#if 0
 void *gale_memdup(const void *s,int len) {
 	void *r = gale_malloc(len);
 	memcpy(r,s,len);
@@ -43,6 +48,14 @@ char *gale_strndup(const char *s,int len) {
 
 char *gale_strdup(const char *s) {
 	return gale_strndup(s,strlen(s));
+}
+#endif
+
+struct gale_data gale_data_copy(struct gale_data d) {
+	struct gale_data r;
+	r.p = gale_malloc(d.l);
+	memcpy(r.p,d.p,r.l = d.l);
+	return r;
 }
 
 int gale_data_compare(struct gale_data a,struct gale_data b) {

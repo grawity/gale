@@ -1,5 +1,4 @@
 #include "common.h"
-#include "init.h"
 #include "file.h"
 #include "key.h"
 #include "id.h"
@@ -98,6 +97,7 @@ int auth_id_public(struct auth_id *id) {
 	int status;
 	struct gale_time now;
 	struct inode in;
+	struct gale_global_data * const G = gale_global;
 
 	gale_diprintf(10,2,"(auth) \"%s\": looking for public key\n",
 	             gale_text_to_local(id->name));
@@ -121,11 +121,11 @@ int auth_id_public(struct auth_id *id) {
 	id->find_time = now;
 	in = _ga_init_inode();
 
-	if (open_pub(id,get(_ga_dot_trusted,id->name,&in),IMPORT_TRUSTED,&in)
-	||  open_pub(id,get(_ga_dot_local,id->name,&in),IMPORT_NORMAL,&in)
-	||  open_pub(id,get(_ga_etc_trusted,id->name,&in),IMPORT_TRUSTED,&in)
-	||  open_pub(id,get(_ga_etc_local,id->name,&in),IMPORT_NORMAL,&in)
-	||  open_pub(id,get(_ga_etc_cache,id->name,&in),IMPORT_NORMAL,&in)) {
+	if (open_pub(id,get(G->dot_trusted,id->name,&in),IMPORT_TRUSTED,&in)
+	||  open_pub(id,get(G->dot_local,id->name,&in),IMPORT_NORMAL,&in)
+	||  open_pub(id,get(G->sys_trusted,id->name,&in),IMPORT_TRUSTED,&in)
+	||  open_pub(id,get(G->sys_local,id->name,&in),IMPORT_NORMAL,&in)
+	||  open_pub(id,get(G->sys_cache,id->name,&in),IMPORT_NORMAL,&in)) {
 		gale_diprintf(10,-2,"(auth) \"%s\": done looking, found it\n",
 		             gale_text_to_local(id->name));
 		return 1;
@@ -145,8 +145,8 @@ int auth_id_private(struct auth_id *id) {
 	char *argv[] = { "gkfetch", NULL, NULL };
 
 	if (id->private
-	||  open_priv(id,get(_ga_dot_private,id->name,NULL))
-	||  open_priv(id,get(_ga_etc_private,id->name,NULL)))
+	||  open_priv(id,get(gale_global->dot_private,id->name,NULL))
+	||  open_priv(id,get(gale_global->sys_private,id->name,NULL)))
 		return 1;
 
 	if (hook_find_private && hook_find_private(id)) return 1;

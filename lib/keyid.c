@@ -1,5 +1,4 @@
 #include "common.h"
-#include "init.h"
 #include "id.h"
 
 #include "gale/misc.h"
@@ -54,8 +53,6 @@ void _ga_warn_id(struct gale_text text,...) {
 void init_auth_id(struct auth_id **pid,struct gale_text name) {
 	struct auth_id **ptr = &root;
 	int c = 0;
-
-	_ga_init();
 
 	while (*ptr) {
 		c = gale_text_compare(name,(*ptr)->name);

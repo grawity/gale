@@ -9,8 +9,6 @@
 #include <fcntl.h>
 #include <errno.h>
 
-int gale_debug = 0;
-
 static struct link {
 	void (*func)(void);
 	pid_t pid;
@@ -49,7 +47,7 @@ static void debug(int level,int idelta,const char *fmt,va_list ap) {
 	static int indent = 0;
 	int i;
 	if (idelta < 0) indent += idelta;
-	if (level < gale_debug) {
+	if (level < gale_global->debug_level) {
 		for (i = 0; i < indent; ++i) fputc(' ',stderr);
 		vfprintf(stderr,fmt,ap);
 		fflush(stderr);
@@ -66,21 +64,21 @@ void gale_dprintf(int level,const char *fmt,...) {
 
 void gale_diprintf(int level,int indent,const char *fmt,...) {
 	va_list ap;
-	if (level >= gale_debug) return;
+	if (level >= gale_global->debug_level) return;
 	va_start(ap,fmt);
 	debug(level,indent,fmt,ap);
 	va_end(ap);
 }
 
 void gale_daemon(int keep_tty) {
-	if (!gale_debug) {
+	if (!gale_global->debug_level) {
 		if (keep_tty) {
 			ignore_sig(SIGINT);
 			ignore_sig(SIGQUIT);
 			ignore_sig(SIGTTOU);
 		} else {
 			int fd;
-			gale_error_handler = gale_error_syslog;
+			gale_global->error_handler = gale_error_syslog;
 			setsid();
 			fd = open("/dev/null",O_RDWR);
 			if (fd >= 0) {

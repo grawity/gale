@@ -208,7 +208,7 @@ void default_gsubrc(void) {
 		/* Figure out how much text we can safely output. */
 		while ('\0' != buf[wrap]) {
 			/* Do something at the end of the line. */
-			if (len + wrap >= termwid-1) {
+			if (len + wrap >= termwid) {
 				/* Break any unreasonably long 'words'. */
 				if (len < termwid/2) out = wrap;
 				gale_print(stdout,gale_print_clobber_right,
@@ -518,7 +518,10 @@ void present_message(struct gale_message *_msg) {
 		if (dl_gsubrc) exit(dl_gsubrc());
 
 		/* Look for the file. */
-		rc = dir_search(rcprog,1,dot_gale,sys_dir,null_text);
+		rc = dir_search(rcprog,1,
+		                gale_global->dot_gale,
+		                gale_global->sys_dir,
+		                null_text);
 		if (rc.l) {
 			execl(gale_text_to_local(rc),
 			      gale_text_to_local(rcprog),
@@ -576,7 +579,7 @@ void load_gsubrc(struct gale_text name) {
 	void *lib;
 
 	rc = dir_search(name.l ? name : G_("gsubrc.so"),1,
-	                dot_gale,sys_dir,null_text);
+	                gale_global->dot_gale,gale_global->sys_dir,null_text);
 	if (!rc.l) {
 		if (name.l) 
 			gale_alert(GALE_WARNING,

@@ -13,31 +13,35 @@
 struct gale_text dotfile = { NULL, 0 };
 
 static void remove_dotfile(void) {
-	if (0 != dotfile.l) 
-		unlink(gale_text_to_local(dir_file(dot_gale,dotfile)));
+	if (0 != dotfile.l) {
+		struct gale_text df = dir_file(gale_global->dot_gale,dotfile);
+		unlink(gale_text_to_local(df));
+	}
 }
 
 void gale_kill(struct gale_text class,int do_kill) {
 	int fd,len,pid = getpid();
 	DIR *pdir;
 	struct dirent *de;
+	const char *df;
 
 	dotfile = gale_text_concat(6,
-		gale_text_from_local(gale_error_prefix,-1),G_("."),
+		gale_text_from_local(gale_global->error_prefix,-1),G_("."),
 		gale_var(G_("HOST")),G_("."),
 		class,G_("."));
 	len = dotfile.l;
 	dotfile = gale_text_concat(2,dotfile,gale_text_from_number(pid,10,0));
 
 	gale_cleanup(remove_dotfile);
-	fd = creat(gale_text_to_local(dir_file(dot_gale,dotfile)),0666);
+	df = gale_text_to_local(dir_file(gale_global->dot_gale,dotfile));
+	fd = creat(df,0666);
 	if (fd >= 0) 
 		close(fd);
 	else
 		gale_alert(GALE_WARNING,gale_text_to_local(dotfile),errno);
 
 	if (do_kill) {
-		pdir = opendir(gale_text_to_local(dir_file(dot_gale,G_("."))));
+		pdir = opendir(gale_text_to_local(dir_file(gale_global->dot_gale,G_("."))));
 		if (pdir == NULL) {
 			gale_alert(GALE_WARNING,"opendir",errno);
 			return;
@@ -54,7 +58,7 @@ void gale_kill(struct gale_text class,int do_kill) {
 				if (kpid != pid) {
 					kill(kpid,SIGTERM);
 					unlink(gale_text_to_local(
-						dir_file(dot_gale,dn)));
+						dir_file(gale_global->dot_gale,dn)));
 				}
 			}
 		}

@@ -173,8 +173,8 @@ int main(int argc,char *argv[]) {
 	/* Parse command line options. */
 	while ((arg = getopt(argc,argv,"Ddhac:C:t:PpS:uU")) != EOF) 
 	switch (arg) {
-	case 'd': ++gale_debug; break;
-	case 'D': gale_debug += 5; break;
+	case 'd': ++gale_global->debug_level; break;
+	case 'D': gale_global->debug_level += 5; break;
 	case 'a': signer = NULL; break;		/* Anonymous (no signature) */
 	case 'c': if (!public.p) public =       /* Public message */
 	          gale_text_from_local(optarg,-1);

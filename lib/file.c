@@ -1,5 +1,4 @@
 #include "file.h"
-#include "init.h"
 #include "random.h"
 
 #include <assert.h>
@@ -205,7 +204,7 @@ int _ga_save_file(struct gale_text dir,
 	status = (fd >= 0 && _ga_save(fd,data));
 
 	if (fd < 0) 
-		gale_alert(GALE_WARNING,"cannot create temp file",errno);
+		gale_alert(GALE_WARNING,gale_text_to_local(temp),errno);
 	else {
 		fchmod(fd,mode);
 		if (rename(gale_text_to_local(temp),gale_text_to_local(name))) {

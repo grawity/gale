@@ -76,17 +76,18 @@ YACC = @YACC@
 ZEPHYR_LIBS = @ZEPHYR_LIBS@
 
 lib_LTLIBRARIES = libgale.la
+libgale_la_LDFLAGS = -version-info 1:0:0
 libgale_la_SOURCES = \
-	authmsg.c client.c connect.c find.c id.c init.c \
+	authmsg.c client.c connect.c find.c id.c init.c global.c \
 	input.c kill.c libgale.c link.c message.c output.c \
 	standard.c cache.c \
 	crypt.c customs.c file.c gen.c \
-	keyid.c authinit.c findkey.c privkey.c pubkey.c random.c sign.c \
+	keyid.c findkey.c privkey.c pubkey.c random.c sign.c \
 	dir.c error.c exec.c alloc.c server.c text.c time.c pack.c term.c \
 	fragment.c var.c
 
 noinst_HEADERS = buffer.h \
-	common.h file.h id.h init.h key.h pack.h random.h sign.h
+	common.h file.h id.h key.h pack.h random.h sign.h
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../include/gale/config.h
 CONFIG_CLEAN_FILES = 
@@ -97,12 +98,11 @@ DEFS = @DEFS@ -I. -I$(srcdir) -I../include/gale
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
-libgale_la_LDFLAGS = 
 libgale_la_LIBADD = 
 libgale_la_OBJECTS =  authmsg.lo client.lo connect.lo find.lo id.lo \
-init.lo input.lo kill.lo libgale.lo link.lo message.lo output.lo \
-standard.lo cache.lo crypt.lo customs.lo file.lo gen.lo keyid.lo \
-authinit.lo findkey.lo privkey.lo pubkey.lo random.lo sign.lo dir.lo \
+init.lo global.lo input.lo kill.lo libgale.lo link.lo message.lo \
+output.lo standard.lo cache.lo crypt.lo customs.lo file.lo gen.lo \
+keyid.lo findkey.lo privkey.lo pubkey.lo random.lo sign.lo dir.lo \
 error.lo exec.lo alloc.lo server.lo text.lo time.lo pack.lo term.lo \
 fragment.lo var.lo
 CFLAGS = @CFLAGS@
@@ -118,15 +118,14 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = tar
 GZIP = --best
-DEP_FILES =  .deps/alloc.P .deps/authinit.P .deps/authmsg.P \
-.deps/cache.P .deps/client.P .deps/connect.P .deps/crypt.P \
-.deps/customs.P .deps/dir.P .deps/error.P .deps/exec.P .deps/file.P \
-.deps/find.P .deps/findkey.P .deps/fragment.P .deps/gen.P .deps/id.P \
-.deps/init.P .deps/input.P .deps/keyid.P .deps/kill.P .deps/libgale.P \
-.deps/link.P .deps/message.P .deps/output.P .deps/pack.P \
-.deps/privkey.P .deps/pubkey.P .deps/random.P .deps/server.P \
-.deps/sign.P .deps/standard.P .deps/term.P .deps/text.P .deps/time.P \
-.deps/var.P
+DEP_FILES =  .deps/alloc.P .deps/authmsg.P .deps/cache.P .deps/client.P \
+.deps/connect.P .deps/crypt.P .deps/customs.P .deps/dir.P .deps/error.P \
+.deps/exec.P .deps/file.P .deps/find.P .deps/findkey.P .deps/fragment.P \
+.deps/gen.P .deps/global.P .deps/id.P .deps/init.P .deps/input.P \
+.deps/keyid.P .deps/kill.P .deps/libgale.P .deps/link.P .deps/message.P \
+.deps/output.P .deps/pack.P .deps/privkey.P .deps/pubkey.P \
+.deps/random.P .deps/server.P .deps/sign.P .deps/standard.P \
+.deps/term.P .deps/text.P .deps/time.P .deps/var.P
 SOURCES = $(libgale_la_SOURCES)
 OBJECTS = $(libgale_la_OBJECTS)
 

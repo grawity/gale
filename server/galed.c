@@ -62,7 +62,7 @@ static void loop(void) {
 		for (att = try; att; att = att->next)
 			attach_select(att,&wfd,&now,&timeo);
 
-		if (gale_debug > 5) {
+		if (gale_global->debug_level > 5) {
 			int i;
 			for (i = 0; i < FD_SETSIZE; ++i) {
 				if (FD_ISSET(i,&rfd))
@@ -99,7 +99,7 @@ static void loop(void) {
 
 		gettimeofday(&now,&tz);
 
-		if (gale_debug > 5) {
+		if (gale_global->debug_level > 5) {
 			int i;
 			for (i = 0; i < FD_SETSIZE; ++i) {
 				if (FD_ISSET(i,&rfd))
@@ -216,8 +216,8 @@ int main(int argc,char *argv[]) {
 	srand48(time(NULL) ^ getpid());
 
 	while ((opt = getopt(argc,argv,"hdDp:")) != EOF) switch (opt) {
-	case 'd': ++gale_debug; break;
-	case 'D': gale_debug += 5; break;
+	case 'd': ++gale_global->debug_level; break;
+	case 'D': gale_global->debug_level += 5; break;
 	case 'p': port = atoi(optarg); break;
 	case 'h':
 	case '?': usage();

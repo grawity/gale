@@ -136,7 +136,7 @@ void to_z(struct gale_message *msg) {
 	if (signature)
 		notice.z_sender = gale_text_to_latin1(auth_id_name(signature));
 	else
-		notice.z_sender = gale_strdup("gale");
+		notice.z_sender = gale_text_to_latin1(G_("gale"));
 
 	while (gale_text_token(msg->cat,':',&token)) {
 		if (!gale_text_compare(cat,gale_text_left(token,cat.l))) {
@@ -163,7 +163,7 @@ void to_z(struct gale_message *msg) {
 		if (signature) 
 			sig = gale_text_to_latin1(auth_id_comment(signature));
 		else
-			sig = gale_strdup("Gale User");
+			sig = gale_text_to_latin1(G_("Gale User"));
 	}
 
 	reset();
@@ -220,8 +220,8 @@ int main(int argc,char *argv[]) {
 	myname = argv[0];
 
 	while (EOF != (opt = getopt(argc,argv,"hdD"))) switch (opt) {
-	case 'd': ++gale_debug; break;
-	case 'D': gale_debug += 5; break;
+	case 'd': ++gale_global->debug_level; break;
+	case 'D': gale_global->debug_level += 5; break;
 	case 'h':
 	case '?': usage();
 	}
@@ -248,10 +248,8 @@ int main(int argc,char *argv[]) {
 	client = gale_open(cat);
 
 	gale_dprintf(2,"subscribing to Zephyr\n");
-	if (gale_debug > 3) {
-		gale_dprintf(3,"... triple %s,%s,%s\n",
+	gale_dprintf(3,"... triple %s,%s,%s\n",
 		        sub.zsub_class,sub.zsub_classinst,sub.zsub_recipient);
-	}
 
 	if ((retval = ZInitialize()) != ZERR_NONE) {
 		com_err(myname,retval,"while initializing");

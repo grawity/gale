@@ -1,8 +1,4 @@
-#include "gale/client.h"
-#include "gale/core.h"
-#include "gale/compat.h"
-#include "gale/misc.h"
-#include "gale/auth.h"
+#include "gale/all.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,15 +12,10 @@
 #define MAX_RETRY 60
 
 struct auth_id *gale_user(void) {
-	static struct auth_id *user_id = NULL;
+	if (!auth_id_public(gale_global->user_id))
+		auth_id_gen(gale_global->user_id,gale_var(G_("GALE_FROM")));
 
-	if (user_id) return user_id;
-
-	user_id = lookup_id(gale_var(G_("GALE_ID")));
-	if (!auth_id_public(user_id))
-		auth_id_gen(user_id,gale_var(G_("GALE_FROM")));
-
-	return user_id;
+	return gale_global->user_id;
 }
 
 static void do_connect(struct gale_client *client) {

@@ -68,10 +68,8 @@ void gale_finalizer(void *,void (*)(void *,void *),void *);
 #define gale_create(x) ((x) = gale_malloc(sizeof(*(x))))
 #define gale_create_array(x,size) ((x) = gale_malloc(sizeof(*(x)) * (size)))
 
-/* Duplicate memory, strings, counted strings, etc. */
-void *gale_memdup(const void *,int);
-char *gale_strdup(const char *);
-char *gale_strndup(const char *,int);
+/* Duplicate memory. */
+struct gale_data gale_data_copy(struct gale_data);
 
 /* Compare memory blocks. */
 int gale_data_compare(struct gale_data,struct gale_data);

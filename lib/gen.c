@@ -1,6 +1,5 @@
 #include "common.h"
 #include "random.h"
-#include "init.h"
 #include "file.h"
 #include "key.h"
 #include "id.h"
@@ -36,7 +35,8 @@ static void sign_key(struct gale_data in,struct gale_data *out) {
 static void stash(char * const * argv) {
 	struct gale_data data;
 	struct gale_text fn = gale_text_from_local(argv[1],-1);
-	if (_ga_load(0,&data)) _ga_save_file(_ga_dot_private,fn,0600,data,NULL);
+	if (_ga_load(0,&data)) 
+		_ga_save_file(gale_global->dot_private,fn,0600,data,NULL);
 }
 
 void auth_id_gen(struct auth_id *id,struct gale_text comment) {
@@ -108,8 +108,8 @@ void auth_id_gen(struct auth_id *id,struct gale_text comment) {
 	}
 
 	if (_ga_trust_pub(id)) {
-		_ga_save_file(_ga_etc_local,id->name,0644,key,NULL);
-		_ga_save_file(_ga_dot_local,id->name,0644,key,NULL);
+		_ga_save_file(gale_global->sys_local,id->name,0644,key,NULL);
+		_ga_save_file(gale_global->dot_local,id->name,0644,key,NULL);
 		gale_free(key.p);
 	}
 

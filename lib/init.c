@@ -12,8 +12,6 @@
 
 #include "gale/all.h"
 
-struct gale_text dot_gale,home_dir,sys_dir;
-
 static int main_argc;
 static char * const *main_argv;
 static sigset_t blocked;
@@ -21,6 +19,8 @@ extern char **environ;
 
 extern auth_hook _gale_find_id;
 static auth_hook find_id,*old_find;
+
+extern void _gale_globals(struct passwd *pwd);
 
 static int find_id(struct auth_id *id) {
 	if (_gale_find_id(id)) return 1;
@@ -44,9 +44,9 @@ static void init_vars(struct passwd *pwd) {
 
 	{
 		struct gale_text new = gale_text_concat(5,
-			dir_file(dot_gale,G_("bin")),G_(":"),
-			dir_file(sys_dir,G_("bin")),G_(":"),
-			dir_file(dot_gale,G_(".")));
+			dir_file(gale_global->dot_gale,G_("bin")),G_(":"),
+			dir_file(gale_global->sys_dir,G_("bin")),G_(":"),
+			dir_file(gale_global->dot_gale,G_(".")));
 		struct gale_text old = gale_var(G_("PATH"));
 
 		if (gale_text_compare(gale_text_left(old,new.l),new)) {
@@ -68,64 +68,6 @@ static void init_vars(struct passwd *pwd) {
 	if (!gale_var(G_("GALE_SUBS")).l) {
 		struct auth_id *id = lookup_id(gale_var(G_("GALE_ID")));
 		gale_set(G_("GALE_SUBS"),id_category(id,G_("user"),G_("")));
-	}
-}
-
-static char *read_line(FILE *fp) {
-	static char *buf = NULL;
-	static int alloc = 0;
-	int ch,size = 0;
-
-	if (!fp) return NULL;
-
-	while ((ch = fgetc(fp)) != EOF && ch != '\n') {
-		if (size >= alloc - 1) {
-			char *old = buf;
-			buf = gale_malloc(alloc = alloc ? alloc * 2 : 256);
-			memcpy(buf,old,size);
-			gale_free(old);
-		}
-		buf[size++] = ch;
-	}
-
-	if (ch == EOF) return NULL;
-	buf[size++] = '\0';
-	return buf;
-}
-
-static void read_conf(struct gale_text fn) {
-	FILE *fp = fopen(gale_text_to_local(fn),"r");
-	char *s = read_line(fp);
-
-	while (s) {
-		struct gale_text var,value;
-		size_t len;
-
-		while (*s && isspace(*s)) ++s;
-		if (!*s || *s == '#') {
-			s = read_line(fp);
-			continue;
-		}
-
-		for (len = 0; s[len] && !isspace(s[len]); ++len) ;
-		var = gale_text_from_local(s,len);
-
-		s += len;
-		while (*s && isspace(*s)) ++s;
-		value = gale_text_from_local(s,-1);
-
-		s = read_line(fp);
-		while (s && *s && isspace(*s)) {
-			do ++s; while (*s && isspace(*s));
-			if (*s == '#') break;
-
-			value = gale_text_concat(2,value,
-				gale_text_from_local(s,-1));
-
-			s = read_line(fp);
-		}
-
-		if (0 == gale_var(var).l) gale_set(var,value);
 	}
 }
 
@@ -153,10 +95,6 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	struct sigaction act;
 	sigset_t empty;
 
-#ifdef HAVE_SOCKS
-	SOCKSinit(argv[0]);
-#endif
-
 	if (getuid() != geteuid()) {
 		environ = malloc(sizeof(*environ));
 		environ[0] = NULL;
@@ -164,6 +102,12 @@ void gale_init(const char *s,int argc,char * const *argv) {
 
 	main_argc = argc;
 	main_argv = argv;
+
+#ifdef HAVE_SOCKS
+	SOCKSinit(s);
+#endif
+
+	/* Rationalize signal handling. */
 
 	sigemptyset(&empty);
 	sigprocmask(SIG_BLOCK,&empty,&blocked);
@@ -179,31 +123,24 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	act.sa_handler = sig_pipe;
 	sigaction(SIGPIPE,&act,NULL);
 
+	/* Identify the user. */
+
 	if ((user = getenv("LOGNAME"))) pwd = getpwnam(user);
 	if (!pwd) pwd = getpwuid(geteuid());
 	if (!pwd) gale_alert(GALE_ERROR,"you do not exist",0);
 
-	gale_error_prefix = s;
+	/* Set up global variables. */
 
-	home_dir = gale_var(G_("HOME"));
-	if (0 == home_dir.l) home_dir = gale_text_from_local(pwd->pw_dir,-1);
-	make_dir(home_dir,0777);
+	_gale_globals(pwd);
+	gale_global->error_prefix = s;
 
-	dot_gale = gale_var(G_("GALE_DIR"));
-	if (0 != dot_gale.l) 
-		make_dir(dot_gale,0777);
-	else
-		dot_gale = sub_dir(home_dir,G_(".gale"),0777);
+	/* Install AKD handler. */
 
-	read_conf(dir_file(dot_gale,G_("conf")));
+	old_find = gale_global->find_public;
+	gale_global->find_public = find_id;
 
-	sys_dir = gale_var(G_("GALE_SYS_DIR"));
-	if (!sys_dir.l) sys_dir = gale_text_from_local(GALE_SYS_DIR,-1);
-	make_dir(sys_dir,0);
+	/* Round out the environment. */
 
-	read_conf(dir_file(sys_dir,G_("conf")));
-
-	old_find = hook_find_public;
-	hook_find_public = find_id;
 	init_vars(pwd);
+	gale_global->user_id = lookup_id(gale_var(G_("GALE_ID")));
 }

@@ -1,4 +1,3 @@
-#include "init.h"
 #include "file.h"
 #include "pack.h"
 #include "key.h"
@@ -146,12 +145,12 @@ void _ga_import_pub(struct auth_id **id,struct gale_data key,
 	if (imp->trusted && !trust) goto ignore;
 
 	if (!source) {
-		auth_hook *hook_save = hook_find_public;
+		auth_hook *hook_save = gale_global->find_public;
 		gale_dprintf(11,"(auth) \"%s\": looking around for it\n",
 			     gale_text_to_local(imp->name));
-		hook_find_public = NULL;
+		gale_global->find_public = NULL;
 		valid = auth_id_public(imp);
-		hook_find_public = hook_save;
+		gale_global->find_public = hook_save;
 	} else
 		valid = _ga_trust_pub(imp);
 
@@ -220,7 +219,8 @@ void _ga_import_pub(struct auth_id **id,struct gale_data key,
 
 		_ga_export_pub(imp,&key,EXPORT_NORMAL);
 		if (0 != key.l)
-		_ga_save_file(_ga_etc_cache,imp->name,0644,key,&imp->source);
+		_ga_save_file(gale_global->sys_cache,imp->name,0644,
+		              key,&imp->source);
 	}
 
 	goto success;

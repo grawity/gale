@@ -163,8 +163,7 @@ int gale_unpack_group(struct gale_data *data,struct gale_group *group) {
 			break;
 		case fragment_data:
 			frag.type = frag_data;
-			frag.value.data.p = gale_memdup(fdata.p,fdata.l);
-			frag.value.data.l = fdata.l;
+			frag.value.data = gale_data_copy(fdata);
 			fdata.p += fdata.l;
 			fdata.l -= fdata.l;
 			break;
@@ -192,8 +191,7 @@ int gale_unpack_group(struct gale_data *data,struct gale_group *group) {
 			gale_alert(GALE_WARNING,"invalid message fragment",0);
 			frag.name = G_("error");
 			frag.type = frag_data;
-			frag.value.data.p = gale_memdup(data->p - len,len);
-			frag.value.data.l = len;
+			frag.value.data = gale_data_copy(fdata);
 		}
 
 		gale_group_add(group,frag);

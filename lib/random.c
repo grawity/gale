@@ -7,7 +7,6 @@
 
 #include "common.h"
 #include "random.h"
-#include "init.h"
 #include "file.h"
 
 #define HASH_SIZE 16
@@ -28,7 +27,7 @@ void _ga_random(struct gale_data buf) {
 	if (!init) {
 		MD5Init(&r.md5);
 		r.pid = getpid();
-		r.filename = dir_file(_ga_dot_auth,G_("random"));
+		r.filename = dir_file(gale_global->dot_auth,G_("random"));
 
 		r.fd = open("/dev/urandom",O_RDONLY);
 		if (r.fd < 0) {

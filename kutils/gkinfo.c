@@ -1,5 +1,4 @@
 #include "common.h"
-#include "init.h"
 #include "file.h"
 #include "key.h"
 #include "id.h"
@@ -100,15 +99,13 @@ int main(int argc,char *argv[]) {
 	while ((arg = getopt(argc,argv,"ixdD")) != EOF) switch (arg) {
 	case 'i': iflag = 1; break;
 	case 'x': disable_gale_akd(); break;
-	case 'd': ++gale_debug; break;
-	case 'D': gale_debug += 5; break;
+	case 'd': ++gale_global->debug_level; break;
+	case 'D': gale_global->debug_level += 5; break;
 	case 'h':
 	case '?': usage();
 	}
 
 	gale_init("gkinfo",argc,argv);
-
-	_ga_init();
 
 	if (optind + 1 == argc) {
 		int found = 0;
