@@ -14,6 +14,8 @@
 #include <string.h>
 #include <time.h>
 
+#define MAX_RETRY 60
+
 struct auth_id *gale_user(void) {
 	static struct auth_id *user_id = NULL;
 
@@ -75,6 +77,7 @@ void gale_retry(struct gale_client *client) {
 			retry_time = retry_time + lrand48() % retry_time + 1;
 		else
 			retry_time = 2;
+		if (retry_time > MAX_RETRY) retry_time /= 2;
 		do_connect(client);
 	} while (client->socket < 0);
 	gale_alert(GALE_NOTICE,"server connection ok",0);

@@ -44,7 +44,7 @@ void append(int len,const char *s) {
 void to_g(ZNotice_t *notice) {
 	struct gale_message *msg;
 	char *ptr;
-	struct gale_fragment *frags[6];
+	struct gale_fragment frag;
 
 	if (notice->z_opcode && !strcmp(notice->z_opcode,"gale")) {
 		gale_dprintf(2,"message has opcode gale; dropping.\n");
@@ -60,19 +60,18 @@ void to_g(ZNotice_t *notice) {
 	for (ptr = notice->z_class_inst; *ptr; ++ptr)
 		*ptr = tolower(*ptr);
 
-	frags[0] = gale_make_id_class();
-	frags[1] = gale_make_id_instance(null_text);
-	frags[2] = gale_make_id_time();
+	msg = new_message();
 
-	gale_create(frags[3]);
-	frags[3]->name = G_("message/sender");
-	frags[3]->type = frag_text;
-	frags[3]->value.text = gale_text_from_latin1(notice->z_sender,-1);
+	gale_add_id(&msg->data,null_text);
 
-	gale_create(frags[4]);
-	frags[4]->name = G_("message/body");
-	frags[4]->type = frag_text;
-	frags[4]->value.text = null_text;
+	frag.name = G_("message/sender");
+	frag.type = frag_text;
+	frag.value.text = gale_text_from_latin1(notice->z_sender,-1);
+	gale_group_add(&msg->data,frag);
+
+	frag.name = G_("message/body");
+	frag.type = frag_text;
+	frag.value.text = null_text;
 
 	if ((ptr = memchr(notice->z_message,'\0',notice->z_message_len))) {
 		int len = notice->z_message_len - (++ptr - notice->z_message);
@@ -82,8 +81,8 @@ void to_g(ZNotice_t *notice) {
 			char *end = memchr(ptr,'\n',len);
 			if (!end) end = ptr + len;
 
-			frags[4]->value.text = gale_text_concat(3,
-				frags[4]->value.text,
+			frag.value.text = gale_text_concat(3,
+				frag.value.text,
 				gale_text_from_latin1(ptr,end - ptr),
 				G_("\r\n"));
 
@@ -92,12 +91,10 @@ void to_g(ZNotice_t *notice) {
 		}
 	}
 
-	frags[5] = NULL;
+	gale_group_add(&msg->data,frag);
 
-	msg = new_message();
 	msg->cat = gale_text_concat(2,cat,
 		gale_text_from_latin1(notice->z_class_inst,-1));
-	msg->data = pack_message(frags);
 	link_put(client->link,msg);
 }
 
@@ -120,7 +117,7 @@ void to_z(struct gale_message *msg) {
 	char instance[256] = "(invalid)";
 	char *sig = NULL,*body = NULL;
 	struct auth_id *signature,*encryption;
-	struct gale_fragment **frags;
+	struct gale_group group;
 	struct gale_text token = null_text;
 	int retval;
 
@@ -150,14 +147,16 @@ void to_z(struct gale_message *msg) {
 		}
 	}
 
-	for (frags = unpack_message(msg->data); *frags; ++frags) {
-		struct gale_fragment *frag = *frags;
-		if (frag_text == frag->type
-		&& !gale_text_compare(frag->name,G_("message/sender")))
-			sig = gale_text_to_latin1(frag->value.text);
-		if (frag_text == frag->type
-		&& !gale_text_compare(frag->name,G_("message/body")))
-			body = gale_text_to_latin1(frag->value.text);
+	group = gale_group_find(msg->data,G_("message/sender"));
+	if (!gale_group_null(group)) {
+		struct gale_fragment frag = gale_group_first(group);
+		if (frag_text == frag.type) sig = gale_text_to_latin1(frag.value.text);
+	}
+
+	group = gale_group_find(msg->data,G_("message/body"));
+	if (!gale_group_null(group)) {
+		struct gale_fragment frag = gale_group_first(group);
+		if (frag_text == frag.type) body = gale_text_to_latin1(frag.value.text);
 	}
 
 	if (sig == NULL) {
@@ -169,7 +168,6 @@ void to_z(struct gale_message *msg) {
 
 	reset();
 	append(strlen(sig) + 1,sig); 
-	gale_free(sig);
 
 	while (body && *body) {
 		char *nl = strchr(body,'\r');
@@ -206,7 +204,7 @@ void usage(void) {
 	"%s\n"
 	"usage: gzgw [-h] [class [cat]]\n"
 	"flags: -h          Display this message\n"
-	"gzgw defaults to class message and category 'zephyr/$GALE_DOMAIN/'.\n"
+	"gzgw defaults to class message and category 'gate/zephyr/$GALE_DOMAIN/'.\n"
 	,GALE_BANNER);
 	exit(1);
 }
@@ -242,7 +240,7 @@ int main(int argc,char *argv[]) {
 		++optind;
 	} else {
 		cat = gale_text_concat(3,
-			G_("zephyr/"),gale_var(G_("GALE_DOMAIN")),G_("/"));
+			G_("gate/zephyr/"),gale_var(G_("GALE_DOMAIN")),G_("/"));
 	}
 	if (optind < argc) usage();
 

@@ -6,7 +6,7 @@
 #include "subscr.h"
 #include "server.h"
 
-struct connect *new_connect(int rfd,int wfd,int old) {
+struct connect *new_connect(int rfd,int wfd) {
 	struct connect *conn;
 	gale_create(conn);
 	fcntl(wfd,F_SETFL,O_NONBLOCK);
@@ -14,7 +14,7 @@ struct connect *new_connect(int rfd,int wfd,int old) {
 	fcntl(wfd,F_SETFD,1);
 	conn->rfd = rfd;
 	conn->wfd = wfd;
-	conn->link = old ? new_old_link() : new_link();
+	conn->link = new_link();
 	conn->subscr.p = NULL;
 	conn->subscr.l = 0;
 	conn->next = NULL;

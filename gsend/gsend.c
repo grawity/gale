@@ -15,97 +15,71 @@
 #endif
 
 struct gale_message *msg;               /* The message we're building. */
-struct gale_fragment **frags = NULL;
 int num = 0,alloc = 0;
 
 /* Various flags. */
 int do_encrypt = 0,do_rrcpt = 1;
 
-/* Whether we have collected any replacements for default fragments. */
-int have_from = 0,have_to = 0;
-
 struct auth_id **rcpt = NULL;		/* Encryption recipients. */
 struct auth_id *signer;			/* Identity to sign the message. */
 int num_rcpt = 0;			/* Number of recipients. */
 
-/* Add a fragment to the message. */
-void add_fragment(struct gale_fragment *frag) {
-	if (num + 1 >= alloc) {
-		alloc = alloc ? (alloc*2) : 10;
-		frags = gale_realloc(frags,sizeof(*frags) * alloc);
-	}
-	frags[num++] = frag;
-
-	if (frag_text == frag->type) {
-		if (!gale_text_compare(frag->name,G_("message/sender")))
-			++have_from;
-		if (!gale_text_compare(frag->name,G_("message/recipient")))
-			++have_to;
-	}
-}
-
 /* Parse user-supplied text. */
 void parse_text(struct gale_text arg) {
-	struct gale_fragment *frag;
+	struct gale_fragment frag;
 
-	gale_create(frag);
-	frag->type = frag_text;
-	frag->name = null_text;
-	gale_text_token(arg,'=',&frag->name);
-	frag->value.text = frag->name;
-	if (!gale_text_token(arg,'=',&frag->value.text))
-		frag->value.text = null_text;
-	add_fragment(frag);
+	frag.type = frag_text;
+	frag.name = null_text;
+	gale_text_token(arg,'=',&frag.name);
+	frag.value.text = frag.name;
+	if (!gale_text_token(arg,'=',&frag.value.text))
+		frag.value.text = null_text;
+	gale_group_add(&msg->data,frag);
 }
 
 /* Add default fragments to the message, if not already specified. */
 void headers(void) {
-	struct gale_fragment *frag;
+	struct gale_fragment frag;
 	char *tty;
 
 	/* Most of these are fairly obvious. */
-	if (signer && !have_from) {
-		gale_create(frag);
-		frag->name = G_("message/sender");
-		frag->type = frag_text;
-		frag->value.text = gale_var(G_("GALE_FROM"));
-		add_fragment(frag);
+	if (signer) {
+		frag.name = G_("message/sender");
+		frag.type = frag_text;
+		frag.value.text = gale_var(G_("GALE_FROM"));
+		gale_group_add(&msg->data,frag);
 	}
 
-	if (!have_to && num_rcpt) {
+	if (num_rcpt) {
 		int i;
 
-		gale_create(frag);
-		frag->name = G_("message/recipient");
-		frag->type = frag_text;
-		frag->value.text = null_text;
+		frag.name = G_("message/recipient");
+		frag.type = frag_text;
+		frag.value.text = null_text;
 
 		for (i = 0; i < num_rcpt; ++i)
-			frag->value.text = gale_text_concat(3,
-				frag->value.text,
+			frag.value.text = gale_text_concat(3,
+				frag.value.text,
 				i ? G_(", ") : G_(""),
 				auth_id_comment(rcpt[i]));
 
 		if (!do_encrypt)
-			frag->value.text = gale_text_concat(2,
-				frag->value.text,G_(", et al."));
+			frag.value.text = gale_text_concat(2,
+				frag.value.text,G_(", et al."));
 
-		add_fragment(frag);
+		gale_group_add(&msg->data,frag);
 	}
 
-	add_fragment(gale_make_id_class());
 	tty = ttyname(0);
 	if (tty && strchr(tty,'/')) tty = strrchr(tty,'/') + 1;
-	add_fragment(gale_make_id_instance(gale_text_from_local(tty,-1)));
-	add_fragment(gale_make_id_time());
+	gale_add_id(&msg->data,gale_text_from_local(tty,-1));
 
 	if (do_rrcpt) {
-		gale_create(frag);
-		frag->name = G_("question/receipt");
-		frag->type = frag_text;
-		frag->value.text = 
+		frag.name = G_("question/receipt");
+		frag.type = frag_text;
+		frag.value.text = 
 			id_category(gale_user(),G_("user"),G_("receipt"));
-		add_fragment(frag);
+		gale_group_add(&msg->data,frag);
 	}
 }
 
@@ -184,13 +158,14 @@ int main(int argc,char *argv[]) {
 	char *line = NULL;			/* The current input line */
 	struct gale_text public = null_text;	/* Public cateogry */
 	struct gale_text body = null_text;	/* Message body */
-	struct gale_fragment *frag;
+	struct gale_fragment frag;
 
 	/* Initialize the gale libraries. */
 	gale_init("gsend",argc,argv);
 
 	/* Create a new message object to send. */
 	msg = new_message();
+	msg->data = gale_group_empty();
 
 	/* Default is to sign with our key. */
 	signer = gale_user();
@@ -201,7 +176,11 @@ int main(int argc,char *argv[]) {
 	case 'd': ++gale_debug; break;
 	case 'D': gale_debug += 5; break;
 	case 'a': signer = NULL; break;		/* Anonymous (no signature) */
-	case 'c': public = 			/* Public message */
+	case 'c': if (!public.p) public =       /* Public message */
+	          gale_text_from_local(optarg,-1);
+	          else public = 
+	          gale_text_concat(3,public,G_(":"),gale_text_from_local(optarg,-1));
+	          break;
 	          gale_text_from_local(optarg,-1);
 	          break;
 	case 'C': msg->cat =			/* Select a category */
@@ -324,13 +303,10 @@ int main(int argc,char *argv[]) {
 			G_("\r\n"));
 	}
 
-	gale_create(frag);
-	frag->name = G_("message/body");
-	frag->type = frag_text;
-	frag->value.text = body;
-	add_fragment(frag);
-	frags[num] = NULL;
-	msg->data = pack_message(frags);
+	frag.name = G_("message/body");
+	frag.type = frag_text;
+	frag.value.text = body;
+	gale_group_add(&msg->data,frag);
 
 	/* Sign the message, unless we shouldn't. */
 	if (signer) {

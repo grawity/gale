@@ -1,6 +1,5 @@
 #include "gale/misc.h"
 #include "gale/core.h"
-#include "link_old.h"
 #include "buffer.h"
 
 #include <assert.h>
@@ -18,8 +17,6 @@ struct link {
 };
 
 struct gale_link {
-	struct gale_link_old *old;
-
 	/* input stuff */
 	struct input_buffer *input;
 	u32 in_opcode,in_length;
@@ -37,7 +34,8 @@ struct gale_link {
 };
 
 static size_t message_size(struct gale_message *m) {
-	return m->data.l + m->cat.l * gale_wch_size();
+	return gale_u32_size() + gale_group_size(m->data) 
+	     + m->cat.l * gale_wch_size();
 }
 
 static struct gale_message *dequeue(struct gale_link *l) {
@@ -108,10 +106,15 @@ static void ist_idle(struct input_state *inp) {
 
 static void ifn_message_body(struct input_state *inp) {
 	struct gale_link *l = (struct gale_link *) inp->private;
+	u32 zero;
 	l->in_length -= inp->data.l;
 	assert(0 == l->in_length);
 	assert(NULL != l->in_msg);
-	switch (l->in_opcode) {
+
+	if (!gale_unpack_u32(&inp->data,&zero) || 0 != zero 
+	||  !gale_unpack_group(&inp->data,&l->in_msg->data))
+		gale_alert(GALE_WARNING,"invalid message format ignored",0);
+	else switch (l->in_opcode) {
 	case opcode_puff:
 		assert(NULL == l->in_puff);
 		l->in_puff = l->in_msg;
@@ -122,6 +125,7 @@ static void ifn_message_body(struct input_state *inp) {
 	default:
 		assert(0);
 	}
+
 	l->in_msg = NULL;
 	ist_idle(inp);
 }
@@ -138,8 +142,7 @@ static void ifn_message_category(struct input_state *inp) {
 	{
 		inp->next = ifn_message_body;
 		inp->data.l = l->in_length;
-		inp->data.p = gale_malloc(inp->data.l);
-		l->in_msg->data = inp->data;
+		inp->data.p = NULL;
 		inp->ready = input_always_ready;
 	} else {
 		l->in_msg = NULL;
@@ -249,7 +252,10 @@ static void ost_version(struct output_state *out) {
 
 static void ofn_msg_data(struct output_state *out,struct output_context *ctx) {
 	struct gale_link *l = (struct gale_link *) out->private;
-	send_buffer(ctx,l->out_msg->data,NULL,l->out_msg);
+	struct gale_data data;
+	send_space(ctx,gale_u32_size() + gale_group_size(l->out_msg->data),&data);
+	gale_pack_u32(&data,0);
+	gale_pack_group(&data,l->out_msg->data);
 	l->out_msg = NULL;
 	ost_idle(out);
 }
@@ -297,14 +303,14 @@ static void ofn_idle(struct output_state *out,struct output_context *ctx) {
 		gale_pack_u32(&data,opcode_will);
 		gale_pack_u32(&data,gale_u32_size() 
 			+ l->out_msg->cat.l * gale_wch_size() 
-			+ l->out_msg->data.l);
+			+ gale_u32_size() + gale_group_size(l->out_msg->data));
 	} else if (NULL != l->out_queue) {
 		out->next = ofn_message;
 		l->out_msg = dequeue(l);
 		gale_pack_u32(&data,opcode_puff);
 		gale_pack_u32(&data,gale_u32_size() 
 			+ l->out_msg->cat.l * gale_wch_size() 
-			+ l->out_msg->data.l);
+			+ gale_u32_size() + gale_group_size(l->out_msg->data));
 	} else assert(0);
 }
 
@@ -320,16 +326,9 @@ static void ost_idle(struct output_state *out) {
 
 /* -- API ------------------------------------------------------------------- */
 
-struct gale_link *new_old_link(void) {
-	struct gale_link *l = gale_malloc(sizeof(struct gale_link_old *));
-	l->old = new_link_old();
-	return l;
-}
-
 struct gale_link *new_link(void) {
 	struct gale_link *l;
 	gale_create(l);
-	l->old = NULL;
 
 	l->input = NULL;
 	l->in_msg = l->in_puff = l->in_will = NULL;
@@ -349,11 +348,6 @@ struct gale_link *new_link(void) {
 }
 
 void reset_link(struct gale_link *l) {
-	if (l->old) {
-		reset_link_old(l->old);
-		return;
-	}
-
 	/* reset fields */
 	if (l->in_msg) l->in_msg = NULL;
 	if (l->input) l->input = NULL;
@@ -364,8 +358,6 @@ void reset_link(struct gale_link *l) {
 }
 
 int link_receive_q(struct gale_link *l) {
-	if (l->old) return link_receive_q_old(l->old);
-
 	if (NULL == l->input) {
 		struct input_state initial;
 		initial.private = l;
@@ -377,14 +369,11 @@ int link_receive_q(struct gale_link *l) {
 }
 
 int link_receive(struct gale_link *l,int fd) {
-	if (l->old) return link_receive_old(l->old,fd);
 	assert(NULL != l->input); /* call link_receive_q first! */
 	return input_buffer_read(l->input,fd);
 }
 
 int link_transmit_q(struct gale_link *l) {
-	if (l->old) return link_transmit_q_old(l->old);
-
 	if (NULL == l->output) {
 		struct output_state initial;
 		initial.private = l;
@@ -396,28 +385,15 @@ int link_transmit_q(struct gale_link *l) {
 }
 
 int link_transmit(struct gale_link *l,int fd) {
-	if (l->old) return link_transmit_old(l->old,fd);
 	return output_buffer_write(l->output,fd);
 }
 
 void link_subscribe(struct gale_link *l,struct gale_text spec) {
-	if (l->old) {
-		char *ch = gale_text_to_latin1(spec);
-		link_subscribe_old(l->old,ch);
-		gale_free(ch);
-		return;
-	}
-
 	l->out_gimme = spec;
 }
 
 void link_put(struct gale_link *l,struct gale_message *m) {
 	struct link *link;
-
-	if (l->old) {
-		link_put_old(l->old,m);
-		return;
-	}
 
 	gale_create(link);
 	link->msg = m;
@@ -435,26 +411,18 @@ void link_put(struct gale_link *l,struct gale_message *m) {
 }
 
 void link_will(struct gale_link *l,struct gale_message *m) {
-	if (l->old) {
-		link_put_old(l->old,m);
-		return;
-	}
-
 	l->out_will = m;
 }
 
 int link_queue_num(struct gale_link *l) {
-	if (l->old) return link_queue_old(l->old);
 	return l->queue_num;
 }
 
 size_t link_queue_mem(struct gale_link *l) {
-	if (l->old) return 0;
 	return l->queue_mem;
 }
 
 void link_queue_drop(struct gale_link *l) {
-	if (l->old) return;
 	if (NULL != l->out_queue) dequeue(l);
 }
 
@@ -465,7 +433,6 @@ int link_version(struct gale_link *l) {
 
 struct gale_message *link_get(struct gale_link *l) {
 	struct gale_message *puff;
-	if (l->old) return link_get_old(l->old);
 	puff = l->in_puff;
 	l->in_puff = NULL;
 	if (l->input) input_buffer_more(l->input);
@@ -474,7 +441,6 @@ struct gale_message *link_get(struct gale_link *l) {
 
 struct gale_message *link_willed(struct gale_link *l) {
 	struct gale_message *will;
-	if (l->old) return link_willed_old(l->old);
 	will = l->in_will;
 	l->in_will = NULL;
 	if (l->input) input_buffer_more(l->input);
@@ -483,13 +449,6 @@ struct gale_message *link_willed(struct gale_link *l) {
 
 struct gale_text link_subscribed(struct gale_link *l) {
 	struct gale_text text = null_text;
-
-	if (l->old) {
-		char *ch = link_subscribed_old(l->old);
-		text = gale_text_from_latin1(ch,-1);
-		gale_free(ch);
-		return text;
-	}
 
 	text = l->in_gimme;
 	l->in_gimme.p = NULL;

@@ -30,7 +30,7 @@ void watch_cat(struct gale_text cat) {
 
 void watch_ping(struct gale_text cat,struct auth_id *id) {
 	struct gale_message *msg = new_message();
-	struct gale_fragment *frags[2];
+	struct gale_fragment frag;
 
 	if (!receipt.l) {
 		const char *host = getenv("HOST");
@@ -42,15 +42,12 @@ void watch_ping(struct gale_text cat,struct auth_id *id) {
 		watch_cat(receipt);
 	}
 
-	gale_create(frags[0]);
-	frags[0]->type = frag_text;
-	frags[0]->name = G_("question/receipt");
-	frags[0]->value.text = receipt;
-
-	frags[1] = NULL;
-
-	msg->cat = cat;
-	msg->data = pack_message(frags);
+	msg->cat = gale_text_concat(2,cat,G_(":/ping"));
+	
+	frag.type = frag_text;
+	frag.name = G_("question/receipt");
+	frag.value.text = receipt;
+	gale_group_add(&msg->data,frag);
 
 	if (id) msg = encrypt_message(1,&id,msg);
 
@@ -162,7 +159,7 @@ void process_message(struct gale_message *msg) {
 	struct gale_text from = null_text,status = null_text;
 	struct gale_text class = null_text,instance = null_text;
 	struct gale_time when = gale_time_now();
-	struct gale_fragment **frags;
+	struct gale_group group;
 
 	id_encrypt = decrypt_message(msg,&msg);
 	if (!msg) return;
@@ -177,28 +174,30 @@ void process_message(struct gale_message *msg) {
 	}
 #endif
 
-	for (frags = unpack_message(msg->data); *frags; ++frags) {
-		struct gale_fragment *frag = *frags;
+	group = msg->data;
+	while (!gale_group_null(group)) {
+		struct gale_fragment frag = gale_group_first(group);
+		group = gale_group_rest(group);
 
-		if (frag_text == frag->type
-		&& !gale_text_compare(frag->name,G_("notice/presence")))
-			status = frag->value.text;
+		if (frag_text == frag.type
+		&& !gale_text_compare(frag.name,G_("notice/presence")))
+			status = frag.value.text;
 
-		if (frag_text == frag->type
-		&& !gale_text_compare(frag->name,G_("message/sender")))
-			from = frag->value.text;
+		if (frag_text == frag.type
+		&& !gale_text_compare(frag.name,G_("message/sender")))
+			from = frag.value.text;
 
-		if (frag_text == frag->type
-		&& !gale_text_compare(frag->name,G_("id/class")))
-			class = frag->value.text;
+		if (frag_text == frag.type
+		&& !gale_text_compare(frag.name,G_("id/class")))
+			class = frag.value.text;
 
-		if (frag_text == frag->type
-		&& !gale_text_compare(frag->name,G_("id/instance")))
-			instance = frag->value.text;
+		if (frag_text == frag.type
+		&& !gale_text_compare(frag.name,G_("id/instance")))
+			instance = frag.value.text;
 
-		if (frag_time == frag->type
-		&& !gale_text_compare(frag->name,G_("id/time")))
-			when = frag->value.time;
+		if (frag_time == frag.type
+		&& !gale_text_compare(frag.name,G_("id/time")))
+			when = frag.value.time;
 	}
 
 	if (0 == status.l) {
@@ -217,7 +216,7 @@ void process_message(struct gale_message *msg) {
 void usage(void) {
 	fprintf(stderr,
 		"%s\n"
-		"usage: gwatch [flags] cat\n"
+		"usage: gwatch [flags] [cat]\n"
 		"flags: -h          Display this message\n"
 		"       -n          Do not fork (default if -m, -t, or stdout redirected)\n"
 		"       -k          Do not kill other gwatch processes\n"

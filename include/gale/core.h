@@ -35,28 +35,12 @@ void gale_restore_environ(struct gale_environ *);
 /* -- management of message (puff) objects --------------------------------- */
 
 struct gale_message {
-	struct gale_text cat;  /* Category expression text. */
-	struct gale_data data; /* Message data. */
+	struct gale_text cat;   /* Category expression text. */
+	struct gale_group data; /* Message data. */
 };
 
 /* Create a new message with empty fields. */
 struct gale_message *new_message(void);
-
-/* You can decompose messages into "fragments". */
-struct gale_fragment {
-	struct gale_text name;
-	enum { frag_text, frag_data, frag_time, frag_number } type;
-	union {
-		struct gale_text text;
-		struct gale_data data;
-		struct gale_time time;
-		s32 number;
-	} value;
-};
-
-/* These routines use NULL-terminated arrays of pointers to fragments. */
-struct gale_fragment **unpack_message(struct gale_data);
-struct gale_data pack_message(struct gale_fragment **);
 
 /* -- gale server connection management ------------------------------------ */
 

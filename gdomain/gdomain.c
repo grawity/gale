@@ -18,17 +18,8 @@ void usage() {
 
 struct gale_message *slip(struct auth_id *id,struct gale_fragment frag) {
 	struct gale_message *msg = new_message();
-	struct gale_fragment *frags[5];
-
-	frags[0] = gale_make_id_class();
-	frags[1] = gale_make_id_instance(null_text);
-	frags[2] = gale_make_id_time();
-	
-	*gale_create(frags[3]) = frag;
-
-	frags[4] = NULL;
-
-	msg->data = pack_message(frags);
+	gale_add_id(&msg->data,null_text);
+	gale_group_add(&msg->data,frag);
 	msg->cat = id_category(id,G_("auth/key"),G_(""));
 	return msg;
 }
@@ -68,7 +59,7 @@ int suffix(struct gale_text x,struct gale_text suffix) {
 void incoming(struct gale_message *msg) {
 	struct auth_id *encrypted = NULL,*signature = NULL;
 	struct gale_text user = null_text;
-	struct gale_fragment **frags;
+	struct gale_group group;
 
 	encrypted = decrypt_message(msg,&msg);
 	if (!msg) return;
@@ -76,11 +67,10 @@ void incoming(struct gale_message *msg) {
 
 	/* Figure out what we can from the headers. */
 
-	for (frags = unpack_message(msg->data); *frags; ++frags) {
-		struct gale_fragment *frag = *frags;
-		if (frag_text == frag->type 
-		&& !gale_text_compare(frag->name,G_("question/key")))
-			user = frag->value.text;
+	group = gale_group_find(msg->data,G_("question/key"));
+	if (!gale_group_null(group)) {
+		struct gale_fragment frag = gale_group_first(group);
+		if (frag_text == frag.type) user = frag.value.text;
 	}
 
 	/* Now see what we can glean from the category */

@@ -62,30 +62,24 @@ struct gale_message *slip(struct gale_text cat,
                           struct auth_id *sign,struct auth_id *encrypt)
 {
 	struct gale_message *msg;
-	struct gale_fragment *frags[7];
+	struct gale_fragment frag;
 
 	/* Create a new message. */
 	msg = new_message();
 	msg->cat = cat;
 
-	gale_create(frags[0]);
-	frags[0]->name = G_("message/sender");
-	frags[0]->type = frag_text;
-	frags[0]->value.text = gale_var(G_("GALE_FROM"));
+	frag.name = G_("message/sender");
+	frag.type = frag_text;
+	frag.value.text = gale_var(G_("GALE_FROM"));
+	gale_group_add(&msg->data,frag);
 
-	gale_create(frags[1]);
-	frags[1]->name = G_("notice/presence");
-	frags[1]->type = frag_text;
-	frags[1]->value.text = presence;
+	frag.name = G_("notice/presence");
+	frag.type = frag_text;
+	frag.value.text = presence;
+	gale_group_add(&msg->data,frag);
 
-	frags[2] = gale_make_id_class();
-	frags[3] = gale_make_id_instance(gale_text_from_latin1(tty,-1));
-	frags[4] = gale_make_id_time();
-
-	frags[5] = extra;
-	frags[6] = NULL;
-
-	msg->data = pack_message(frags);
+	gale_add_id(&msg->data,gale_text_from_latin1(tty,-1));
+	if (extra) gale_group_add(&msg->data,*extra);
 
 	/* Sign and encrypt the message, if appropriate. */
 	if (sign) {
@@ -103,15 +97,14 @@ struct gale_message *slip(struct gale_text cat,
 /* Reply to an AKD request: post our key. */
 
 struct gale_message *send_key(void) {
-	struct gale_fragment *frag;
+	struct gale_fragment frag;
 
-	gale_create(frag);
-	frag->name = G_("answer/key");
-	frag->type = frag_data;
-	export_auth_id(user_id,&frag->value.data,0);
+	frag.name = G_("answer/key");
+	frag.type = frag_data;
+	export_auth_id(user_id,&frag.value.data,0);
 
 	return slip(id_category(user_id,G_("auth/key"),G_("")),
-	            presence,frag,NULL,NULL);
+	            presence,&frag,NULL,NULL);
 }
 
 /* Print a user ID, with a default string (like "everyone") for NULL. */
@@ -301,7 +294,7 @@ void present_message(struct gale_message *_msg) {
 
 	/* Lots of crap.  Discussed below, where they're used. */
 	struct gale_environ *save = gale_save_environ();
-	struct gale_fragment **frags;
+	struct gale_group group;
 	struct gale_text body = null_text;
 	struct auth_id *id_encrypted = NULL,*id_sign = NULL;
 	struct gale_message *rcpt = NULL,*akd = NULL,*msg = NULL;
@@ -331,95 +324,96 @@ void present_message(struct gale_message *_msg) {
 		gale_set(G_("GALE_SIGNED"),auth_id_name(id_sign));
 
 	/* Go through the message fragments. */
-	frags = unpack_message(msg->data);
-	while (*frags) {
-		struct gale_fragment *frag = *frags++;
+	group = msg->data;
+	while (!gale_group_null(group)) {
+		struct gale_fragment frag = gale_group_first(group);
 		struct gale_text name;
 		wch *buf;
 		int i;
 
+		group = gale_group_rest(group);
+
 		/* Process receipts, if we do. */
-		if (!do_stealth && frag->type == frag_text
-		&&  !gale_text_compare(frag->name,G_("question/receipt"))) {
+		if (!do_stealth && frag.type == frag_text
+		&&  !gale_text_compare(frag.name,G_("question/receipt"))) {
 			/* Generate a receipt. */
-			struct gale_fragment *reply;
-			gale_create(reply);
-			reply->name = G_("answer/receipt");
-			reply->type = frag_text;
-			reply->value.text = msg->cat;
-			rcpt = slip(frag->value.text,
-			            presence,reply,user_id,id_sign);
+			struct gale_fragment reply;
+			reply.name = G_("answer/receipt");
+			reply.type = frag_text;
+			reply.value.text = msg->cat;
+			rcpt = slip(frag.value.text,
+			            presence,&reply,user_id,id_sign);
 		}
 
 		/* Handle AKD requests for us. */
-		if (!do_stealth && frag->type == frag_text
-		&&  !gale_text_compare(frag->name,G_("question/key"))
-		&&  !gale_text_compare(frag->value.text,auth_id_name(user_id)))
+		if (!do_stealth && frag.type == frag_text
+		&&  !gale_text_compare(frag.name,G_("question/key"))
+		&&  !gale_text_compare(frag.value.text,auth_id_name(user_id)))
 			akd = send_key();
 
 		/* Save the message body for later. */
-		if (frag->type == frag_text
-		&&  !gale_text_compare(frag->name,G_("message/body")))
-			body = frag->value.text;
+		if (frag.type == frag_text
+		&&  !gale_text_compare(frag.name,G_("message/body")))
+			body = frag.value.text;
 
 		/* Form the name used for environment variables. */
-		gale_create_array(buf,frag->name.l);
-		for (i = 0; i < frag->name.l; ++i)
-			if (isalnum(frag->name.p[i]))
-				buf[i] = toupper(frag->name.p[i]);
+		gale_create_array(buf,frag.name.l);
+		for (i = 0; i < frag.name.l; ++i)
+			if (isalnum(frag.name.p[i]))
+				buf[i] = toupper(frag.name.p[i]);
 			else
 				buf[i] = '_';
 		name.p = buf;
-		name.l = frag->name.l;
+		name.l = frag.name.l;
 
 		/* Create environment variables. */
-		if (frag_text == frag->type) {
+		if (frag_text == frag.type) {
 			struct gale_text varname = null_text;
 
-			if (!gale_text_compare(frag->name,G_("message/subject")))
+			if (!gale_text_compare(frag.name,G_("message/subject")))
 				varname = G_("HEADER_SUBJECT");
 			else 
-			if (!gale_text_compare(frag->name,G_("message/sender")))
+			if (!gale_text_compare(frag.name,G_("message/sender")))
 				varname = G_("HEADER_FROM");
 			else 
-			if (!gale_text_compare(frag->name,G_("message/recipient")))
+			if (!gale_text_compare(frag.name,G_("message/recipient")))
 				varname = G_("HEADER_TO");
 			else
-			if (!gale_text_compare(frag->name,G_("question/receipt")))
+			if (!gale_text_compare(frag.name,G_("question/receipt")))
 				varname = G_("HEADER_RECEIPT_TO");
 			else
-			if (!gale_text_compare(frag->name,G_("id/instance")))
+			if (!gale_text_compare(frag.name,G_("id/instance")))
 				varname = G_("HEADER_AGENT");
 
 			if (varname.l > 0)
-				gale_set(varname,frag->value.text);
+				gale_set(varname,frag.value.text);
 
-			if (gale_text_compare(frag->name,G_("message/body")))
+			if (gale_text_compare(frag.name,G_("message/body")))
 				gale_set(
 				gale_text_concat(2,G_("GALE_TEXT_"),name),
-				frag->value.text);
+				frag.value.text);
 		}
 
-		if (frag_time == frag->type) {
+		if (frag_time == frag.type) {
 			struct gale_text time;
 			char buf[30];
 			struct timeval tv;
 			time_t when;
-			gale_time_to(&tv,frag->value.time);
+			gale_time_to(&tv,frag.value.time);
 			when = tv.tv_sec;
 			strftime(buf,30,"%Y-%m-%d %H:%M:%S",localtime(&when));
 			time = gale_text_from_latin1(buf,-1);
 
-			if (!gale_text_compare(frag->name,G_("id/time")))
+			if (!gale_text_compare(frag.name,G_("id/time")))
 				gale_set(G_("HEADER_TIME"),
 					gale_text_from_number(tv.tv_sec,10,0));
 
 			gale_set(gale_text_concat(2,G_("GALE_TIME_"),name),time);
 		}
 
-		if (frag_number == frag->type)
+		if (frag_number == frag.type)
 			gale_set(gale_text_concat(2,G_("GALE_NUMBER_"),name),
-				gale_text_from_number(frag->value.number,10,0));
+				gale_text_from_number(frag.value.number,10,0));
 	}
 
 #ifndef NDEBUG

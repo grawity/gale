@@ -41,9 +41,7 @@ int gale_next(struct gale_client *);
 
 /* -- standard fragment utilities -------------------------------------------*/
 
-struct gale_fragment *gale_make_id_class(void);
-struct gale_fragment *gale_make_id_instance(struct gale_text terminal);
-struct gale_fragment *gale_make_id_time(void);
+void gale_add_id(struct gale_group *group,struct gale_text terminal);
 
 /* -- gale user id management ---------------------------------------------- */
 

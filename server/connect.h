@@ -20,7 +20,7 @@ struct connect {
 	struct connect *sub_next;
 };
 
-struct connect *new_connect(int rfd,int wfd,int old);
+struct connect *new_connect(int rfd,int wfd);
 void free_connect(struct connect *);
 
 void pre_select(struct connect *,fd_set *r,fd_set *w);

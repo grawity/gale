@@ -16,17 +16,17 @@
 #include "connect.h"
 #include "server.h"
 
-static int listener,old_listener,port = 11511,old_port = 8413;
+static int listener,port = 11511;
 static struct connect *list = NULL;
 static struct attach *try = NULL;
 
-static void add_connect(int fd,int old) {
-	struct connect *conn = new_connect(fd,fd,old);
+static void add_connect(int fd) {
+	struct connect *conn = new_connect(fd,fd);
 	conn->next = list;
 	list = conn;
 }
 
-static void incoming(int fd,int old) {
+static void incoming(int fd) {
 	struct sockaddr_in sin;
 	int len = sizeof(sin);
 	int one = 1;
@@ -40,7 +40,7 @@ static void incoming(int fd,int old) {
 	             newfd,inet_ntoa(sin.sin_addr));
 	setsockopt(newfd,SOL_SOCKET,SO_KEEPALIVE,
 	           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
-	add_connect(newfd,old);
+	add_connect(newfd);
 }
 
 static void loop(void) {
@@ -56,7 +56,6 @@ static void loop(void) {
 		FD_ZERO(&rfd);
 		FD_ZERO(&wfd);
 		if (0 <= listener) FD_SET(listener,&rfd);
-		if (0 <= old_listener) FD_SET(old_listener,&rfd);
 		timeo.tv_sec = LONG_MAX;
 		timeo.tv_usec = 0;
 		for (ptr = list; ptr; ptr = ptr->next)
@@ -111,10 +110,7 @@ static void loop(void) {
 			}
 		}
 
-		if (0 <= listener && FD_ISSET(listener,&rfd))
-			incoming(listener,0);
-		if (0 <= old_listener && FD_ISSET(old_listener,&rfd))
-			incoming(old_listener,1);
+		if (0 <= listener && FD_ISSET(listener,&rfd)) incoming(listener);
 
 		prev = NULL; ptr = list;
 		while (ptr != NULL)
@@ -148,7 +144,7 @@ static void loop(void) {
 				att = att->next;
 				continue;
 			}
-			add_connect(fd,0);
+			add_connect(fd);
 			list->retry = att;
 			link_subscribe(list->link,att->subs);
 			subscribe_connect(list,att->subs);
@@ -181,11 +177,10 @@ static void add_links(void) {
 static void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: galed [-h] [-p port] [-P port]\n"
+	"usage: galed [-h] [-p port]\n"
 	"flags: -h       Display this message\n"
 	"       -p       Set the port to listen on (default %d)\n"
-	"       -P       Set the port for the old protocol (%d)\n"
-	,GALE_BANNER,port,old_port);
+	,GALE_BANNER,port);
 	exit(1);
 }
 
@@ -221,10 +216,9 @@ int main(int argc,char *argv[]) {
 
 	srand48(time(NULL) ^ getpid());
 
-	while ((opt = getopt(argc,argv,"hdDp:P:")) != EOF) switch (opt) {
+	while ((opt = getopt(argc,argv,"hdDp:")) != EOF) switch (opt) {
 	case 'd': ++gale_debug; break;
 	case 'D': gale_debug += 5; break;
-	case 'P': old_port = atoi(optarg); break;
 	case 'p': port = atoi(optarg); break;
 	case 'h':
 	case '?': usage();
@@ -238,11 +232,8 @@ int main(int argc,char *argv[]) {
 	openlog(argv[0],LOG_PID,LOG_LOCAL5);
 
 	listener = make_listener(port);
-	old_listener = make_listener(old_port);
 
-	if (listener == -1 && old_listener == -1)
-		gale_alert(GALE_ERROR,"could not bind either port",0);
-
+	if (listener == -1) gale_alert(GALE_ERROR,"could not bind port",0);
 	gale_dprintf(1,"now listening, entering main loop\n");
 	gale_daemon(0);
 	loop();

@@ -115,6 +115,21 @@ struct gale_time gale_time_diff(struct gale_time,struct gale_time);
 void gale_time_to(struct timeval *,struct gale_time);
 void gale_time_from(struct gale_time *,struct timeval *);
 
+/* -- fragment/group management -------------------------------------------- */
+
+struct gale_group gale_group_empty(void);
+void gale_group_add(struct gale_group *,struct gale_fragment);
+void gale_group_append(struct gale_group *,struct gale_group);
+
+struct gale_group gale_group_find(struct gale_group,struct gale_text name);
+int gale_group_remove(struct gale_group *,struct gale_text name);
+void gale_group_replace(struct gale_group *,struct gale_fragment);
+
+int gale_group_null(struct gale_group);
+struct gale_fragment gale_group_first(struct gale_group);
+struct gale_group gale_group_rest(struct gale_group);
+void gale_group_prefix(struct gale_group *,struct gale_group tail);
+
 /* -- data interchange conversion ------------------------------------------ */
 
 int gale_unpack_copy(struct gale_data *,void *,size_t);
@@ -156,6 +171,14 @@ int gale_unpack_time(struct gale_data *,struct gale_time *);
 void gale_pack_time(struct gale_data *,struct gale_time);
 #define gale_time_size() (sizeof(u32) * 4)
 
+int gale_unpack_fragment(struct gale_data *,struct gale_fragment *);
+void gale_pack_fragment(struct gale_data *,struct gale_fragment);
+size_t gale_fragment_size(struct gale_fragment);
+
+int gale_unpack_group(struct gale_data *,struct gale_group *);
+void gale_pack_group(struct gale_data *,struct gale_group);
+size_t gale_group_size(struct gale_group);
+
 /* -- directory management stuff ------------------------------------------- */
 
 /* preinitialized pathnames, set by gale_init. 
@@ -186,6 +209,7 @@ struct gale_text dir_file(struct gale_text path,struct gale_text file);
 struct gale_text dir_search(struct gale_text name,int cwd,struct gale_text,...);
 
 /* -- error reporting ------------------------------------------------------ */
+/* XXX - these should use gale_text, not char* */
 
 /* Types of error severity. */
 enum { GALE_NOTICE, GALE_WARNING, GALE_ERROR };

@@ -55,4 +55,25 @@ struct gale_time {
 	u32 frac_high,frac_low;
 };
 
+/* tagged variant values */
+struct gale_fragment;
+
+struct gale_group {
+	const struct gale_fragment *list;
+	size_t len;
+	const struct gale_group *next;
+};
+
+struct gale_fragment {
+	struct gale_text name;
+	enum { frag_text, frag_data, frag_time, frag_number, frag_group } type;
+	union {
+		struct gale_text text;
+		struct gale_data data;
+		struct gale_time time;
+		struct gale_group group;
+		s32 number;
+	} value;
+};
+
 #endif

@@ -33,37 +33,36 @@ static int process(struct auth_id *id,struct auth_id *domain,
                    struct gale_message *msg) 
 {
 	struct auth_id *encrypted,*signature;
-	struct gale_fragment **frags;
-	struct gale_text error = null_text;
-	int status = 0;
+	struct gale_group group;
 
 	encrypted = decrypt_message(msg,&msg);
 	if (!msg) return 0;
 	signature = verify_message(msg,&msg);
 
-	for (frags = unpack_message(msg->data); *frags && !status; ++frags) {
-		struct gale_fragment *frag = *frags;
-		if (frag_data == frag->type
-		&& !gale_text_compare(frag->name,G_("answer/key"))) {
+	group = gale_group_find(msg->data,G_("answer/key"));
+	if (!gale_group_null(group)) {
+		struct gale_fragment frag = gale_group_first(group);
+		if (frag_data == frag.type) {
 			struct auth_id *found;
-			import_auth_id(&found,frag->value.data,0);
-			if (found == id) status = 1;
-		}
-		if (domain && signature == domain && frag_text == frag->type
-		&& !gale_text_compare(frag->name,G_("answer/key/error"))) {
-			error = frag->value.text;
-			status = -1;
+			import_auth_id(&found,frag.value.data,0);
+			if (found == id) return 1;
 		}
 	}
 
-	return status;
+	group = gale_group_find(msg->data,G_("answer/key/error"));
+	if (!gale_group_null(group)) {
+		struct gale_fragment frag = gale_group_first(group);
+		if (domain && signature == domain) return -1;
+	}
+
+	return 0;
 }
 
 int _gale_find_id(struct auth_id *id) {
 	struct gale_client *client;
 	struct gale_message *msg;
 	struct gale_text tok,name,category;
-	struct gale_fragment *frags[5];
+	struct gale_fragment frag;
 	struct auth_id *domain = NULL;
 	char *tmp;
 	time_t timeout;
@@ -93,16 +92,11 @@ int _gale_find_id(struct auth_id *id) {
 	msg = new_message();
 
 	msg->cat = id_category(id,G_("auth/query"),G_(""));
-
-	frags[0] = gale_make_id_class();
-	frags[1] = gale_make_id_instance(G_("AKD"));
-	frags[2] = gale_make_id_time();
-	gale_create(frags[3]);
-	frags[3]->name = G_("question/key");
-	frags[3]->type = frag_text;
-	frags[3]->value.text = name;
-	frags[4] = NULL;
-	msg->data = pack_message(frags);
+	gale_add_id(&msg->data,G_("AKD"));
+	frag.name = G_("question/key");
+	frag.type = frag_text;
+	frag.value.text = name;
+	gale_group_add(&msg->data,frag);
 
 	timeout += TIMEOUT;
 	link_put(client->link,msg);
