@@ -6,6 +6,7 @@ AM_INIT_AUTOMAKE(gale,0.99danger)
 AM_CONFIG_HEADER(include/gale/config.h:config.h.in)
 AC_CANONICAL_HOST
 AM_PROG_LIBTOOL
+AM_MAINTAINER_MODE
 
 AC_ARG_ENABLE(adns,
 [  --enable-adns           use asynchronous DNS resolver],
