@@ -12,5 +12,6 @@ struct gale_id *verify_data(const char *sig,const char *data,const char *end);
 struct gale_id *decrypt_data(char *header,const char *data,const char *end,
                              char *out,char **oend);
 
+void old_gale_keys(void);
 
 #endif

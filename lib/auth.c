@@ -184,7 +184,7 @@ static void check_dot_key(void) {
 	up_dir(dot_gale);
 }
 
-void gale_keys(void) {
+void old_gale_keys(void) {
 	static int got_keys = 0;
 	R_RANDOM_STRUCT rand;
 	R_RSA_PROTO_KEY proto;

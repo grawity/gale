@@ -55,7 +55,7 @@ struct gale_message *slip(const char *cat,struct gale_id *sign) {
 			"Agent: %s\r\n"
 			"Sequence: %d\r\n"
 			"\r\n",
-		        auth_id_comment(user_id),time(NULL),agent,sequence++);
+		        getenv("GALE_FROM"),time(NULL),agent,sequence++);
 	else
 		sprintf(msg->data,
 			"Time: %lu\r\n"
@@ -472,8 +472,6 @@ int main(int argc,char **argv) {
 
 	/* Generate keys so people can send us messages. */
 	gale_keys();
-	if (!auth_id_private(user_id)) 
-		auth_id_gen(user_id,getenv("GALE_FROM"));
 
 #ifndef NDEBUG
 	/* If in debug mode, listen to debug/ for restart messages. */

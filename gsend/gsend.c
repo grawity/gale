@@ -48,10 +48,10 @@ void headers(void) {
 	}
 
 	/* These are fairly obvious. */
-	if (!aflag && !have_from && auth_id_comment(user_id)) {
-		reserve(20 + strlen(auth_id_comment(user_id)));
-		sprintf(msg->data + msg->data_size,
-		        "From: %s\r\n",auth_id_comment(user_id));
+	if (!aflag && !have_from) {
+		const char *from = getenv("GALE_FROM");
+		reserve(20 + strlen(from));
+		sprintf(msg->data + msg->data_size,"From: %s\r\n",from);
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
 	if (!have_to && recipient && auth_id_comment(recipient)) {
@@ -121,11 +121,7 @@ int main(int argc,char *argv[]) {
 	/* Create a new message object to send. */
 	msg = new_message();
 
-	if (eflag || !aflag) {
-		gale_keys();
-		if (!auth_id_public(user_id)) 
-			auth_id_gen(user_id,getenv("GALE_FROM"));
-	}
+	if (eflag || !aflag) gale_keys();
 
 	/* If encrypting, look up the recipient. */
 	if (eflag) {

@@ -66,23 +66,15 @@ static void init_vars(struct passwd *pwd) {
 
 	tmp = getenv("GALE_ID");
 	user_id = lookup_id(tmp ? tmp : pwd->pw_name);
+	if (!user_id) gale_alert(GALE_ERROR,"could not get user id",0);
 
-	tmp = getenv("GALE_FROM");
-	if (!tmp) {
-		char *gecos = pwd->pw_gecos;
-		char *comma = strchr(gecos,',');
-		if (!comma) comma = gecos + strlen(gecos);
-		tmp = gale_malloc(30 + comma - gecos);
-		sprintf(tmp,"GALE_FROM=%.*s",comma - gecos,gecos);
+	if (!getenv("GALE_FROM")) {
+		const char *name = auth_id_comment(user_id);
+		if (!name || !*name) name = strtok(pwd->pw_gecos,",");
+		tmp = gale_malloc(strlen(name) + 30);
+		sprintf(tmp,"GALE_FROM=%s",name);
 		putenv(tmp);
 	}
-
-#if 0
-	if (tmp) {
-		gale_free(user_id->comment);
-		user_id->comment = gale_strdup(tmp);
-	}
-#endif
 
 	if (!getenv("GALE_SUBS")) {
 		tmp = id_category(user_id,"GALE_SUBS=user","");

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 #include <time.h>
 
@@ -11,6 +12,11 @@ static int old_auth(void) {
 	if (getenv("GALE_NEW_AUTH")) return 0;
 	if (time(NULL) > 876380400) return 0;
 	return 1;
+}
+
+void gale_keys(void) {
+	old_gale_keys();
+	if (!auth_id_public(user_id)) auth_id_gen(user_id,getenv("GALE_FROM"));
 }
 
 struct gale_message *sign_message(struct gale_id *id,struct gale_message *in) {
