@@ -508,7 +508,8 @@ size_t gale_group_size(struct gale_group);
    sys_dir   -> etc/gale */
 
 void make_dir(struct gale_text path,int mode);
-struct gale_text sub_dir(struct gale_text path,struct gale_text sub,int mode);
+struct gale_text sub_dir(struct gale_text path,struct gale_text sub);
+struct gale_text submk_dir(struct gale_text path,struct gale_text sub,int mode);
 struct gale_text up_dir(struct gale_text path);
 struct gale_text dir_file(struct gale_text path,struct gale_text file);
 struct gale_text dir_search(struct gale_text name,int cwd,struct gale_text,...);
