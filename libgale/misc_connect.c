@@ -52,7 +52,7 @@ struct gale_connect {
 
 	ADNS_ONLY(struct resolution **resolving;)
 	ADNS_ONLY(int num_resolve; int alloc_resolve;)
-	ADNS_ONLY(int all_names);
+	ADNS_ONLY(int all_names;)
 
 	gale_connect_call *call;
 	void *data;

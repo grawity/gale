@@ -62,5 +62,6 @@ struct gale_key *gale_key_parent(struct gale_key *key) {
  *  \param key Handle from gale_key_handle() or gale_key_parent().
  *  \return Key's name, as passed to gale_key_handle(). */
 struct gale_text gale_key_name(struct gale_key *key) {
-	return key ? key->name : null_text;
+	struct gale_text lame = null_text;
+	return key ? key->name : lame;
 }

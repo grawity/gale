@@ -76,6 +76,7 @@ int main(int argc,char *argv[]) {
 	struct gale_group data = gale_group_empty();
 	struct gale_fragment frag;
 	struct gale_key *key = NULL;
+	struct gale_text lame = null_text;
 	int arg;
 
 	gale_init("gkgen",argc,argv);
@@ -83,7 +84,7 @@ int main(int argc,char *argv[]) {
 
 	if (argc <= 1) usage();
 	while ((arg = getopt(argc,argv,"hnwm:s:t:r:u:")) != EOF) {
-	const struct gale_text str = !optarg ? null_text :
+	const struct gale_text str = !optarg ? lame :
 		gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (arg) {
 	case 'n': do_generate = 0; break;

@@ -202,10 +202,12 @@ static void *on_key_location(
 	struct gale_text name,
 	struct gale_location *loc,void *x)
 {
-	struct gale_location *list[] = { loc, NULL };
-	const struct gale_text r = gale_pack_subscriptions(list,NULL);
+	struct gale_location *list[] = { NULL, NULL };
+	const struct gale_text r;
 	struct cache * const cache = (struct cache *) x;
 
+	list[0] = loc;
+	r = gale_pack_subscriptions(list,NULL);
 	assert(NULL != loc && 0 != r.l); /* _gale is built in! */
 	cache->key_routing = gale_text_concat(6,r,G_(":"),
 		G_("@"),

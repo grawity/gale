@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 const struct gale_text null_text = { NULL, 0 };
-const struct gale_text_accumulator null_accumulator = { 0, { } };
+const struct gale_text_accumulator null_accumulator = { 0, };
 
 /** Concatenate text strings.
  *  The first argument \a count is the number of strings passed.

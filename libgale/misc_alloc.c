@@ -36,7 +36,7 @@ static inline void init() {
 	}
 }
 #else  /* HAVE_GC_BACKPTR_H */
-static inline void init() { }
+static void init() { }
 #endif
 
 void *gale_malloc(size_t len) { init(); return GC_MALLOC(len); }

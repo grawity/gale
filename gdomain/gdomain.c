@@ -169,7 +169,8 @@ static void *on_query_location(
 	struct gale_text name,
 	struct gale_location *loc,void *x) 
 {
-	struct gale_location *list[2] = { loc, NULL };
+	struct gale_location *list[2] = { NULL, NULL };
+	list[0] = loc;
 	subscriptions = gale_text_concat(4,
 		gale_pack_subscriptions(list,NULL),
 		G_(":@"),gale_var(G_("GALE_DOMAIN")),G_("/auth/query/"));

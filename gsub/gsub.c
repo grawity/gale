@@ -722,7 +722,7 @@ int main(int argc,char **argv) {
 	/* Various flags. */
 	int opt,positive = 1;
 	struct gale_text rclib = null_text;
-	struct gale_text subs,line;
+	struct gale_text subs,line,lame = null_text;
 	char *tty;
 
 	/* Initialize the gale libraries. */
@@ -752,7 +752,7 @@ int main(int argc,char **argv) {
 
 	/* Parse command line arguments. */
 	while (EOF != (opt = getopt(argc,argv,"dDhaAenN:kKqvrf:l:p:"))) {
-	struct gale_text str = !optarg ? null_text :
+	struct gale_text str = !optarg ? lame :
 		gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (opt) {
 	case 'd': ++gale_global->debug_level; break;

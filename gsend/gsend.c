@@ -229,6 +229,7 @@ int main(int argc,char *argv[]) {
 	struct oop_source_sys *sys;		/* Event loop */
 	int arg;				/* Command line flags */
 	struct gale_fragment frag;
+	struct gale_text lame = null_text;      /* Stupid compiler */
 
 	if (argc <= 1) usage();
 
@@ -250,7 +251,7 @@ int main(int argc,char *argv[]) {
 
 	/* Parse command line options. */
 	while ((arg = getopt(argc,argv,"Ddhabt:pf:")) != EOF) {
-		struct gale_text str = (NULL == optarg) ? null_text :
+		struct gale_text str = (NULL == optarg) ? lame :
 			gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (arg) {
 	case 'd': ++gale_global->debug_level; break;
