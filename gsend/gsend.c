@@ -102,9 +102,9 @@ int main(int argc,char *argv[]) {
 	msg = new_message();
 
 	if (optind == argc && eflag)
-		msg->category = gale_idtocat("user",eflag);
+		msg->category = gale_idtocat("user",eflag,"");
 	else if (optind == argc && tflag)
-		msg->category = gale_idtocat("user",tflag);
+		msg->category = gale_idtocat("user",tflag,"");
 	else if (optind != argc - 1)
 		usage();
 	else {
