@@ -24,6 +24,13 @@ struct gale_connect {
 	int len;
 };
 
+#ifdef HAVE_SOCKS
+extern int Rconnect(int,const struct sockaddr *,size_t);
+#define CONNECT_F Rconnect
+#else
+#define CONNECT_F connect
+#endif
+
 struct gale_connect *make_connect(struct gale_text serv) {
 	int alloc = 0;
 	struct gale_text spec = null_text;
@@ -62,9 +69,10 @@ struct gale_connect *make_connect(struct gale_text serv) {
 			fd = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
 			if (fd < 0) goto skip_addr;
 			if (fcntl(fd,F_SETFL,O_NONBLOCK)) goto skip_addr;
-			if (connect(fd,(struct sockaddr *) &sin,sizeof(sin)) && 
-			    errno != EINPROGRESS) 
-				goto skip_addr;
+			while (CONNECT_F(fd,(struct sockaddr *) &sin,sizeof(sin))) {
+				if (errno == EINPROGRESS) break;
+				if (errno != EINTR) goto skip_addr;
+			}
 
 			if (alloc == conn->len) {
 				const int len = sizeof(conn->array[0]);
@@ -108,15 +116,20 @@ int select_connect(fd_set *wfd,struct gale_connect *conn) {
 			++i;
 			continue;
 		}
-		if (connect(conn->array[i].sock,
+
+		while (CONNECT_F(conn->array[i].sock,
 		            (struct sockaddr *) &conn->array[i].sin,
-		            sizeof(conn->array[i].sin)) && errno != EISCONN) {
-			close(conn->array[i].sock);
-			delete(conn,i);
-			continue;
+		            sizeof(conn->array[i].sin))) {
+			if (errno == EISCONN) goto success;
+			if (errno != EINTR) goto failure;
 		}
-		break;
+		goto success;
+failure:
+		close(conn->array[i].sock);
+		delete(conn,i);
 	}
+
+success:
 	if (conn->len == 0) {
 		abort_connect(conn);
 		return -1;

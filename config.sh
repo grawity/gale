@@ -11,7 +11,7 @@ run mkdir -p "$SYS_DIR/auth/private"
 run mkdir -p "$SYS_DIR/auth/local"
 run mkdir -p "$SYS_DIR/auth/cache"
 run chmod 1777 "$SYS_DIR/auth/local"
-run chmod 1777 "$SYS_DIR/auth/cache"
+run chmod 777 "$SYS_DIR/auth/cache"
 
 [ -n "$CONF_GALE_USER" ] && GALE_USER="$CONF_GALE_USER"
 [ -n "$CONF_GALE_DOMAIN" ] && GALE_DOMAIN="$CONF_GALE_DOMAIN"

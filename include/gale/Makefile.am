@@ -5,3 +5,6 @@ pkginclude_HEADERS = \
 	server.h types.h
 
 DISTCLEANFILES = config.h
+
+dist-hook:
+	rm $(distdir)/config.h

@@ -12,7 +12,7 @@
 
 #include "gale/all.h"
 
-struct gale_dir *dot_gale,*home_dir,*sys_dir;
+struct gale_text dot_gale,home_dir,sys_dir;
 
 static int main_argc;
 static char * const *main_argv;
@@ -29,7 +29,6 @@ static int find_id(struct auth_id *id) {
 }
 
 static void init_vars(struct passwd *pwd) {
-	char *tmp;
 	struct utsname un;
 
 	if (!getenv("GALE_DOMAIN"))
@@ -37,64 +36,38 @@ static void init_vars(struct passwd *pwd) {
 
 	if (uname(&un) < 0) gale_alert(GALE_ERROR,"uname",errno);
 
-	if (!getenv("HOST")) {
-		tmp = gale_malloc(strlen(un.nodename) + 30);
-		sprintf(tmp,"HOST=%s",un.nodename);
-		putenv(tmp);
-	}
+	if (!gale_var(G_("HOST")).l)
+		gale_set(G_("HOST"),gale_text_from_local(un.nodename,-1));
 
-	if (!getenv("LOGNAME")) {
-		tmp = gale_malloc(strlen(pwd->pw_name) + 30);
-		sprintf(tmp,"LOGNAME=%s",pwd->pw_name);
-		putenv(tmp);
-	}
+	if (!gale_var(G_("LOGNAME")).l)
+		gale_set(G_("LOGNAME"),gale_text_from_local(pwd->pw_name,-1));
 
 	{
-		char *buf,*old = getenv("PATH");
-		int len = 5 + (old ? strlen(old) : 0);
+		struct gale_text new = gale_text_concat(5,
+			dir_file(dot_gale,G_("bin")),G_(":"),
+			dir_file(sys_dir,G_("bin")),G_(":"),
+			dir_file(dot_gale,G_(".")));
+		struct gale_text old = gale_var(G_("PATH"));
 
-		len += strlen(dir_file(dot_gale,"bin")) + 1;
-		len += strlen(dir_file(sys_dir,"bin")) + 1;
-		len += strlen(dir_file(dot_gale,".")) + 1;
-
-		buf = gale_malloc(len + 1);
-		strcpy(buf,"PATH=");
-		strcat(buf,dir_file(dot_gale,"bin")); strcat(buf,":");
-		strcat(buf,dir_file(sys_dir,"bin")); strcat(buf,":");
-		strcat(buf,dir_file(dot_gale,".")); 
-		if (old && *old) strcat(buf,":");
-
-		if (!old || strncmp(buf + 5,old,strlen(buf) - 5)) {
-			if (old) strcat(buf,old);
-			putenv(buf);
+		if (gale_text_compare(gale_text_left(old,new.l),new)) {
+			if (0 != old.l)
+				new = gale_text_concat(3,new,G_(":"),old);
+			gale_set(G_("PATH"),new);
 		}
 	}
 
-	if (!getenv("GALE_FROM")) {
+	if (!gale_var(G_("GALE_FROM")).l) {
 		char *name = strtok(pwd->pw_gecos,",");
 		if (!name || !*name) name = "unknown";
-		tmp = gale_malloc(strlen(name) + 30);
-		sprintf(tmp,"GALE_FROM=%s",name);
-		putenv(tmp);
+		gale_set(G_("GALE_FROM"),gale_text_from_local(name,-1));
 	}
 
-	if (!getenv("GALE_ID")) {
-		tmp = gale_malloc(strlen(pwd->pw_name) + 30);
-		sprintf(tmp,"GALE_ID=%s",pwd->pw_name);
-		putenv(tmp);
-	}
+	if (!gale_var(G_("GALE_ID")).l)
+		gale_set(G_("GALE_ID"),gale_text_from_local(pwd->pw_name,-1));
 
-	if (!getenv("GALE_SUBS")) {
-		struct gale_text name = 
-			gale_text_from_local(getenv("GALE_ID"),-1);
-		struct auth_id *id = lookup_id(name);
-		struct gale_text cat;
-		char *tmp,*tmp2;
-		cat = id_category(id,G_("user"),G_(""));
-		tmp = gale_text_to_local(cat);
-		tmp2 = gale_malloc(strlen(tmp) + 30);
-		sprintf(tmp2,"GALE_SUBS=%s",tmp);
-		putenv(tmp2);
+	if (!gale_var(G_("GALE_SUBS")).l) {
+		struct auth_id *id = lookup_id(gale_var(G_("GALE_ID")));
+		gale_set(G_("GALE_SUBS"),id_category(id,G_("user"),G_("")));
 	}
 }
 
@@ -120,44 +93,39 @@ static char *read_line(FILE *fp) {
 	return buf;
 }
 
-static void read_conf(const char *fn) {
-	FILE *fp = fopen(fn,"r");
+static void read_conf(struct gale_text fn) {
+	FILE *fp = fopen(gale_text_to_local(fn),"r");
 	char *s = read_line(fp);
 
 	while (s) {
-		char *var,*value,*both,*prev;
+		struct gale_text var,value;
+		size_t len;
 
 		while (*s && isspace(*s)) ++s;
 		if (!*s || *s == '#') {
 			s = read_line(fp);
 			continue;
 		}
-		var = s;
 
-		while (*s && !isspace(*s)) ++s;
-		value = s;
-		while (*value && isspace(*value)) ++value;
-		*s = '\0';
+		for (len = 0; s[len] && !isspace(s[len]); ++len) ;
+		var = gale_text_from_local(s,len);
 
-		prev = getenv(var);
-		if (prev && prev[0]) continue;
-		both = gale_malloc(strlen(var) + strlen(value) + 2);
-		sprintf(both,"%s=%s",var,value);
+		s += len;
+		while (*s && isspace(*s)) ++s;
+		value = gale_text_from_local(s,-1);
 
 		s = read_line(fp);
 		while (s && *s && isspace(*s)) {
-			char *old = both;
 			do ++s; while (*s && isspace(*s));
 			if (*s == '#') break;
-			
-			both = gale_malloc(strlen(old) + strlen(s) + 1);
-			sprintf(both,"%s%s",old,s);
-			gale_free(old);
+
+			value = gale_text_concat(2,value,
+				gale_text_from_local(s,-1));
 
 			s = read_line(fp);
 		}
 
-		putenv(both);
+		if (0 == gale_var(var).l) gale_set(var,value);
 	}
 }
 
@@ -181,9 +149,13 @@ static void sig_pipe(int x) {
 
 void gale_init(const char *s,int argc,char * const *argv) {
 	struct passwd *pwd = NULL;
-	char *user,*dir;
+	char *user;
 	struct sigaction act;
 	sigset_t empty;
+
+#ifdef HAVE_SOCKS
+	SOCKSinit(argv[0]);
+#endif
 
 	if (getuid() != geteuid()) {
 		environ = malloc(sizeof(*environ));
@@ -211,24 +183,23 @@ void gale_init(const char *s,int argc,char * const *argv) {
 
 	gale_error_prefix = s;
 
-	dir = getenv("HOME");
-	if (!dir) dir = pwd->pw_dir;
-	home_dir = make_dir(dir,0777);
+	home_dir = gale_var(G_("HOME"));
+	if (0 == home_dir.l) home_dir = gale_text_from_local(pwd->pw_dir,-1);
+	make_dir(home_dir,0777);
 
-	dir = getenv("GALE_DIR");
-	if (dir) dot_gale = make_dir(dir,0777);
-	else {
-		dot_gale = dup_dir(home_dir);
-		sub_dir(dot_gale,".gale",0777);
-	}
+	dot_gale = gale_var(G_("GALE_DIR"));
+	if (0 != dot_gale.l) 
+		make_dir(dot_gale,0777);
+	else
+		dot_gale = sub_dir(home_dir,G_(".gale"),0777);
 
-	read_conf(dir_file(dot_gale,"conf"));
+	read_conf(dir_file(dot_gale,G_("conf")));
 
-	dir = getenv("GALE_SYS_DIR");
-	if (!dir) dir = GALE_SYS_DIR;
-	sys_dir = make_dir(dir,0);
+	sys_dir = gale_var(G_("GALE_SYS_DIR"));
+	if (!sys_dir.l) sys_dir = gale_text_from_local(GALE_SYS_DIR,-1);
+	make_dir(sys_dir,0);
 
-	read_conf(dir_file(sys_dir,"conf"));
+	read_conf(dir_file(sys_dir,G_("conf")));
 
 	old_find = hook_find_public;
 	hook_find_public = find_id;

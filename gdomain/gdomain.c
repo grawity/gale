@@ -10,7 +10,9 @@ struct gale_client *client;
 struct auth_id *domain;
 
 void usage() {
-	fprintf(stderr,"%s\nusage: gdomain\n",GALE_BANNER);
+	fprintf(stderr,"%s\n"
+	"usage: gdomain [-h]\n"
+	"flags: -h          Display this message\n",GALE_BANNER);
 	exit(1);
 }
 

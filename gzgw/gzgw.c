@@ -204,7 +204,8 @@ void g_to_z(void) {
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gzgw [class [cat]]\n"
+	"usage: gzgw [-h] [class [cat]]\n"
+	"flags: -h          Display this message\n"
 	"gzgw defaults to class message and category 'zephyr/$GALE_DOMAIN/'.\n"
 	,GALE_BANNER);
 	exit(1);

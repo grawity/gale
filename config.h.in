@@ -1,5 +1,14 @@
 /* config.h.in.  Generated automatically from configure.in by autoheader.  */
 
+/* The dynamic loader library */
+#undef HAVE_LIBDL
+
+/* The GNU readline library */
+#undef HAVE_LIBREADLINE
+
+/* The SOCKS firewall proxy */
+#undef HAVE_SOCKS
+
 /* BSD-based operating systems */
 #undef OS_BSD
 
@@ -51,20 +60,11 @@
 /* Define if you have the cgic library (-lcgic).  */
 #undef HAVE_LIBCGIC
 
-/* Define if you have the des library (-ldes).  */
-#undef HAVE_LIBDES
-
-/* Define if you have the dl library (-ldl).  */
-#undef HAVE_LIBDL
-
-/* Define if you have the krb library (-lkrb).  */
-#undef HAVE_LIBKRB
-
 /* Define if you have the nsl library (-lnsl).  */
 #undef HAVE_LIBNSL
 
-/* Define if you have the readline library (-lreadline).  */
-#undef HAVE_LIBREADLINE
+/* Define if you have the resolv library (-lresolv).  */
+#undef HAVE_LIBRESOLV
 
 /* Define if you have the socket library (-lsocket).  */
 #undef HAVE_LIBSOCKET

@@ -94,7 +94,7 @@ static int same_sub(const struct sub *a,const struct sub *b) {
 	        a->connect == b->connect);
 }
 
-static void remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
+static void do_remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 	struct node *parent = NULL,*prev = NULL;
 	int i;
 
@@ -202,7 +202,7 @@ void add_subscr(struct connect *conn) {
 }
 
 void remove_subscr(struct connect *conn) {
-	subscr(conn,remove);
+	subscr(conn,do_remove);
 }
 
 static void transmit(struct node *ptr,struct gale_text spec,

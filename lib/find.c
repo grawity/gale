@@ -63,8 +63,9 @@ int _gale_find_id(struct auth_id *id) {
 	struct gale_client *client;
 	struct gale_message *msg;
 	struct gale_text tok,name,category;
+	struct gale_fragment *frags[5];
 	struct auth_id *domain = NULL;
-	char *tmp,*tmp2;
+	char *tmp;
 	time_t timeout;
 	int status = 0;
 
@@ -92,13 +93,16 @@ int _gale_find_id(struct auth_id *id) {
 	msg = new_message();
 
 	msg->cat = id_category(id,G_("auth/query"),G_(""));
-	msg->data.p = gale_malloc(name.l + 256);
-	tmp2 = gale_text_to_latin1(name);
-	sprintf((char*) msg->data.p,
-		"Request-Key: %s\r\n"
-	        "Time: %lu\r\n",
-		tmp2,timeout);
-	msg->data.l = strlen((char*) msg->data.p);
+
+	frags[0] = gale_make_id_class();
+	frags[1] = gale_make_id_instance(G_("AKD"));
+	frags[2] = gale_make_id_time();
+	gale_create(frags[3]);
+	frags[3]->name = G_("question/key");
+	frags[3]->type = frag_text;
+	frags[3]->value.text = name;
+	frags[4] = NULL;
+	msg->data = pack_message(frags);
 
 	timeout += TIMEOUT;
 	link_put(client->link,msg);

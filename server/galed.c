@@ -162,7 +162,7 @@ static void loop(void) {
 }
 
 static void add_links(void) {
-	struct gale_text str,link = null_text,part = null_text;
+	struct gale_text str,link = null_text;
 	struct attach *att;
 
 	str = gale_var(G_("GALE_LINKS")); if (!str.l) return;
@@ -181,8 +181,9 @@ static void add_links(void) {
 static void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: galed [-p port] [-P port]\n"
-	"flags: -p       Set the port to listen on (default %d)\n"
+	"usage: galed [-h] [-p port] [-P port]\n"
+	"flags: -h       Display this message\n"
+	"       -p       Set the port to listen on (default %d)\n"
 	"       -P       Set the port for the old protocol (%d)\n"
 	,GALE_BANNER,port,old_port);
 	exit(1);

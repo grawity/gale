@@ -1,12 +1,36 @@
 ## Process this file with automake to generate Makefile.in
 
-SUBDIRS = @BUILD@
 AUTOMAKE_OPTIONS = foreign 1.2
 noinst_SCRIPTS = common.sh config.sh domain.sh
 EXTRA_DIST = common.sh config.sh domain.sh
-DIST_SUBDIRS = \
-	auth gdomain gkeys gsend gsub gwatch lib rsaref server \
-	gzgw glog include gc
+
+if BUILD_GZGW
+gzgw_dir = gzgw
+else
+gzgw_dir =
+endif
+
+if BUILD_RSAREF
+rsaref_dir = rsaref
+else
+rsaref_dir =
+endif
+
+if BUILD_GC
+gc_dir = gc
+else
+gc_dir =
+endif
+
+if BUILD_GLOG
+glog_dir = glog
+else
+glog_dir =
+endif
+
+SUBDIRS = ${gc_dir} ${rsaref_dir} \
+	misc lib auth server gsend gsub gwatch gkeys gdomain \
+	${gzgw_dir} ${glog_dir} include
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

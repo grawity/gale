@@ -13,8 +13,7 @@ struct gale_text *subs = NULL;
 struct gale_message **pings = NULL;
 int count_subs = 0,count_pings = 0;
 
-const char *tty,*gwatchrc = "gwatchrc";
-struct gale_text receipt;
+struct gale_text tty,gwatchrc,receipt;
 
 int max_num = 0;
 int so_far = 0;
@@ -70,20 +69,20 @@ void watch_domain(struct gale_text id) {
 	watch_cat(dom_category(id,G_("notice")));
 }
 
-void read_file(const char *fn) {
+void read_file(struct gale_text fn) {
 	FILE *fp;
 	int num;
-	const char *file;
+	struct gale_text file;
 
-	file = dir_search(fn,1,dot_gale,sys_dir,NULL);
-	if (!file) {
-		gale_alert(GALE_WARNING,fn,ENOENT);
+	file = dir_search(fn,1,dot_gale,sys_dir,null_text);
+	if (!file.l) {
+		gale_alert(GALE_WARNING,gale_text_to_local(fn),ENOENT);
 		return;
 	}
 
-	fp = fopen(file,"r");
+	fp = fopen(gale_text_to_local(file),"r");
 	if (!fp) {
-		gale_alert(GALE_WARNING,file,errno);
+		gale_alert(GALE_WARNING,gale_text_to_local(file),errno);
 		return;
 	}
 
@@ -134,25 +133,27 @@ void incoming(
 	char buf[80];
 	gale_time_to(&tv,when);
 	tt = tv.tv_sec;
-	strftime(buf,sizeof(buf),"%Y-%m-%d %H:%M:%S",localtime(&tt));
+	strftime(buf,sizeof(buf)," %Y-%m-%d %H:%M:%S ",localtime(&tt));
 
-	gale_tmode("md");
-	fputs("*",stdout);
-	gale_tmode("me");
-	printf(" %s %s:",buf,gale_text_to_local(status));
+	gale_print(stdout,gale_print_bold | gale_print_clobber_left,G_("*"));
+	gale_print(stdout,0,gale_text_from_local(buf,-1));
+	gale_print(stdout,0,status);
+	gale_print(stdout,0,G_(":"));
 
 	if (id) {
-		fputs(" <",stdout);
-		gale_tmode("md");
-		fputs(gale_text_to_local(auth_id_name(id)),stdout);
-		gale_tmode("me");
-		fputs(">",stdout);
+		gale_print(stdout,0,G_(" <"));
+		gale_print(stdout,gale_print_bold,auth_id_name(id));
+		gale_print(stdout,0,G_(">"));
 	}
 
-	if (from.l) 
-		printf(" (%s)",gale_text_to_local(from));
+	if (from.l) {
+		gale_print(stdout,0,G_(" ("));
+		gale_print(stdout,0,from);
+		gale_print(stdout,0,G_(")"));
+	}
 
-	printf("\r\n");
+	gale_print(stdout,gale_print_clobber_right,G_(""));
+	gale_print(stdout,0,G_("\n"));
 	fflush(stdout);
 }
 
@@ -162,8 +163,6 @@ void process_message(struct gale_message *msg) {
 	struct gale_text class = null_text,instance = null_text;
 	struct gale_time when = gale_time_now();
 	struct gale_fragment **frags;
-
-	if (max_num != 0 && ++so_far == max_num) bye(0);
 
 	id_encrypt = decrypt_message(msg,&msg);
 	if (!msg) return;
@@ -212,13 +211,15 @@ void process_message(struct gale_message *msg) {
 	}
 
 	incoming(id_sign,status,from,class,instance,when);
+	if (max_num != 0 && ++so_far == max_num) bye(0);
 }
 
 void usage(void) {
 	fprintf(stderr,
 		"%s\n"
 		"usage: gwatch [flags] cat\n"
-		"flags: -n          Do not fork (default if -m, -t, or stdout redirected)\n"
+		"flags: -h          Display this message\n"
+		"       -n          Do not fork (default if -m, -t, or stdout redirected)\n"
 		"       -k          Do not kill other gwatch processes\n"
 		"       -K          Kill other gwatch processes and terminate\n"
 		"       -i id       Watch user \"id\"\n"
@@ -236,9 +237,11 @@ int main(int argc,char *argv[]) {
 	int arg,do_fork = 0,do_kill = 0;
 	struct sigaction act;
 
-	if ((tty = ttyname(1))) {
-		char *tmp = strrchr(tty,'/');
-		if (tmp) tty = tmp + 1;
+	gwatchrc = G_("spylist");
+	tty = gale_text_from_local(ttyname(1),-1);
+	if (tty.l) {
+		struct gale_text full = tty,temp = null_text;
+		while (gale_text_token(full,'/',&temp)) tty = temp;
 		do_fork = do_kill = 1;
 	}
 
@@ -253,14 +256,14 @@ int main(int argc,char *argv[]) {
 	switch (arg) {
 	case 'n': do_fork = 0; break;
 	case 'k': do_kill = 0; break;
-	case 'K': if (tty) gale_kill(tty,1); return 0;
+	case 'K': if (tty.l) gale_kill(tty,1); return 0;
 	case 'i': watch_id(lookup_id(gale_text_from_local(optarg,-1))); break;
 	case 'd': watch_domain(gale_text_from_local(optarg,-1)); break;
 	case 'p': watch_ping(gale_text_from_local(optarg,-1),NULL); break;
 	case 'm': max_num = atoi(optarg); do_fork = 0; break;
 	case 's': alarm(atoi(optarg)); do_fork = 0; break;
-	case 'w': read_file(optarg);
-	case 'f': gwatchrc = optarg;
+	case 'w': read_file(gale_text_from_local(optarg,-1));
+	case 'f': gwatchrc = gale_text_from_local(optarg,-1);
 	case 'h':
 	case '?': usage();
 	}
@@ -270,7 +273,7 @@ int main(int argc,char *argv[]) {
 		watch_cat(gale_text_from_local(argv[optind],-1));
 	}
 
-	if (count_subs == 0) read_file("spylist");
+	if (count_subs == 0) read_file(G_("spylist"));
 	if (count_subs == 0) {
 		gale_alert(GALE_WARNING,"Nothing specified to watch.",0);
 		usage();
@@ -279,7 +282,7 @@ int main(int argc,char *argv[]) {
 	open_client();
 
 	if (do_fork) gale_daemon(1);
-	if (tty) {
+	if (tty.l) {
 		gale_kill(tty,do_kill);
 		gale_watch_tty(1);
 	}

@@ -11,8 +11,17 @@
    the next two are argc and argv. */
 void gale_init(const char *,int argc,char * const *argv);
 
+struct gale_environ;
+
 /* Get an environment variable. */
 struct gale_text gale_var(struct gale_text);
+
+/* Set an environment variable. */
+void gale_set(struct gale_text var,struct gale_text value);
+
+/* Save and restore the environment as a whole. */
+struct gale_environ *gale_save_environ(void);
+void gale_restore_environ(struct gale_environ *);
 
 /* The makefiles define this based on the "version" file. */
 #ifndef VERSION

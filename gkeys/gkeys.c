@@ -7,20 +7,18 @@
 void usage(void) {
 	fprintf(stderr,
 		"%s\n"
-		"Usage: gkeys [id]\n"
-		"Generates a key pair (if one doesn't exist).\n"
+		"usage: gkeys [-h] [id]\n"
+		"flags: -h          Display this message\n"
+		"gkeys generates a key pair if one doesn't exist.\n"
 		,GALE_BANNER);
 	exit(1);
 }
 
 int main(int argc,char *argv[]) {
-	if (argc > 2) usage();
+	if (argc > 2 || (argc > 1 && !strcmp(argv[1],"-h"))) usage();
 	if (argc > 1) {
-		char *tmp;
 		if (argv[1][0] == '-') usage();
-		tmp = gale_malloc(strlen(argv[1]) + 30);
-		sprintf(tmp,"GALE_ID=%s",argv[1]);
-		putenv(tmp);
+		gale_set(G_("GALE_ID"),gale_text_from_local(argv[1],-1));
 	}
 	gale_init("gkeys",argc,argv);
 	gale_user();

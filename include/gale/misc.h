@@ -3,14 +3,23 @@
 #ifndef GALE_MISC_H
 #define GALE_MISC_H
 
+#include <stdio.h>
 #include <string.h>
 #include <stddef.h>
 #include "gale/types.h"
 
-/* -- terminal functions -------------------------------------------------- */
+/* -- terminal functions --------------------------------------------------- */
 
-/* Output the given termcap string. */
-void gale_tmode(char id[2]);
+#define gale_print_bold 1
+#define gale_print_clobber_left 2
+#define gale_print_clobber_right 4
+
+/* Safely output a string to the console. */
+void gale_print(FILE *fp,int attr,struct gale_text);
+/* Beep. */
+void gale_beep(FILE *fp);
+/* Get the terminal width. */
+int gale_columns(FILE *fp);
 
 /* -- process management --------------------------------------------------- */
 
@@ -31,11 +40,10 @@ pid_t gale_exec(const char *prog,char * const *argv,int *in,int *out,
    this to avoid zombies. */
 int gale_wait(pid_t pid);
 
-/* Look for other processes of the same type on the current tty and kill them
+/* Look for other processes of the same type in the given 'class' and kill them
    (if do_kill is 1); register ourselves (with temp files) to get killed in
-   a similar manner if appropriate.  The string is an identifier for the
-   program type e.g. "gsub". */
-void gale_kill(const char *,int do_kill);
+   a similar manner if appropriate. */
+void gale_kill(struct gale_text class,int do_kill);
 /* Register a cleanup function.  This will get called, if at all possible, when
    the program exists, including most signals. */
 void gale_cleanup(void (*)(void));

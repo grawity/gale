@@ -14,6 +14,15 @@
    Leave the following blank line there!!  Autoheader needs it.  */
 
 
+/* The dynamic loader library */
+#undef HAVE_LIBDL
+
+/* The GNU readline library */
+#undef HAVE_LIBREADLINE
+
+/* The SOCKS firewall proxy */
+#undef HAVE_SOCKS
+
 /* BSD-based operating systems */
 #undef OS_BSD
 

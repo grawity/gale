@@ -86,6 +86,10 @@ void headers(void) {
 				i ? G_(", ") : G_(""),
 				auth_id_comment(rcpt[i]));
 
+		if (!do_encrypt)
+			frag->value.text = gale_text_concat(2,
+				frag->value.text,G_(", et al."));
+
 		add_fragment(frag);
 	}
 
@@ -156,8 +160,9 @@ void usage(void) {
 	struct auth_id *id = lookup_id(G_("name@domain"));
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-auUpP] [-S id] [-cC cat] [id [id ...]]\n"
-		"flags: -c cat      Add public category <cat> to recipients\n"
+		"usage: gsend [-hauUpP] [-S id] [-cC cat] [id [id ...]]\n"
+		"flags: -h          Display this message\n"
+		"       -c cat      Add public category <cat> to recipients\n"
 		"       -C cat      Only use category <cat> for message\n"
 		"       -S id       Sign message with a specific <id>\n"
 		"       -a          Do not sign message (anonymous)\n"
@@ -255,15 +260,19 @@ int main(int argc,char *argv[]) {
 	}
 
 	/* A silly little check for a common mistake. */
-	if (ttyin && getpwnam(gale_text_to_local(msg->cat)))
-		gale_alert(GALE_WARNING,"*** DANGER! ***\a "
+	if (ttyin && getpwnam(gale_text_to_local(msg->cat))) {
+		gale_beep(stderr);
+		gale_alert(GALE_WARNING,"*** DANGER! *** "
 		                        "Category is a username!",0);
+	}
 	if (ttyin) {
 		char *at,*cat = gale_text_to_latin1(msg->cat);
 		for (at = cat; (at = strchr(at,'@')); ) {
-			if (at != cat && at[-1] != ':')
-				gale_alert(GALE_WARNING,"*** DANGER! ***\a "
+			if (at != cat && at[-1] != ':') {
+				gale_beep(stderr);
+				gale_alert(GALE_WARNING,"*** DANGER! *** "
 					"Category contains '@'!",0);
+			}
 			++at;
 		}
 		gale_free(cat);
@@ -277,9 +286,10 @@ int main(int argc,char *argv[]) {
 
 	/* If stdin is a TTY, prompt the user. */
 	if (ttyin) {
-		if (!do_encrypt)
-			printf("** PUBLIC ** message");
-		else {
+		if (!do_encrypt) {
+			gale_print(stdout,gale_print_bold,G_("** PUBLIC **"));
+			gale_print(stdout,0,G_(" message"));
+		} else {
 			int i;
 			printf("Private message for ");
 			for (i = 0; i < num_rcpt; ++i) {
@@ -289,13 +299,14 @@ int main(int argc,char *argv[]) {
 					else 
 						printf(" and ");
 				}
-				printf("%s",
-				gale_text_to_local(auth_id_name(rcpt[i])));
+				gale_print(stdout,gale_print_bold,auth_id_name(rcpt[i]));
 			}
 		}
-		putchar(num_rcpt > 1 ? '\n' : ' ');
-		printf("in category \"%s\":\n",gale_text_to_local(msg->cat));
-		printf("(End your message with EOF or a solitary dot.)\n");
+		gale_print(stdout,0,num_rcpt > 1 ? G_("\n") : G_(" "));
+		gale_print(stdout,0,G_("in ["));
+		gale_print(stdout,gale_print_bold,msg->cat);
+		gale_print(stdout,0,G_("]:\n"));
+		gale_print(stdout,0,G_("(End your message with EOF or a solitary dot.)\n"));
 	}
 
 	/* Add the default fragments to the message. */

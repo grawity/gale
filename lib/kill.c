@@ -10,44 +10,55 @@
 
 #include "gale/all.h"
 
-static char *dotfile = NULL;
+struct gale_text dotfile = { NULL, 0 };
 
 static void remove_dotfile(void) {
-	if (dotfile) unlink(dir_file(dot_gale,dotfile));
+	if (0 != dotfile.l) 
+		unlink(gale_text_to_local(dir_file(dot_gale,dotfile)));
 }
 
-void gale_kill(const char *class,int do_kill) {
-	int len,fd,pid = getpid();
+void gale_kill(struct gale_text class,int do_kill) {
+	int fd,len,pid = getpid();
 	DIR *pdir;
 	struct dirent *de;
-	const char *host = getenv("HOST");
 
-	len = strlen(host) + strlen(class) + strlen(gale_error_prefix) + 3;
-	dotfile = gale_malloc(len + 15);
-	sprintf(dotfile,"%s.%s.%s.%d",gale_error_prefix,host,class,pid);
+	dotfile = gale_text_concat(6,
+		gale_text_from_local(gale_error_prefix,-1),G_("."),
+		gale_var(G_("HOST")),G_("."),
+		class,G_("."));
+	len = dotfile.l;
+	dotfile = gale_text_concat(2,dotfile,gale_text_from_number(pid,10,0));
 
 	gale_cleanup(remove_dotfile);
-	fd = creat(dir_file(dot_gale,dotfile),0666);
+	fd = creat(gale_text_to_local(dir_file(dot_gale,dotfile)),0666);
 	if (fd >= 0) 
 		close(fd);
 	else
-		gale_alert(GALE_WARNING,dotfile,errno);
+		gale_alert(GALE_WARNING,gale_text_to_local(dotfile),errno);
 
 	if (do_kill) {
-		pdir = opendir(dir_file(dot_gale,"."));
+		pdir = opendir(gale_text_to_local(dir_file(dot_gale,G_("."))));
 		if (pdir == NULL) {
 			gale_alert(GALE_WARNING,"opendir",errno);
 			return;
 		}
 
-		while ((de = readdir(pdir)))
-			if (!strncmp(de->d_name,dotfile,len)) {
-				int kpid = atoi(de->d_name + len);
+		while ((de = readdir(pdir))) {
+			struct gale_text dn;
+			dn = gale_text_from_local(de->d_name,-1);
+			if (!gale_text_compare(
+				gale_text_left(dn,len),
+				gale_text_left(dotfile,len))) {
+				int kpid = gale_text_to_number(
+					gale_text_right(dn,-len));
 				if (kpid != pid) {
 					kill(kpid,SIGTERM);
-					unlink(dir_file(dot_gale,de->d_name));
+					unlink(gale_text_to_local(
+						dir_file(dot_gale,dn)));
 				}
 			}
+		}
+
 		closedir(pdir);
 	}
 }
@@ -65,6 +76,9 @@ void gale_watch_tty(int fd) {
 	if (sigaction(SIGALRM,NULL,&act)) 
 		gale_alert(GALE_ERROR,"sigaction",errno);
 	act.sa_handler = alarm_received;
+#ifdef SA_RESTART
+	act.sa_flags |= SA_RESTART;
+#endif
 	if (sigaction(SIGALRM,&act,NULL)) 
 		gale_alert(GALE_ERROR,"sigaction",errno);
 	alarm(15);

@@ -2,3 +2,4 @@
 
 bin_PROGRAMS = gsub
 gsub_SOURCES = gsub.c
+gsub_LDADD = $(DL_LIBS)

@@ -3,6 +3,8 @@
 
 #include "msg_old.h"
 
+#include <sys/time.h>
+#include <time.h>
 #include <assert.h>
 
 #define fragment_text 0

@@ -5,11 +5,11 @@ lib_LIBRARIES = libgc.a
 libgc_a_SOURCES =
 
 libgc.a:
-	$(MAKE) -f ${srcdir}/Makefile gc.a srcdir=${srcdir} CC=${CC}
+	$(MAKE) -f "${srcdir}/Makefile" gc.a srcdir="${srcdir}" CC="${CC}"
 	mv gc.a libgc.a
 
 clean-local:
-	$(MAKE) -f ${srcdir}/Makefile clean srcdir=${srcdir} CC=${CC}
+	$(MAKE) -f "${srcdir}/Makefile" clean srcdir="${srcdir}" CC="${CC}"
 
 dist-hook:
 	rm $(distdir)/README
