@@ -10,6 +10,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #define MAGIC 5131
 
@@ -43,7 +44,7 @@ static oop_adapter_signal *verify_source(oop_source *source) {
 
 static void do_pipe(struct oop_adapter_signal *s) {
 	const char ch = '\0';
-	write(s->pipefd[1],&ch,1);
+	while (write(s->pipefd[1],&ch,1) < 0 && EINTR == errno) ;
 }
 
 static void on_signal(int sig) {
@@ -68,7 +69,7 @@ static void *on_pipe(oop_source *source,int fd,oop_event event,void *user) {
 
 	assert(fd == s->pipefd[0]);
 	assert(OOP_READ == event);
-	read(s->pipefd[0],buf,sizeof buf);
+	while (read(s->pipefd[0],buf,sizeof buf) < 0 && EINTR == errno) ;
 
 	for (i = 0; i < OOP_NUM_SIGNALS; ++i) {
 		if (s->sig[i].active) {
