@@ -1,8 +1,6 @@
-check key generation messages; should gsend give a notice during encryption?
 error reporting in glcgi
 command-line interface to logs (log server)
 summary log view in CGI, links, URL detection, menus, other spiffiness
-have gsub search in .gale
 $var expansion in gale.conf
 ping thingy
 multiple signatures
@@ -12,6 +10,7 @@ user notification
 markup language
 new gsend protocol for efficiency
 better log schema (headers in particular)
+get rid of 262144
 
 limits on category (line as a whole?) (message size during collection?)
 verification of tree structure

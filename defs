@@ -1,20 +1,37 @@
-RSAREF_INC = -I$(TOP)/../rsaref/source
+INC_DIR = $(HOME)/include/gale
+SYS_DIR = $(HOME)/etc/gale
+
+RSAREF = $(TOP)/../rsaref
+RSAREF_INC = -I$(RSAREF)/source
+RSAREF_LIB = $(RSAREF_BUILD)/rsaref.a
+
+DB = $(TOP)/../db
+DB_LIB = $(DB_BUILD)/libdb.a
+DB_INC = -I$(DB_BUILD)
+
 CGIC_INC = -I$(TOP)/../cgic
 CGIC_LIB = $(TOP)/../cgic/libcgic.a
-INC_DIR = $(HOME)/include/gale
 
-GALE_CONF = $(HOME)/etc/gale.conf
+LTXML = $(TOP)/../ltxml
+LTXML_INC = -I$(LTXML)/include -I$(LTXML_BUILD)/include
+LTXML_LIB = $(LTXML_BUILD)/src/nsl/libltnsl.a $(LTXML_BUILD)/src/std/libltstd.a
 
 ifdef ARCH
-RSAREF_LIB = $(TOP)/../rsaref/build.$(ARCH)/rsaref.a
-DB_LIB = $(TOP)/../db/build.$(ARCH)/libdb.a
-DB_INC = -I$(TOP)/../db/build.$(ARCH)
-BIN_DIR = $(HOME)/bin/$(ARCH)
-LIB_DIR = $(HOME)/lib/$(ARCH)
+
+	BIN_DIR = $(HOME)/bin/$(ARCH)
+	LIB_DIR = $(HOME)/lib/$(ARCH)
+
+	RSAREF_BUILD = $(RSAREF)/build.$(ARCH)
+	DB_BUILD = $(DB)/build.$(ARCH)
+	LTXML_BUILD = $(LTXML)/build.$(ARCH)
+
 else
-RSAREF_LIB = $(TOP)/../rsaref/build/rsaref.a
-DB_LIB = $(TOP)/../db/build.unix/libdb.a
-DB_INC = -I$(TOP)/../db/build.unix
-BIN_DIR = $(HOME)/bin
-LIB_DIR = $(HOME)/lib
+
+	BIN_DIR = $(HOME)/bin
+	LIB_DIR = $(HOME)/lib
+
+	RSAREF_BUILD = $(RSAREF)/build
+	DB_BUILD = $(DB)/build.unix
+	LTXML_BUILD = $(LTXML)/build
+
 endif

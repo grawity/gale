@@ -12,7 +12,7 @@ VERSION := $(shell cat $(TOP)/version)
 endif
 
 INCLUDES = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC) $(DB_INC) $(CGIC_INC)
-DEFINES = -DGALE_CONF=\"$(GALE_CONF)\" -DGALE_VERSION=\"$(VERSION)\" -DSTDC_HEADERS
+DEFINES = -DSYS_DIR=\"$(SYS_DIR)\" -DGALE_VERSION=\"$(VERSION)\" -DSTDC_HEADERS
 
 WARNINGS = -W -Wimplicit -Wreturn-type -Wunused -Wswitch -Wtrigraphs -Wformat \
 	-Wchar-subscripts -Wparentheses
