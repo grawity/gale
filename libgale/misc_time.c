@@ -1,6 +1,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <limits.h>
+#include <time.h>
 
 #include "gale/misc.h"
 

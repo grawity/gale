@@ -1,6 +1,7 @@
 #include "gale/all.h"
 
 #include <errno.h>
+#include <stdlib.h>
 
 static int do_generate = 1;
 static struct gale_text priv_file,pub_file;
