@@ -171,6 +171,7 @@ char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
 
 	for (inbytes = 0; inbytes < t.l; ++inbytes) {
 		copy[inbytes] = t.p[inbytes];
+		if (0 == copy[inbytes]) copy[inbytes] = '?';
 		to_ucs(&copy[inbytes]);
 	}
 
