@@ -63,7 +63,7 @@ static void follow_key(oop_source *oop,const struct find *find) {
 	{
 		key_i_graph(oop,
 			find->loc->key,
-			search_all & ~search_private,
+			search_all, /* ~search_private ? */
 			G_("key.member"),
 			on_graph,(void *) find);
 		return;
@@ -164,7 +164,7 @@ void gale_find_exact_location(oop_source *oop,
 	find->func = func;
 	find->user = user;
 	find->map = NULL;
-	find->flags = search_all & ~search_private & ~search_slow;
+	find->flags = search_all & ~search_slow; /* ~search_private? */
 	find->now = gale_time_now();
 	find->count = 0;
 
@@ -197,7 +197,18 @@ struct gale_key *gale_location_key(struct gale_location *loc) {
  *  \param loc Location to examine.
  *  \return Nonzero if we can subscribe to this location. */
 int gale_location_receive_ok(struct gale_location *loc) {
-	return 1; /* TODO */
+	struct gale_data key = null_data;
+	void *datum;
+
+	if (loc->members_null
+	||  NULL != gale_key_private(loc->key)) return 1;
+
+	while (gale_map_walk(loc->members,&key,&key,&datum)) {
+		struct gale_location *member = (struct gale_location *) datum;
+		if (NULL != gale_key_private(member->key)) return 1;
+	}
+
+	return 0;
 }
 
 /** Determine if we can send messages to a location.

@@ -50,5 +50,7 @@ struct gale_location *client_i_get(struct gale_text name) {
 	ret->key = NULL;
 	ret->members = NULL;
 	ret->members_null = 0;
+
+	gale_map_add(*location_map,ndata,ret);
 	return ret;
 }
