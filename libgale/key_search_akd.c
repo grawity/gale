@@ -28,8 +28,10 @@ static oop_call_time on_timeout;
 static void *on_packed_query(struct gale_packet *packet,void *x) {
 	struct cache *cache = (struct cache *) x;
 	packet->routing = gale_text_concat(7,
-		packet->routing,G_(":"),
-		G_("@"),cache->domain,
+		packet->routing,G_(":"),G_("@"),
+		gale_text_replace(gale_text_replace(cache->domain,
+			G_(":"),G_("..")),
+			G_("/"),G_(".|")),
 		G_("/auth/query/"),
 		gale_text_replace(cache->local,G_(":"),G_("..")),G_("/"));
 
@@ -198,7 +200,10 @@ static void *on_key_location(
 
 	assert(NULL != loc && 0 != r.l); /* _gale is built in! */
 	cache->key_routing = gale_text_concat(6,r,G_(":"),
-		G_("@"),cache->domain,
+		G_("@"),
+		gale_text_replace(gale_text_replace(cache->domain,
+			G_(":"),G_("..")),
+			G_("/"),G_(".|")),
 		G_("/auth/key/"),
 		gale_text_replace(cache->local,G_(":"),G_("..")));
 	link_subscribe(cache->link,cache->key_routing);
@@ -225,8 +230,8 @@ static void on_search(struct gale_time now,oop_source *oop,
 	if (NULL == cache) {
 		int at;
 		const struct gale_text name = key_i_swizzle(key_name);
-		for (at = 0; at < name.l && '@' != name.p[at]; ++at) ;
-		if (name.l == at) goto skip;
+		for (at = name.l - 1; at >= 0 && '@' != name.p[at]; --at) ;
+		if (at < 0) goto skip;
 
 		gale_create(cache);
 		cache->oop = NULL;

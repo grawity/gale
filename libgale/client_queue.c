@@ -58,19 +58,7 @@ static void *on_kick(oop_source *oop,struct timeval when,void *x) {
 
 static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
 	struct gale_error_queue * const queue = (struct gale_error_queue *) x;
-	if (NULL == loc) {
-		const struct gale_text normal = gale_text_concat(2,
-			G_("_gale.server@"),
-			gale_var(G_("GALE_DOMAIN")));
-		if (gale_text_compare(n,normal)) {
-			gale_find_exact_location(queue->oop,
-				normal,on_location,queue);
-			return OOP_CONTINUE;
-		}
-
-		/* Shouldn't happen; oh well... */
-		return OOP_CONTINUE;
-	}
+	if (NULL == loc) return OOP_CONTINUE; /* oh well... */
 
 	queue->target = loc;
 	activate(queue);
