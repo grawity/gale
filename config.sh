@@ -45,7 +45,7 @@ fi
 run chown $GALE_USER $SUID_DIR/gksign
 run chmod 4755 $SUID_DIR/gksign
 
-[ -f "$SYS_DIR/auth/trusted/ROOT" ] || run cp ROOT "$SYS_DIR/auth/trusted"
+[ -f "$SYS_DIR/auth/trusted/ROOT" ] || run cp auth/ROOT "$SYS_DIR/auth/trusted"
 
 if [ -z "$GALE_DOMAIN" ] ; then
 cat << EOM

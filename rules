@@ -86,4 +86,4 @@ $(INC_DIR)/%.h: %.h mkdir/$(INC_DIR)
 	@$(INSTALL_DATA) $*.h $(INC_DIR)
 
 mkdir/%:
-	@[ -d $* ] || echo mkdir -p $* && mkdir -p $* && chmod 755 $*
+	@[ -d $* ] || (echo mkdir -p $* && mkdir -p $* && chmod 755 $*)

@@ -509,7 +509,7 @@ void load_gsubrc(const char *name) {
 void add_subs(char **subs,const char *add) {
 	if (add == NULL) return;
 	if (*subs) {
-		char *n = gale_malloc(strlen(*subs) + strlen(add) + 1);
+		char *n = gale_malloc(strlen(*subs) + strlen(add) + 2);
 		sprintf(n,"%s:%s",*subs,add);
 		gale_free(*subs);
 		*subs = n;

@@ -67,6 +67,9 @@
 /* Define if you have the uname function.  */
 #undef HAVE_UNAME
 
+/* Define if you have the <curses.h> header file.  */
+#undef HAVE_CURSES_H
+
 /* Define if you have the <dirent.h> header file.  */
 #undef HAVE_DIRENT_H
 

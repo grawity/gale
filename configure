@@ -1742,7 +1742,7 @@ EOF
 
 fi
 
-for ac_hdr in fcntl.h sys/time.h syslog.h unistd.h sys/bitypes.h term.h dlfcn.h
+for ac_hdr in fcntl.h sys/time.h syslog.h unistd.h sys/bitypes.h curses.h term.h dlfcn.h
 do
 ac_safe=`echo "$ac_hdr" | sed 'y%./+-%__p_%'`
 echo $ac_n "checking for $ac_hdr""... $ac_c" 1>&6
