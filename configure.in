@@ -177,8 +177,6 @@ AC_OUTPUT(
 	rsaref/Makefile
 	rsaref/source/Makefile
 	lib/Makefile 
-	auth/Makefile 
-	misc/Makefile
 	gsub/Makefile
 	gzgw/Makefile
 	gsend/Makefile

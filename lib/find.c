@@ -1,140 +1,159 @@
-#include "gale/client.h"
-#include "gale/auth.h"
-#include "gale/misc.h"
+#include "common.h"
+#include "init.h"
+#include "file.h"
+#include "key.h"
+#include "id.h"
 
-#include <errno.h>
 #include <stdio.h>
-#include <assert.h>
-#include <string.h>
-#include <stdlib.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <unistd.h>
-#include <sys/time.h>
-#include <sys/types.h>
+#include <string.h>
+#include <sys/stat.h>
 
-#define TIMEOUT 20 /* seconds */
+#define MAX_SIZE 65536
+#define RETRY_TIME 1200
 
-auth_hook _gale_find_id;
-static int inhibit = 0;
+auth_hook *hook_find_public = NULL;
+auth_hook *hook_find_private = NULL;
 
-void disable_gale_akd(void) {
-	++inhibit;
-}
-
-void enable_gale_akd(void) {
-	if (inhibit) --inhibit;
-}
-
-/*
-   1: got a key
-   0: no success
-  -1: no key exists
-*/
-static int process(struct auth_id *id,struct auth_id *domain,
-                   struct gale_message *msg) 
-{
-	struct auth_id *encrypted,*signature;
-	struct gale_group group;
-
-	encrypted = decrypt_message(msg,&msg);
-	if (!msg) return 0;
-	signature = verify_message(msg,&msg);
-
-	group = gale_group_find(msg->data,G_("answer/key"));
-	if (!gale_group_null(group)) {
-		struct gale_fragment frag = gale_group_first(group);
-		if (frag_data == frag.type) {
-			struct auth_id *found;
-			import_auth_id(&found,frag.value.data,0);
-			if (found == id) return 1;
-		}
-	}
-
-	group = gale_group_find(msg->data,G_("answer/key/error"));
-	if (!gale_group_null(group)) {
-		struct gale_fragment frag = gale_group_first(group);
-		if (domain && signature == domain) return -1;
-	}
-
-	return 0;
-}
-
-int _gale_find_id(struct auth_id *id) {
-	struct gale_client *client;
-	struct gale_message *msg;
-	struct gale_text tok,name,category;
-	struct gale_fragment frag;
-	struct auth_id *domain = NULL;
-	char *tmp;
-	time_t timeout;
+static int open_pub(struct auth_id *id,int fd,int flag,struct inode *inode) {
 	int status = 0;
+	struct gale_data key = null_data;
+	struct auth_id *imp = NULL;
 
-	name = auth_id_name(id);
-	tok = null_text;
-	if (gale_text_token(name,'@',&tok) && gale_text_token(name,0,&tok))
-		init_auth_id(&domain,tok);
-	else
-		domain = id;
+	if (fd < 0) return 0;
+	status = _ga_load(fd,&key);
 
-	/* prevent re-entrancy */
-	if (inhibit) return 0;
-	disable_gale_akd();
+	if (status && key.l > 0) {
+		_ga_import_pub(&imp,key,inode,flag);
 
-	tmp = gale_malloc(80 + name.l);
-	sprintf(tmp,"requesting key \"%s\"",
-	        gale_text_to_local(name));
-	gale_alert(GALE_NOTICE,tmp,0);
-	gale_free(tmp);
-
-	timeout = time(NULL);
-	category = id_category(id,G_("auth/key"),G_(""));
-	client = gale_open(category);
-
-	msg = new_message();
-
-	msg->cat = id_category(id,G_("auth/query"),G_(""));
-	gale_add_id(&msg->data,G_("AKD"));
-	frag.name = G_("question/key");
-	frag.type = frag_text;
-	frag.value.text = name;
-	gale_group_add(&msg->data,frag);
-
-	timeout += TIMEOUT;
-	link_put(client->link,msg);
-	while (gale_send(client) && time(NULL) < timeout) {
-		gale_retry(client);
-		if (link_queue_num(client->link) < 1) 
-			link_put(client->link,msg);
+		if (!imp)
+			status = 0;
+		else if (imp != id) {
+			_ga_warn_id(G_("file named \"%\" contains key \"%\""),
+			            id,imp);
+			status = 0;
+		} else if (!_ga_trust_pub(imp))
+			status = 0;
 	}
 
-	while (!status && time(NULL) < timeout) {
-		struct gale_message *reply;
-		struct timeval tv;
-		fd_set fds;
-		int retval;
+	close(fd);
+	if (inode && !status) _ga_erase_inode(*inode);
+	return status;
+}
 
-		/* eh */
-		tv.tv_sec = 3;
-		tv.tv_usec = 0;
+static int open_priv(struct auth_id *id,int fd) {
+	int status = 0;
+	struct gale_data key = null_data;
+	struct auth_id *imp = NULL;
 
-		FD_ZERO(&fds);
-		FD_SET(client->socket,&fds);
-		retval = select(FD_SETSIZE,(SELECT_ARG_2_T) &fds,NULL,NULL,&tv);
-		if (retval < 0 && EINTR == errno) continue;
-		if (retval < 0) {
-			gale_alert(GALE_WARNING,"select",errno);
-			break;
+	if (fd < 0) return 0;
+	status = _ga_load(fd,&key);
+
+	if (status && key.l > 0) {
+		_ga_import_priv(&imp,key);
+
+		if (!imp)
+			status = 0;
+		else if (imp != id) {
+			_ga_warn_id(G_("file named \"%\" contains key \"%\""),
+			            id,imp);
+			status = 0;
 		}
-		if (retval == 0) continue;
-		if (gale_next(client)) {
-			gale_retry(client);
-			continue;
-		}
-
-		while (!status && (reply = link_get(client->link)))
-			status = process(id,domain,reply);
 	}
 
-	gale_close(client);
-	enable_gale_akd();
-	return status > 0;
+	close(fd);
+	return status;
+}
+
+static int get(struct gale_text dir,struct gale_text fn,struct inode *inode) {
+	struct gale_text path;
+	int r;
+	path = dir_file(dir,fn);
+	r = _ga_read_file(path);
+	gale_dprintf(11,"(auth) trying to read \"%s\"\n",
+	             gale_text_to_local(path));
+	if (inode && r >= 0) *inode = _ga_read_inode(r,fn);
+	return r;
+}
+
+static void nop(char * const * argv) { (void) argv; }
+
+int _ga_find_pub(struct auth_id *id) {
+	char *argv[] = { "gkfind", NULL, NULL };
+	pid_t pid;
+	int fd,status;
+
+	if (hook_find_public && hook_find_public(id)) return 1;
+
+	argv[1] = gale_text_to_local(id->name);
+	pid = gale_exec("gkfind",argv,NULL,&fd,nop);
+	status = open_pub(id,fd,IMPORT_NORMAL,NULL);
+	gale_wait(pid);
+	return status;
+}
+
+int auth_id_public(struct auth_id *id) {
+	int status;
+	struct gale_time now;
+	struct inode in;
+
+	gale_diprintf(10,2,"(auth) \"%s\": looking for public key\n",
+	             gale_text_to_local(id->name));
+
+	if (_ga_trust_pub(id)) {
+		gale_diprintf(10,-2,"(auth) \"%s\": we already had it\n",
+		             gale_text_to_local(id->name));
+		return 1;
+	}
+
+	now = gale_time_now();
+	if (gale_time_compare(
+		gale_time_diff(now,gale_time_seconds(RETRY_TIME)),
+		id->find_time) < 0)
+	{
+		gale_diprintf(10,-2,"(auth) \"%s\": we searched recently\n",
+		             gale_text_to_local(id->name));
+		return 0;
+	}
+
+	id->find_time = now;
+	in = _ga_init_inode();
+
+	if (open_pub(id,get(_ga_dot_trusted,id->name,&in),IMPORT_TRUSTED,&in)
+	||  open_pub(id,get(_ga_dot_local,id->name,&in),IMPORT_NORMAL,&in)
+	||  open_pub(id,get(_ga_etc_trusted,id->name,&in),IMPORT_TRUSTED,&in)
+	||  open_pub(id,get(_ga_etc_local,id->name,&in),IMPORT_NORMAL,&in)
+	||  open_pub(id,get(_ga_etc_cache,id->name,&in),IMPORT_NORMAL,&in)) {
+		gale_diprintf(10,-2,"(auth) \"%s\": done looking, found it\n",
+		             gale_text_to_local(id->name));
+		return 1;
+	}
+
+	gale_dprintf(11,"(auth) \"%s\": searching more desperately\n",
+	             gale_text_to_local(id->name));
+	status = _ga_find_pub(id);
+	gale_diprintf(10,-2,"(auth) \"%s\": done looking (%s)\n",
+	             gale_text_to_local(id->name),status ? "found" : "not found");
+	return status;
+}
+
+int auth_id_private(struct auth_id *id) {
+	int fd,status;
+	pid_t pid;
+	char *argv[] = { "gkfetch", NULL, NULL };
+
+	if (id->private
+	||  open_priv(id,get(_ga_dot_private,id->name,NULL))
+	||  open_priv(id,get(_ga_etc_private,id->name,NULL)))
+		return 1;
+
+	if (hook_find_private && hook_find_private(id)) return 1;
+
+	argv[1] = gale_text_to_local(id->name);
+	pid = gale_exec("gkfetch",argv,NULL,&fd,nop);
+	status = open_priv(id,fd);
+	gale_wait(pid);
+	return status;
 }
