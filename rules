@@ -1,7 +1,7 @@
-sinclude $(TOP)/defs
-sinclude $(TOP)/defs.$(HOST)
-sinclude $(TOP)/defs.$(LAB)
-sinclude $(TOP)/defs.$(ARCH)
+-include $(TOP)/defs
+-include $(TOP)/defs.$(HOST)
+-include $(TOP)/defs.$(LAB)
+-include $(TOP)/defs.$(ARCH)
 
 CC = gcc
 CFLAGS = -Wall -g

@@ -1,0 +1,5 @@
+RSAREF_INC = -I/ofb/include
+RSAREF_LIB = -L/ofb/lib -lrsaref
+
+ZEPHYR_INC = -I/ofb/include
+ZEPHYR_LIB = -L/ofb/lib -lzephyr -lcom_err
