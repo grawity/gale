@@ -137,8 +137,8 @@ static void notify(int in,struct gale_text presence) {
 
 static void *on_disconnect(struct gale_server *server,void *data) {
 	if (do_presence) {
-		notify(1,G_("in/reconnected"));
-		notify(0,G_("out/disconnected"));
+		notify(1,G_("in.reconnected"));
+		notify(0,G_("out.disconnected"));
 	}
 	return OOP_CONTINUE;
 }
@@ -493,7 +493,7 @@ static void usage(void) {
 #ifdef HAVE_DLOPEN
 	"       -l rclib    Use module (default gsubrc.so, if found)\n" 
 #endif
-	"       -p state    Announce presence state (eg. \"out/to/lunch\")\n"
+	"       -p state    Announce presence state (eg. \"out.to.lunch\")\n"
 	,GALE_BANNER);
 	exit(1);
 }
@@ -637,7 +637,7 @@ static void *on_complete() {
 		struct gale_text announce = gale_var(G_("GALE_ANNOUNCE"));
 		if (!announce.l) announce = presence;
 		notify(1,announce);
-		notify(0,G_("out/disconnected"));
+		notify(0,G_("out.disconnected"));
 	}
 
 	link_on_message(conn,on_packet,NULL);
@@ -739,7 +739,7 @@ int main(int argc,char **argv) {
 
 	/* Default presence. */
 	presence = gale_var(G_("GALE_PRESENCE"));
-	if (!presence.l) presence = G_("in/present");
+	if (!presence.l) presence = G_("in.present");
 
 	/* Parse command line arguments. */
 	while (EOF != (opt = getopt(argc,argv,"dDhaAenkKqvrf:l:p:"))) {
