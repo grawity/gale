@@ -14,27 +14,31 @@ which requires a certain amount of finicky setup -- including setuid binaries
    prep.ai.mit.edu in the /pub/gnu directory.  You can't build Gale with a
    non-GNU 'make' utility, sorry.
 
-1. Get and install the RSAREF library.  You can get it from ftp.rsa.com, if
-   you live in the US or Canada.  If you don't, you might try using a workalike
+1. Get the RSAREF library.  You can retrieve the source from ftp.rsa.com, if 
+   you live in the US or Canada.  It you don't, you might try using a workalike
    such as RSAEURO.
 
-   You can either install it in a canonical place on your system as
-   librsaref.a, or build it in-place.  Follow the build directions that 
-   come with the tar file.
+   Unpack the rsaref20.tar.Z file in the "gale/rsaref" directory.  The 
+   configuration and build process will automatically detect its presence, 
+   build it and link with it.  This will only work with "genuine" RSAREF.
 
-   In any case, remember where you put it for the next step.
+   Alternatively, you can build the library (or a workalike) yourself.
+   If you do, install librsaref.a and the RSAREF headers into system lib and 
+   include directories; remember where you put them for the next step.
 
 2. Prepare to run the provided "configure" script.  The typical "configure" 
    options (--prefix etc.) apply; run "sh configure --help" for usage 
-   information.  If you want to build the gzgw (gale/Zephyr gateway), you 
-   need to make sure "configure" can find the Zephyr libraries and headers 
-   by using the proper -L and -I flags (if necessary) in the LDFLAGS and 
-   CPPFLAGS environment variables, respectively.
+   information.  
 
-   If you have installed RSAREF on your system, include the appropriate flags
-   so "configure" can find librsaref.a and the RSAREF headers (rsaref.h etc).
-   If you've left it in a build directory, use the --with-rsaref argument to
-   "configure", specifying the location, e.g. "--with-rsaref=../rsaref/build".
+   If you want to build the gzgw (gale/Zephyr gateway), you need to make sure 
+   "configure" can find the Zephyr libraries and headers by using the proper 
+   -L and -I flags (if necessary) in the LDFLAGS and CPPFLAGS environment 
+   variables, respectively.
+
+   If you want to use a preinstalled RSAREF library, include the appropriate
+   flags in LDFLAGS and CPPFLAGS so "configure" can find librsaref.a and the 
+   RSAREF headers (rsaref.h etc).  (Don't worry about this if you've unpacked 
+   rsaref20.tar.Z into gale/rsaref as directed in step 1.)
 
    Once you've figured out the right options and set environment variables
    as needed, run the script.
@@ -50,42 +54,16 @@ which requires a certain amount of finicky setup -- including setuid binaries
    Make "install" from the top-level Gale directory; this should install 
    the Gale binaries, libraries, and header files.
 
-5. If you don't already have the auth system configuration files set up,
-   make "authinstall" and follow the directions.  This will generate an 
-   initial Gale configuration file and create directories with the appropriate
-   permissions to hold the key cache and such.
+   This may ask questions if it can't find a previous configuration.
+   Follow the directions; feel free to interrupt it at any prompt if you
+   need to change something and make "install" again.
 
-   Make sure the installed binaries are on your PATH.
+   Make sure the installed binaries are on the PATH for future steps!
 
-6. You now need to generate and authenticate a key for your domain.  Figure
-   out who controls the domain next "up" from you -- if you have the domain
-   "foo.bat.bar", you need to have your key signed by whoever controls the
-   domain "bat.bar".  I keep the keys for most top-level domains.  If you'd
-   like to keep the key for the upper-level domain yourself, you can do that
-   too -- but then you need to get _that_ key signed...
+5. If you have not already set up your domain, you need to do so.
+   Become the "gale user" you selected in step 4 and run "make domain".
+   Follow the directions; these will involve sending your key to the
+   proper authority to get it signed.  I manage ROOT and most of the top-level
+   domains (.edu, .com, etc.) for now.  When in doubt, you can ask me.
 
-   Generate the "uppermost" key you aim to control with "gkgen":
-
-   gkgen my.domain 'Name of My Domain' > my.domain
-
-   Ignore any warnings about how it couldn't sign this file.  Send the file so 
-   generated (probably uuencode'd) to whoever controls the next upper domain.
-   They will pipe it to "gksign", and send the output of "gksign" back to you.
-
-   Take the returned, signed key and put it in /usr/local/etc/auth/local
-   (replace "/usr/local/" as appropriate).  The filename must be the name of 
-   your domain.  Run "gkinfo my.domain" to make sure you can see your new key.  
-   Also find the corresponding private key (look in your .gale/auth/private) 
-   and put it in the .gale/auth/private directory for the user you designated
-   as the Gale user in step 5.
-
-   Now, if you have any subdomains you want to manage, use "gkgen" to create
-   them, from "uppermost" to "lowermost".  Since you have the signing key for
-   the domain, gkgen may produce already-signed keys (you can verify this
-   by piping them to "gkinfo") which you can put in SYS_DIR/auth/local.  If it
-   does not (you are not the gale user), then become the gale user and pass
-   them through "gksign" to get them signed before installing them.
-
-7. Once you have signed keys for the domains you want, you should be in
-   business.  Try running the clients to see if they work (particularly with
-   authentication).  Let me know how it goes!
+6. Happy puffing!

@@ -18,7 +18,13 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 
-#ifdef HAVE_LIBTERMCAP
+#ifdef HAVE_DLFCN_H
+#define HAVE_DLOPEN
+#include <dlfcn.h>
+#endif
+
+#ifdef HAVE_CURSES_H
+#define HAVE_CURSES
 #include <curses.h>
 #ifdef HAVE_TERM_H
 #include <term.h>
@@ -26,8 +32,10 @@
 #endif
 
 extern char **environ;
+typedef void (gsubrc_t)(void);
 
-char *rcprog = "gsubrc";                /* Filter program name. */
+const char *rcprog = "gsubrc";		/* Filter program name. */
+gsubrc_t *dl_gsubrc = NULL;		/* Loaded gsubrc function. */
 struct gale_client *client;             /* Connection to server. */
 char *tty,*agent;                       /* TTY device, user-agent string. */
 
@@ -93,7 +101,7 @@ struct gale_message *slip(const char *cat,
 
 /* Output a terminal mode string. */
 void tmode(char id[2]) {
-#ifdef HAVE_LIBTERMCAP
+#ifdef HAVE_CURSES
 	char *cap;
 	if (do_termcap && (cap = tgetstr(id,NULL))) 
 		tputs(cap,1,(TPUTS_ARG_3_T) putchar);
@@ -351,6 +359,12 @@ void present_message(struct gale_message *_msg) {
 		dup2(pfd[0],0);
 		if (pfd[0] != 0) close(pfd[0]);
 
+		/* Use the loaded gsubrc, if we have one. */
+		if (dl_gsubrc) {
+			dl_gsubrc();
+			exit(0);
+		}
+
 		/* Look for the file. */
 		rc = dir_search(rcprog,1,dot_gale,sys_dir,NULL);
 		if (rc) {
@@ -434,16 +448,49 @@ void set_agent(void) {
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gsub [-nkKrpy] [-f rcprog] cat\n"
+	"usage: gsub [-nkKrpy] [-f rcprog] [-l rclib] cat\n"
 	"flags: -n          Do not fork (default if stdout redirected)\n"
 	"       -k          Do not kill other gsub processes\n"
 	"       -K          Kill other gsub processes and terminate\n"
 	"       -r          Do not retry server connection\n"
-	"       -f rcprog   Use rcprog (default gsubrc, then built-in)\n"
+	"       -f rcprog   Use rcprog (default gsubrc, if found)\n"
+#ifdef HAVE_DLOPEN
+	"       -l rclib    Use shared library (default gsubrc.so, if found)\n" 
+#endif
 	"       -p          Suppress return-receipt processing altogether\n"
 	"       -y          Disable login/logout notification\n"
 	,GALE_BANNER);
 	exit(1);
+}
+
+void load_gsubrc(const char *name) {
+#ifdef HAVE_DLOPEN
+	const char *rc,*err;
+	void *lib;
+
+	rc = dir_search(name ? name : "gsubrc.so",1,dot_gale,sys_dir,NULL);
+	if (!rc) {
+		if (name) 
+			gale_alert(GALE_WARNING,
+			"Cannot find specified shared library.",0);
+		return;
+	}
+
+	lib = dlopen((char *) rc,RTLD_LAZY); /* FreeBSD needs the cast. */
+	if (!lib) {
+		while ((err = dlerror())) gale_alert(GALE_WARNING,err,0);
+		return;
+	}
+
+	dl_gsubrc = dlsym(lib,"gsubrc");
+	if (!dl_gsubrc) {
+		while ((err = dlerror())) gale_alert(GALE_WARNING,err,0);
+		dlclose(lib);
+		return;
+	}
+#else
+	if (name) gale_alert(GALE_WARNING,"Dynamic loading not supported.",0);
+#endif
 }
 
 /* main */
@@ -451,6 +498,7 @@ void usage(void) {
 int main(int argc,char **argv) {
 	/* Various flags. */
 	int opt,do_retry = 1,do_notify = 1,do_fork = 0,do_kill = 0;
+	const char *rclib = NULL;
 	char *serv;             /* Subscription list. */
 
 	/* Initialize the gale libraries. */
@@ -458,29 +506,30 @@ int main(int argc,char **argv) {
 
 	/* If we're actually on a TTY, we do things slightly different. */
 	if ((tty = ttyname(1))) {
-#ifdef HAVE_LIBTERMCAP
+#ifdef HAVE_CURSES
 		char buf[1024];
-#endif
 		/* Find out the terminal type. */
 		char *term = getenv("TERM");
+#endif
 		/* Truncate the tty name for convenience. */
 		char *tmp = strrchr(tty,'/');
 		if (tmp) tty = tmp + 1;
 		/* Go into the background; kill other gsub processes. */
 		do_fork = do_kill = 1;
-#ifdef HAVE_LIBTERMCAP
+#ifdef HAVE_CURSES
 		/* Do highlighting, if available. */
 		if (term && 1 == tgetent(buf,term)) do_termcap = 1;
 #endif
 	}
 
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"nkKrpyf:h"))) switch (opt) {
+	while (EOF != (opt = getopt(argc,argv,"nkKrpyf:l:h"))) switch (opt) {
 	case 'n': do_fork = 0; break;           /* Do not go into background */
 	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
 	case 'K': if (tty) gale_kill(tty,1);    /* *only* kill other gsubs */
 	          return 0;
 	case 'f': rcprog = optarg; break;       /* Use a wacky gsubrc */
+	case 'l': rclib = optarg; break;	/* Use a wacky gsubrc.so */
 	case 'r': do_retry = 0; break;          /* Do not retry */
 	case 'p': do_ping = 0; break;           /* Do not honor Receipt-To: */
 	case 'y': do_notify = 0; break;         /* Do not send login/logout */
@@ -500,6 +549,9 @@ int main(int argc,char **argv) {
 	/* We need to subscribe to *something* */
 	if (serv == NULL) 
 		gale_alert(GALE_ERROR,"No subscriptions specified.",0);
+
+	/* Look for a gsubrc.so */
+	load_gsubrc(rclib);
 
 	/* Generate keys so people can send us messages. */
 	gale_keys();

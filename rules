@@ -1,11 +1,4 @@
 -include $(TOP)/defs
--include $(TOP)/defs.$(LAB)
--include $(TOP)/defs.$(ARCH)
--include $(TOP)/defs.$(shell uname -s)
--include $(TOP)/defs.$(shell uname -sr | sed -e 's/ /-/g' -e 's/\..*//g')
--include $(TOP)/defs.$(shell uname -sr | sed -e 's/ /-/g')
--include $(TOP)/defs.$(shell uname -m  | sed -e 's/^i.86$$/ix86/g')
--include $(TOP)/defs.$(HOST)
 
 export SYS_DIR BIN_DIR SUID_DIR GALE_USER GALE_DOMAIN GALE_VERSION
 
@@ -93,4 +86,4 @@ $(INC_DIR)/%.h: %.h mkdir/$(INC_DIR)
 	@$(INSTALL_DATA) $*.h $(INC_DIR)
 
 mkdir/%:
-	@[ -d $* ] || echo install -d $* && $(INSTALL) -d $*
+	@[ -d $* ] || echo mkdir -p $* && mkdir -p $* && chmod 755 $*
