@@ -63,7 +63,10 @@ void default_gsubrc(void) {
 	}
 
 	if (0 != gale_var(G_("GALE_DATA_SECURITY_ENCRYPTION")).l) {
-		gale_alert(GALE_WARNING,G_("decryption error"),0);
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("cannot decrypt message to \""),
+			gale_var(G_("GALE_TO")),
+			G_("\"")),0);
 		return;
 	}
 
