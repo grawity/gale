@@ -281,7 +281,7 @@ void set_agent(void) {
 	len += (tty ? strlen(tty) : 0) + 30;
 	agent = gale_malloc(len);
 	sprintf(agent,"gsub/%s %s@%s %s %d",
-	        GALE_VERSION,user,host,tty ? tty : "none",getpid());
+	        GALE_VERSION,user,host,tty ? tty : "none",(int) getpid());
 }
 
 void usage(void) {
