@@ -77,9 +77,9 @@ static int id_width(struct gale_text var,struct gale_text dfl) {
 }
 
 /* The Wacky Quoting Proposal (WQP), as implemented:
-   For any line of text, the Quote is /^([ >]*|\|[^>])/.  The Quote is repeated
-   at the beginning of all wrap lines.  If the Quote is longer than the screen,
-   then it is no longer considered the Quote. */
+   For any line of text, the Quote is /^([ \t>]*|\|[^>]>)*/.  The Quote 
+   is repeated at the beginning of all wrap lines.  If the Quote is longer 
+   than the screen, then it is no longer considered the Quote. */
 void default_gsubrc(void) {
 	char *buf, *quotebuf;
 	struct gale_text timecode,text,loc_value;
