@@ -5,7 +5,7 @@
 
 #include <assert.h>
 
-static struct gale_key_assertion *create(int is_trusted) {
+static struct gale_key_assertion *create(struct gale_time time,int is_trusted) {
 	struct gale_key_assertion *output;
 	gale_create(output);
 	output->ref_count = 1;
@@ -14,14 +14,16 @@ static struct gale_key_assertion *create(int is_trusted) {
 	output->bundled = NULL;
 	output->source = null_data;
 	output->group = gale_group_empty();
+	output->stamp = time;
 	output->signer = NULL;
 	return output;
 }
 
 static int public_good(struct gale_key_assertion *assert) {
-	if (NULL == assert || NULL == assert->key) return 0;
+	if (NULL == assert) return 0;
 
-	if (NULL == assert->key->signer
+	if (NULL == assert->key
+	||  NULL == assert->key->signer
 	||  NULL == assert->key->signer->public
 	|| !public_good(assert->key->signer->public)) 
 		return assert->trust_count > 0;
@@ -82,13 +84,14 @@ const struct gale_key_assertion *gale_key_private(struct gale_key *key) {
 	/* TODO: how do we report this failure without spewing spoo? */
 
 	if (NULL == key 
-	||  NULL == key->private 
-	||  NULL == key->public)
+     /* ||  NULL == key->public */
+	||  NULL == key->private)
 		return NULL;
 
 	/* We bar untrusted private key assertions at the door. */
 	assert(key->private->trust_count > 0);
 
+#if 0
 	group = key->public->group;
 	while (!gale_group_null(group)) {
 		struct gale_fragment check,frag = gale_group_first(group);
@@ -102,6 +105,7 @@ const struct gale_key_assertion *gale_key_private(struct gale_key *key) {
 		||   gale_fragment_compare(frag,check))
 			return NULL;
 	}
+#endif
 
 	return key->private;
 }
@@ -126,9 +130,7 @@ static int beats(
 	struct gale_key_assertion *challenger,
 	struct gale_key_assertion *incumbent)
 {
-	struct gale_fragment c,i;
-
-	/* An unsigned key always loses. */
+	/* An unsigned, untrusted key always loses. */
 	if (!public_good(challenger)) return 0;
 	if (!public_good(incumbent)) return 1;
 
@@ -136,13 +138,26 @@ static int beats(
 	if (incumbent->trust_count && !challenger->trust_count) return 0;
 	if (challenger->trust_count && !incumbent->trust_count) return 1;
 
-	/* The key that was signed most recently wins. */
-	if (!gale_group_lookup(challenger->group,G_("key.signed"),frag_time,&c))
-		c.value.time = gale_time_zero();
-	if (!gale_group_lookup(incumbent->group,G_("key.signed"),frag_time,&i))
-		i.value.time = gale_time_zero();
+	if (incumbent->trust_count) {
+		/* Trusted: the key asserted most recently wins. */
+		return gale_time_compare(
+			incumbent->stamp,
+			challenger->stamp) <= 0;
+	} else {
+		/* Untrusted: the key that was signed most recently wins. */
+		struct gale_fragment c,i;
+		assert(!challenger->trust_count);
 
-	return gale_time_compare(i.value.time,c.value.time) <= 0;
+		if (!gale_group_lookup(challenger->group,
+			G_("key.signed"),frag_time,&c))
+			c.value.time = gale_time_zero();
+
+		if (!gale_group_lookup(incumbent->group,
+			G_("key.signed"),frag_time,&i))
+			i.value.time = gale_time_zero();
+
+		return gale_time_compare(i.value.time,c.value.time) <= 0;
+	}
 }
 
 /** Supply some raw key data to the system. 
@@ -152,7 +167,7 @@ static int beats(
  *  \return Assertion handle. 
  *  \sa gale_key_assert_group(), gale_key_retract() */
 struct gale_key_assertion *gale_key_assert(
-	struct gale_data source,int is_trusted) 
+	struct gale_data source,struct gale_time stamp,int is_trusted) 
 {
 	struct gale_text name;
 	struct gale_key *key;
@@ -161,10 +176,10 @@ struct gale_key_assertion *gale_key_assert(
 	name = key_i_name(source);
 	if (0 == name.l) {
 		gale_alert(GALE_WARNING,G_("ignoring invalid key"),0);
-		return create(is_trusted); /* not relevant to us */
+		return create(stamp,is_trusted); /* not relevant to us */
 	}
 
-	if (key_i_stub(source)) return create(is_trusted);
+	if (key_i_stub(source)) return create(stamp,is_trusted);
 
 	key = gale_key_handle(name);
 
@@ -173,28 +188,37 @@ struct gale_key_assertion *gale_key_assert(
 			gale_alert(GALE_WARNING,gale_text_concat(3,
 				G_("\""),name,
 				G_("\": ignoring untrusted private key")),0);
-			return create(is_trusted);
+			return create(stamp,is_trusted);
 		}
 
 		if (NULL != key->private
 		&& !gale_data_compare(source,key->private->source)) {
 			++(key->private->ref_count);
 			++(key->private->trust_count);
+			if (gale_time_compare(stamp,key->private->stamp) > 0)
+				key->private->stamp = stamp;
 			return key->private;
 		}
 
-		output = create(is_trusted);
+		output = create(stamp,is_trusted);
 		output->source = source;
 		output->group = key_i_group(output->source);
-		output->key = key;
+
+		if (!beats(output,key->private)) {
+			gale_alert(GALE_WARNING,gale_text_concat(3,
+				G_("\""),name,
+				G_("\": ignoring obsolete private key")),0);
+			return output;
+		}
 
 		if (NULL != key->private) {
-			assert(gale_data_compare(source,key->private->source));
-			gale_alert(GALE_WARNING,gale_text_concat(3,G_("\""),
-				name,G_("\": replacing private key")),0);
+			gale_alert(GALE_WARNING,gale_text_concat(3,
+				G_("\""),name,
+				G_("\": replacing obsolete private key")),0);
 			key->private->key = NULL;
 		}
 
+		output->key = key;
 		key->private = output;
 		assert(key->private->key == key);
 		return output;
@@ -203,55 +227,57 @@ struct gale_key_assertion *gale_key_assert(
 	if (NULL != key->public 
 	&& !gale_data_compare(key->public->source,source)) {
 		/* We're the same as the existing key. */
-		output = key->public;
-		++(output->ref_count);
-		if (is_trusted) assert_trust(output);
-	} else {
-		/* We're in contention for the key. */
-		const struct gale_data * const bundled = key_i_bundled(source);
+		++(key->public->ref_count);
+		if (is_trusted) assert_trust(key->public);
+		if (gale_time_compare(stamp,key->public->stamp) > 0)
+			key->public->stamp = stamp;
+		return key->public;
+	} 
+
+	/* We're in contention for the key. */
+
+	output = create(stamp,is_trusted);
+	output->key = key;
+	output->source = source;
+	output->group = key_i_group(output->source);
+
+	{
 		int i,count;
-
-		output = create(is_trusted);
-		output->key = key;
-		output->source = source;
-		output->group = key_i_group(output->source);
-
+		const struct gale_data * const bundled = key_i_bundled(source);
 		for (count = 0; bundled[count].l > 0; ++count) ;
 		gale_create_array(output->bundled,1 + count);
 		for (i = 0; i < count; ++i)
-			output->bundled[i] = gale_key_assert(bundled[i],is_trusted);
+			output->bundled[i] = gale_key_assert(bundled[i],stamp,is_trusted);
 		output->bundled[i] = NULL;
-
-		/* It's impossible for a key to contain a copy of itself, so 
-		   while who knows what gale_key_assert() calls did, at least 
-		   we know we're still in contention for the key. */
-		assert(NULL == key->public 
-		    || gale_data_compare(key->public->source,source));
 	}
 
-	if (output != key->public) {
-		/* Fight for the key! */
-		if (beats(output,key->public)) {
-			if (NULL != key->public) {
-				gale_alert(GALE_WARNING,gale_text_concat(3,
-					G_("\""),name,
-					G_("\": replacing obsolete key")),0);
-				assert(key->public->key == key);
-				key->public->key = NULL;
-			}
-			key->public = output;
+	/* It's impossible for a key to contain a copy of itself, so 
+	   while who knows what gale_key_assert() calls did, at least 
+	   we know we're still in contention for the key. */
+	assert(NULL == key->public 
+	    || 0 != gale_data_compare(key->public->source,source));
+
+	/* Fight for the key! */
+	if (beats(output,key->public)) {
+		if (NULL != key->public) {
+			gale_alert(GALE_WARNING,gale_text_concat(3,
+				G_("\""),name,
+				G_("\": replacing obsolete key")),0);
 			assert(key->public->key == key);
-		} else {
-			if (NULL == key->public)
-				gale_alert(GALE_WARNING,gale_text_concat(3,
-					G_("\""),name,
-					G_("\": ignoring lame key")),0);
-			else
-				gale_alert(GALE_WARNING,gale_text_concat(3,
-					G_("\""),name,
-					G_("\": ignoring obsolete key")),0);
-			output->key = NULL;
+			key->public->key = NULL;
 		}
+		key->public = output;
+		assert(key->public->key == key);
+	} else {
+		if (NULL == key->public)
+			gale_alert(GALE_WARNING,gale_text_concat(3,
+				G_("\""),name,
+				G_("\": ignoring lame key")),0);
+		else
+			gale_alert(GALE_WARNING,gale_text_concat(3,
+				G_("\""),name,
+				G_("\": ignoring obsolete key")),0);
+		output->key = NULL;
 	}
 
 	return output;
@@ -265,9 +291,10 @@ struct gale_key_assertion *gale_key_assert(
  *  \sa gale_key_assert(), gale_key_retract() */
 struct gale_key_assertion *gale_key_assert_group(
 	struct gale_group source,
+	struct gale_time stamp,
 	int is_trusted)
 {
-	return gale_key_assert(key_i_create(source),is_trusted);
+	return gale_key_assert(key_i_create(source),stamp,is_trusted);
 }
 
 /** Retract a previous assertion.
@@ -337,3 +364,11 @@ struct gale_data gale_key_raw(const struct gale_key_assertion *assert) {
 	if (NULL == assert) return null_data;
 	return assert->source;
 }
+
+/** Get the most recent timestamp given for a key.
+ *  \param assert Assertion handle from gale_key_public() 
+ *         or gale_key_private(). */
+struct gale_time gale_key_time(const struct gale_key_assertion *assert) {
+	if (NULL == assert) return gale_time_zero();
+	return assert->stamp;
+} 
