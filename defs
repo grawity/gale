@@ -1,5 +1,6 @@
 INC_DIR = $(HOME)/include/gale
 SYS_DIR = $(HOME)/etc/gale
+SUID_DIR = $(BIN_DIR)
 
 RSAREF = $(TOP)/../rsaref
 ifneq ($(wildcard $(RSAREF)),)

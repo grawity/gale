@@ -16,7 +16,7 @@ GALE_VERSION := $(shell cat $(TOP)/version)
 endif
 
 INCLUDES = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC) $(DB_INC) $(CGIC_INC)
-DEFINES = -DSYS_DIR=\"$(SYS_DIR)\" -DGALE_VERSION=\"$(GALE_VERSION)\" -DSTDC_HEADERS -D$(ENDIAN)
+DEFINES = -DSYS_DIR=\"$(SYS_DIR)\" -DGALE_VERSION=\"$(GALE_VERSION)\" -DSTDC_HEADERS # -D$(ENDIAN)
 
 WARNINGS = -W -Wimplicit -Wreturn-type -Wunused -Wswitch -Wtrigraphs -Wformat \
 	-Wchar-subscripts -Wparentheses
@@ -28,24 +28,26 @@ LDLIBS = -L$(TOP)/auth -L$(TOP)/lib -lgauth -lgale -lgauth -lgale \
 
 all::
 	@$(MAKE) --no-print-directory subdirs TARGET=all
-all:: $(BIN_TARGETS) $(LIB_TARGETS)
+all:: $(BIN_TARGETS) $(LIB_TARGETS) $(SUID_TARGETS)
 
 install::
 	@$(MAKE) --no-print-directory subdirs TARGET=install
 install:: \
 	$(addprefix $(BIN_DIR)/,$(BIN_TARGETS)) \
+	$(addprefix $(SUID_DIR)/,$(SUID_TARGETS)) \
 	$(addprefix $(LIB_DIR)/,$(LIB_TARGETS)) \
 	$(addprefix $(INC_DIR)/,$(HEADERS))
 
 clean::
 	@echo rm: object files, executables, and libraries.
-	@$(RM) *.o core $(BIN_TARGETS) $(LIB_TARGETS) $(CLEAN_FILES)
+	@$(RM) *.o core \
+		$(BIN_TARGETS) $(SUID_TARGETS) $(LIB_TARGETS) $(CLEAN_FILES)
 	@$(MAKE) --no-print-directory subdirs TARGET=clean
 
 relink::
 	@$(MAKE) --no-print-directory subdirs TARGET=relink
-	@$(RM) $(BIN_TARGETS) $(LIB_TARGETS)
-relink:: $(BIN_TARGETS) $(LIB_TARGETS)
+	@$(RM) $(BIN_TARGETS) $(SUID_TARGETS) $(LIB_TARGETS)
+relink:: $(BIN_TARGETS) $(LIB_TARGETS) $(SUID_TARGETS)
 
 rebuild: clean all
 
@@ -73,6 +75,14 @@ $(BIN_DIR)/%: % mkdir/$(BIN_DIR)
 	@echo $* '->' $(BIN_DIR)
 	@[ ! -x $@ ] || mv $@ $@.tmp.$$$$
 	@cp $* $(BIN_DIR)/$*
+
+$(SUID_DIR)/%: % mkdir/$(SUID_DIR)
+	@echo $* '->' $(SUID_DIR)
+	@[ ! -x $@ ] || mv $@ $@.tmp.$$$$
+	@cp $* $(SUID_DIR)/$*
+	chmod u+s $(SUID_DIR)/$*
+	@$(RM) $(BIN_DIR)/$*
+	@ln -s $(SUID_DIR)/$* $(BIN_DIR)/$*
 
 $(LIB_DIR)/%.a: %.a mkdir/$(LIB_DIR)
 	@echo $*.a '->' $(LIB_DIR)

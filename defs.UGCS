@@ -6,3 +6,5 @@ RSAREF_LIB = -L/usr/ug/lib -lrsaref
 
 DB_INC = -I/usr/ug/include
 DB_LIB = -L/usr/ug/lib -ldb
+
+SUID_DIR = $(HOME)/sbin/$(ARCH)

@@ -4,7 +4,6 @@
 #define UTIL_H
 
 #include <sys/types.h>
-#include <sys/bitypes.h>
 #include "compat.h"
 
 typedef u_int8_t byte;
