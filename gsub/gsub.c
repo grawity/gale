@@ -507,10 +507,8 @@ int main(int argc,char **argv) {
 		gale_alert(GALE_ERROR,"Could not connect to server.",0);
 
 	/* Fork ourselves into the background, unless we shouldn't. */
-	if (do_fork) {
-		gale_daemon(1);
-		gale_kill(tty,do_kill);
-	}
+	if (do_fork) gale_daemon(1);
+	if (tty) gale_kill(tty,do_kill);
 
 	/* Set our Agent: header value. */
 	set_agent();

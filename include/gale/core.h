@@ -19,9 +19,24 @@ typedef unsigned short u32;
 #error Cannot find 32-bit data type!
 #endif
 
-typedef unsigned char u8;
+#if SIZEOF_INT == 2
+typedef unsigned int u16;
+#elif SIZEOF_LONG == 2
+typedef unsigned long u16;
+#elif SIZEOF_SHORT == 2
+typedef unsigned short u16;
+#else
+#error Cannot find 16-bit data type!
+#endif
 
+typedef unsigned char u8;
 typedef u8 byte;
+
+#ifndef HAVE_SYS_BITYPES_H
+typedef u32 u_int32_t;
+typedef u16 u_int16_t;
+typedef u8 u_int8_t;
+#endif
 
 /* handy data type for a counted buffer. */
 struct gale_data {

@@ -9,8 +9,8 @@
 
 struct gale_client *client;
 
-const char **subs;
-struct gale_message **pings;
+const char **subs = NULL;
+struct gale_message **pings = NULL;
 int count_subs = 0,count_pings = 0;
 
 const char *tty,*receipt = NULL,*gwatchrc = "gwatchrc";
@@ -29,6 +29,7 @@ void bye(int x) {
 }
 
 void watch_cat(const char *cat) {
+	subs = gale_realloc(subs,sizeof(*subs) * (count_subs + 1));
 	subs[count_subs++] = cat;
 }
 
@@ -55,7 +56,10 @@ void watch_ping(const char *cat,struct gale_id *id) {
 		msg = new;
 	}
 
-	if (msg) pings[count_pings++] = msg;
+	if (msg) {
+		pings = gale_realloc(pings,sizeof(*pings) * (count_pings + 1));
+		pings[count_pings++] = msg;
+	}
 }
 
 void watch_id(struct gale_id *id) {
@@ -230,9 +234,6 @@ int main(int argc,char *argv[]) {
 
 	gale_init("gwatch",argc,argv);
 
-	subs = gale_malloc(sizeof(char*) * argc);
-	pings = gale_malloc(sizeof(struct gale_message *) * argc);
-
 	sigaction(SIGALRM,NULL,&act);
 	act.sa_handler = bye;
 	sigaction(SIGALRM,&act,NULL);
@@ -269,10 +270,8 @@ int main(int argc,char *argv[]) {
 	if (!do_retry && gale_error(client))
 		gale_alert(GALE_ERROR,"Could not connect to server.",0);
 
-	if (do_fork) {
-		gale_daemon(1);
-		gale_kill(tty,do_kill);
-	}
+	if (do_fork) gale_daemon(1);
+	if (tty) gale_kill(tty,do_kill);
 
 	send_pings();
 	do {
