@@ -141,6 +141,8 @@ static void add_address(
 {
 	struct address *addr;
 
+	gale_dprintf(5,"(connect %p) \"%s\" is %s\n",
+	             conn, gale_text_to(0, name), inet_ntoa(sin.sin_addr));
 	if (conn->alloc_address == conn->num_address) {
 		gale_resize_array(conn->addresses,
 			conn->alloc_address = conn->alloc_address 
@@ -246,7 +248,12 @@ static void add_name(struct gale_connect *conn,struct gale_text name,int port) {
 
 	if (NULL != res->query) conn->resolving[conn->num_resolve++] = res;
 #else
-	if (NULL == he) return;
+	if (NULL == he) {
+		gale_dprintf(5,"(connect %p) no addresses for \"%s\"\n",
+		             conn, gale_text_to(0, name));
+		return;
+	}
+
 	memset(&sin,0,sizeof(sin));
 	sin.sin_family = AF_INET;
 	sin.sin_port = htons(port);
@@ -409,6 +416,10 @@ static void *on_lookup(oop_adapter_adns *adns,adns_answer *answer,void *data) {
 			sin.sin_addr = answer->rrs.inaddr[i];
 			add_address(conn,name,sin);
 		}
+	}
+	else {
+		gale_dprintf(5,"(connect %p) no addresses for \"%s\"\n",
+		             conn, gale_text_to(0, res->name));
 	}
 
 	free(answer);
