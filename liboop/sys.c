@@ -24,6 +24,14 @@
 #include <sys/socket.h>
 #endif
 
+#ifdef HAVE_STRING_H
+#include <string.h>   /* Needed on NetBSD1.1/SPARC due to bzero/FD_ZERO. */
+#endif
+
+#ifdef HAVE_STRINGS_H
+#include <strings.h>  /* Needed on AIX 4.2 due to bzero/FD_ZERO. */
+#endif
+
 #define MAGIC 0x9643
 
 struct sys_time {
@@ -118,6 +126,8 @@ static void sys_on_time(oop_source *source,struct timeval tv,
 	oop_source_sys *sys = verify_source(source);
 	struct sys_time **p = &sys->time_queue;
 	struct sys_time *time = oop_malloc(sizeof(struct sys_time));
+	assert(tv.tv_usec >= 0 && "tv_usec must be positive");
+	assert(tv.tv_usec < 1000000 && "tv_usec measures microseconds");
 	assert(NULL != f && "callback must be non-NULL");
 	if (NULL == time) return; /* ugh */
 	time->tv = tv;
@@ -283,121 +293,142 @@ static void *sys_time_run(oop_source_sys *sys) {
 }
 
 void *oop_sys_run(oop_source_sys *sys) {
-	void * volatile ret = OOP_CONTINUE;
+	void *ret = OOP_CONTINUE;
 	assert(!sys->in_run && "oop_sys_run is not reentrant");
+	while (0 != sys->num_events && OOP_CONTINUE == ret)
+		ret = oop_sys_run_once(sys);
+	return ret;
+}
+
+void *oop_sys_run_once(oop_source_sys *sys) {
+	void * volatile ret = OOP_CONTINUE;
+	struct timeval * volatile ptv = NULL;
+	struct timeval tv;
+	fd_set rfd,wfd,xfd;
+	int i,rv;
+
+	assert(!sys->in_run && "oop_sys_run_once is not reentrant");
 	sys->in_run = 1;
 
-	while (0 != sys->num_events && OOP_CONTINUE == ret) {
-		struct timeval * volatile ptv = NULL;
-		struct timeval tv;
-		fd_set rfd,wfd,xfd;
-		int i,rv;
-
-		if (NULL != sys->time_run) {
-			/* interrupted, restart */
-			ptv = &tv;
-			tv.tv_sec = 0;
-			tv.tv_usec = 0;
-		} else if (NULL != sys->time_queue) {
-			ptv = &tv;
-			gettimeofday(ptv,NULL);
-			if (sys->time_queue->tv.tv_usec < tv.tv_usec) {
-				tv.tv_usec -= 1000000;
-				tv.tv_sec ++;
-			}
-			tv.tv_sec = sys->time_queue->tv.tv_sec - tv.tv_sec;
-			tv.tv_usec = sys->time_queue->tv.tv_usec - tv.tv_usec;
-			if (tv.tv_sec < 0) {
-				tv.tv_sec = 0;
-				tv.tv_usec = 0;
-			}
+	if (NULL != sys->time_run) {
+		/* interrupted, restart */
+		ptv = &tv;
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+	} else if (NULL != sys->time_queue) {
+		ptv = &tv;
+		gettimeofday(ptv,NULL);
+		if (sys->time_queue->tv.tv_usec < tv.tv_usec) {
+			tv.tv_usec -= 1000000;
+			tv.tv_sec ++;
 		}
-
-		if (!sys->sig_active) sys->do_jmp = !sigsetjmp(sys->env,1);
-		if (sys->sig_active) {
-			/* Still perform select(), but don't block. */
-			ptv = &tv;
+		tv.tv_sec = sys->time_queue->tv.tv_sec - tv.tv_sec;
+		tv.tv_usec = sys->time_queue->tv.tv_usec - tv.tv_usec;
+		if (tv.tv_sec < 0) {
 			tv.tv_sec = 0;
 			tv.tv_usec = 0;
 		}
-
-		FD_ZERO(&rfd);
-		FD_ZERO(&wfd);
-		FD_ZERO(&xfd);
-		for (i = 0; i < sys->num_files; ++i) {
-			if (NULL != sys->files[i][OOP_READ].f) FD_SET(i,&rfd);
-			if (NULL != sys->files[i][OOP_WRITE].f) FD_SET(i,&wfd);
-			if (NULL != sys->files[i][OOP_EXCEPTION].f) FD_SET(i,&xfd);
-		}
-
-		do
-			rv = select(sys->num_files,&rfd,&wfd,&xfd,ptv);
-		while (0 > rv && EINTR == errno);
-
-		sys->do_jmp = 0;
-
-		if (0 > rv) { /* Error in select(). */
-			ret = OOP_ERROR;
-			break; 
-		}
-
-		if (sys->sig_active) {
-			sys->sig_active = 0;
-			for (i = 0; OOP_CONTINUE == ret && i < OOP_NUM_SIGNALS; ++i) {
-				if (sys->sig[i].active) {
-					sys->sig[i].active = 0;
-					sys->sig[i].ptr = sys->sig[i].list;
-				}
-				while (OOP_CONTINUE == ret && NULL != sys->sig[i].ptr) {
-					struct sys_signal_handler *h;
-					h = sys->sig[i].ptr;
-					sys->sig[i].ptr = h->next;
-					ret = h->f(&sys->oop,i,h->v);
-				}
-			}
-			if (OOP_CONTINUE != ret) {
-				sys->sig_active = 1; /* come back */
-				break;
-			}
-		}
-
-		if (0 < rv) {
-			for (i = 0; OOP_CONTINUE == ret && i < sys->num_files; ++i)
-				if (FD_ISSET(i,&xfd) && NULL != sys->files[i][OOP_EXCEPTION].f)
-					ret = sys->files[i][OOP_EXCEPTION].f(&sys->oop,i,OOP_EXCEPTION,
-					                          sys->files[i][OOP_EXCEPTION].v);
-			for (i = 0; OOP_CONTINUE == ret && i < sys->num_files; ++i)
-				if (FD_ISSET(i,&wfd) && NULL != sys->files[i][OOP_WRITE].f)
-					ret = sys->files[i][OOP_WRITE].f(&sys->oop,i,OOP_WRITE,
-					                           sys->files[i][OOP_WRITE].v);
-			for (i = 0; OOP_CONTINUE == ret && i < sys->num_files; ++i)
-				if (FD_ISSET(i,&rfd) && NULL != sys->files[i][OOP_READ].f)
-					ret = sys->files[i][OOP_READ].f(&sys->oop,i,OOP_READ,
-					                          sys->files[i][OOP_READ].v);
-			if (OOP_CONTINUE != ret) break;
-		}
-
-		/* Catch any leftover timeout events. */
-		ret = sys_time_run(sys);
-		if (OOP_CONTINUE != ret) break;
-
-		if (NULL != sys->time_queue) {
-			struct sys_time *p,**pp = &sys->time_queue;
-			gettimeofday(&tv,NULL);
-			while (NULL != *pp 
-			   && (tv.tv_sec > (*pp)->tv.tv_sec
-			   || (tv.tv_sec == (*pp)->tv.tv_sec
-			   &&  tv.tv_usec >= (*pp)->tv.tv_usec)))
-				pp = &(*pp)->next;
-			p = *pp;
-			*pp = NULL;
-			sys->time_run = sys->time_queue;
-			sys->time_queue = p;
-		}
-
-		ret = sys_time_run(sys);
 	}
 
+	if (!sys->sig_active) sys->do_jmp = !sigsetjmp(sys->env,1);
+	if (sys->sig_active) {
+		/* Still perform select(), but don't block. */
+		ptv = &tv;
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+	}
+
+	/* select() fails on FreeBSD with EINVAL if tv_sec > 1000000000.
+           The manual specifies the error code but not the limit.  We limit
+	   the select() timeout to one hour for portability. */
+	if (NULL != ptv && ptv->tv_sec >= 3600) ptv->tv_sec = 3599;
+	assert(NULL == ptv 
+	   || (ptv->tv_sec >= 0 && ptv->tv_sec < 3600
+           &&  ptv->tv_usec >= 0 && ptv->tv_usec < 1000000));
+
+	FD_ZERO(&rfd);
+	FD_ZERO(&wfd);
+	FD_ZERO(&xfd);
+	for (i = 0; i < sys->num_files; ++i) {
+		if (NULL != sys->files[i][OOP_READ].f) FD_SET(i,&rfd);
+		if (NULL != sys->files[i][OOP_WRITE].f) FD_SET(i,&wfd);
+		if (NULL != sys->files[i][OOP_EXCEPTION].f) FD_SET(i,&xfd);
+	}
+
+	do
+		rv = select(sys->num_files,&rfd,&wfd,&xfd,ptv);
+	while (0 > rv && EINTR == errno);
+
+	sys->do_jmp = 0;
+
+	if (0 > rv) { /* Error in select(). */
+		ret = OOP_ERROR;
+		goto done; 
+	}
+
+	if (sys->sig_active) {
+		sys->sig_active = 0;
+		for (i = 0; OOP_CONTINUE == ret && i < OOP_NUM_SIGNALS; ++i) {
+			if (sys->sig[i].active) {
+				sys->sig[i].active = 0;
+				sys->sig[i].ptr = sys->sig[i].list;
+			}
+			while (OOP_CONTINUE == ret && NULL != sys->sig[i].ptr) {
+				struct sys_signal_handler *h;
+				h = sys->sig[i].ptr;
+				sys->sig[i].ptr = h->next;
+				ret = h->f(&sys->oop,i,h->v);
+			}
+		}
+		if (OOP_CONTINUE != ret) {
+			sys->sig_active = 1; /* come back */
+			goto done;
+		}
+	}
+
+	if (0 < rv) {
+		for (i = 0; OOP_CONTINUE == ret && i < sys->num_files; ++i)
+			if (FD_ISSET(i,&xfd) 
+			&&  NULL != sys->files[i][OOP_EXCEPTION].f)
+				ret = sys->files[i][OOP_EXCEPTION].f(
+					&sys->oop,i,OOP_EXCEPTION,
+					 sys->files[i][OOP_EXCEPTION].v);
+		for (i = 0; OOP_CONTINUE == ret && i < sys->num_files; ++i)
+			if (FD_ISSET(i,&wfd) 
+			&&  NULL != sys->files[i][OOP_WRITE].f)
+				ret = sys->files[i][OOP_WRITE].f(
+					&sys->oop,i,OOP_WRITE,
+					 sys->files[i][OOP_WRITE].v);
+		for (i = 0; OOP_CONTINUE == ret && i < sys->num_files; ++i)
+			if (FD_ISSET(i,&rfd) 
+			&&  NULL != sys->files[i][OOP_READ].f)
+				ret = sys->files[i][OOP_READ].f(
+					&sys->oop,i,OOP_READ,
+					 sys->files[i][OOP_READ].v);
+		if (OOP_CONTINUE != ret) goto done;
+	}
+
+	/* Catch any leftover timeout events. */
+	ret = sys_time_run(sys);
+	if (OOP_CONTINUE != ret) goto done;
+
+	if (NULL != sys->time_queue) {
+		struct sys_time *p,**pp = &sys->time_queue;
+		gettimeofday(&tv,NULL);
+		while (NULL != *pp 
+		   && (tv.tv_sec > (*pp)->tv.tv_sec
+		   || (tv.tv_sec == (*pp)->tv.tv_sec
+		   &&  tv.tv_usec >= (*pp)->tv.tv_usec)))
+			pp = &(*pp)->next;
+		p = *pp;
+		*pp = NULL;
+		sys->time_run = sys->time_queue;
+		sys->time_queue = p;
+	}
+
+	ret = sys_time_run(sys);
+
+done:
 	sys->in_run = 0;
 	return ret;
 }

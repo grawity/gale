@@ -542,8 +542,12 @@ static oop_source *create_source(const char *name) {
 
 static void run_source(const char *name) {
 	if (!strcmp(name,"sys")
-	||  !strcmp(name,"signal"))
+	||  !strcmp(name,"signal")) {
+		oop_sys_run_once(source_sys);
+		oop_sys_run_once(source_sys);
+		oop_sys_run_once(source_sys);
 		oop_sys_run(source_sys);
+	}
 
 #ifdef HAVE_GLIB
 	if (!strcmp(name,"glib"))

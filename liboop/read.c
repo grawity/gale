@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <limits.h>
 
+#undef MIN /* for systems that define it */
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 
 static void *on_time(oop_source*, struct timeval, void*);

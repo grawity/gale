@@ -12,6 +12,14 @@
 
 #include <assert.h>
 
+#ifdef HAVE_STRING_H
+#include <string.h>   /* Needed on NetBSD1.1/SPARC due to bzero/FD_ZERO. */
+#endif
+
+#ifdef HAVE_STRINGS_H
+#include <strings.h>  /* Needed on AIX 4.2 due to bzero/FD_ZERO. */
+#endif
+
 struct oop_adapter_adns {
 	oop_source *source;
 	oop_adapter_select *select;

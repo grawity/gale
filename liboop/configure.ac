@@ -25,7 +25,7 @@ case "$host" in
     ;;
 esac
 
-AC_CHECK_HEADERS(poll.h sys/select.h sys/socket.h)
+AC_CHECK_HEADERS(poll.h sys/select.h sys/socket.h string.h strings.h)
 
 AC_CHECK_LIB(adns,adns_init,[
   ADNS_LIBS="-ladns"

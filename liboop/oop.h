@@ -75,6 +75,10 @@ oop_source_sys *oop_sys_new(void);
    3 -- an error occurs; will return OOP_ERROR (check errno). */
 void *oop_sys_run(oop_source_sys *); 
 
+/* Process all pending events and return immediately.
+   Return values are the same as for oop_sys_run(). */
+void *oop_sys_run_once(oop_source_sys *);
+
 /* Delete a system event source.  No callbacks may be registered. */
 void oop_sys_delete(oop_source_sys *);
 
