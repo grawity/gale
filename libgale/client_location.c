@@ -203,8 +203,8 @@ int gale_location_receive_ok(struct gale_location *loc) {
 	||  NULL != gale_key_private(loc->key)) return 1;
 
 	while (gale_map_walk(loc->members,&key,&key,&datum)) {
-		struct gale_location *member = (struct gale_location *) datum;
-		if (NULL != gale_key_private(member->key)) return 1;
+		struct gale_key *member = (struct gale_key *) datum;
+		if (NULL != gale_key_private(member)) return 1;
 	}
 
 	return 0;
