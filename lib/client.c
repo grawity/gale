@@ -108,6 +108,8 @@ struct gale_server *gale_open(
 	s->host = server;
 	if (0 == s->host.l) s->host = gale_var(G_("GALE_PROXY"));
 	if (0 == s->host.l) s->host = gale_var(G_("GALE_DOMAIN"));
+        if (0 == s->host.l)
+            gale_alert(GALE_ERROR,"$GALE_DOMAIN not set",0);
 	s->connect = NULL;
 	s->sub = sub;
 
