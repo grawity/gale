@@ -10,6 +10,8 @@
 
 #include "gale/all.h"
 
+#define DEFAULT_CATEGORY "zephyr"
+
 ZSubscription_t default_sub;
 ZSubscription_t *subs = &default_sub;
 int num_subs = 1,sub_alloc = 0;
@@ -19,7 +21,7 @@ void gale_free(void *ptr) { return free(ptr); }
 
 u_short port;
 struct gale_client *client;
-const char *myname,*category = "zephyr";
+const char *myname,*category;
 
 char *buf = NULL;
 int buf_len = 0,buf_alloc = 0;
@@ -235,7 +237,7 @@ void copt(char *s) {
 }
 
 int main(int argc,char *argv[]) {
-	char *server = NULL;
+	char *spec = DEFAULT_CATEGORY;
 	int retval,opt;
 	fd_set fds;
 
@@ -254,18 +256,15 @@ int main(int argc,char *argv[]) {
 
 	if (optind < argc - 1) usage();
 
-	if (optind == argc - 1) {
-		if ((server = strrchr(argv[optind],'@')))
-			*server = '%';
-		else
-			server = argv[optind] + strlen(argv[optind]);
-		if (server != argv[optind])
-			category = gale_strndup(argv[optind],
-			                        server - argv[optind]);
-	}
+	if (optind == argc - 1) spec = argv[optind];
+
+	if ((category = strrchr(spec,'@')))
+		category = gale_strndup(spec,category - spec);
+	else
+		category = spec;
 
 	gale_dprintf(2,"subscribing to gale: \"%s\"\n",category);
-	if (!(client = gale_open(server,32,262144))) exit(1);
+	if (!(client = gale_open(spec,32,262144))) exit(1);
 
 	link_subscribe(client->link,category);
 
