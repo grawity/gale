@@ -20,6 +20,7 @@ static int quote_string(struct gale_text *string) {
 		&&  '_' != string->p[i]
 		&&  '/' != string->p[i]
 		&&  ':' != string->p[i]
+		&&  '+' != string->p[i]
 		&&  '@' != string->p[i])) break;
 
 	if (i == string->l) return 0;
