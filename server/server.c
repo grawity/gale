@@ -1,7 +1,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <syslog.h>
 #include <string.h>
 #include <unistd.h>
@@ -18,31 +17,9 @@
 
 const char *server_id;
 
-static int debug_level;
 static int listener,port = 8413;
 static struct connect *list = NULL;
 static struct attach *try = NULL;
-
-void dprintf(int level,const char *fmt,...) {
-	va_list ap;
-	if (level >= debug_level) return;
-	va_start(ap,fmt);
-	vfprintf(stderr,fmt,ap);
-	va_end(ap);
-}
-
-static void early(char *s) {
-	char *msg = strerror(errno);
-	syslog(LOG_ERR,"fatal error (%s): %s",s,msg);
-	fprintf(stderr,"fatal error (%s): %s\r\n",s,msg);
-	exit(1);
-}
-
-static void later(char *s) {
-	char *msg = strerror(errno);
-	syslog(LOG_ERR,"error (%s): %s",s,msg);
-	dprintf(0,"error (%s): %s\n",s,msg);
-}
 
 static void add_connect(int fd) {
 	struct connect *conn = new_connect(fd,fd,20,262144);
@@ -56,10 +33,10 @@ static void incoming(void) {
 	int one = 1;
 	int newfd = accept(listener,(struct sockaddr *) &sin,&len);
 	if (newfd < 0) {
-		later("accept");
+		gale_warn("accept",errno);
 		return;
 	}
-	dprintf(2,"[%d] new connection\n",newfd);
+	gale_dprintf(2,"[%d] new connection\n",newfd);
 	setsockopt(newfd,SOL_SOCKET,SO_KEEPALIVE,&one,sizeof(one));
 	add_connect(newfd);
 }
@@ -84,23 +61,23 @@ static void loop(void) {
 		for (att = try; att; att = att->next)
 			attach_select(att,&wfd,&now,&timeo);
 
-		if (debug_level > 5) {
+		if (gale_debug > 5) {
 			int i;
 			for (i = 0; i < FD_SETSIZE; ++i) {
 				if (FD_ISSET(i,&rfd))
-				dprintf(5,"--> waiting for [%d] read\n",i);
+				gale_dprintf(5,"--> waiting for [%d] read\n",i);
 				if (FD_ISSET(i,&wfd))
-				dprintf(5,"--> waiting for [%d] write\n",i);
+				gale_dprintf(5,"--> waiting for [%d] write\n",i);
 			}
 		}
 
 		if (timeo.tv_sec == LONG_MAX) {
-			dprintf(4,"--> select: now = %d.%06d, no timeout\n",
+			gale_dprintf(4,"--> select: now = %d.%06d, no timeout\n",
 		                now.tv_sec,now.tv_usec);
 			ret = select(FD_SETSIZE,HPINT &rfd,HPINT &wfd,
 			             NULL,NULL);
 		} else {
-			dprintf(4,"--> select: now = %d.%06d, to = %d.%06d\n",
+			gale_dprintf(4,"--> select: now = %d.%06d, to = %d.%06d\n",
 		        now.tv_sec,now.tv_usec,timeo.tv_sec,timeo.tv_usec);
 			ret = select(FD_SETSIZE,HPINT &rfd,HPINT &wfd,
 			             NULL,&timeo);
@@ -108,22 +85,22 @@ static void loop(void) {
 		if (ret == 0) {
 			FD_ZERO(&rfd);
 			FD_ZERO(&wfd);
-			dprintf(4,"--> select: timed out\n");
+			gale_dprintf(4,"--> select: timed out\n");
 		}
 		if (ret < 0) {
-			later("select");
+			gale_warn("select",errno);
 			continue;
 		}
 
 		gettimeofday(&now,&tz);
 
-		if (debug_level > 5) {
+		if (gale_debug > 5) {
 			int i;
 			for (i = 0; i < FD_SETSIZE; ++i) {
 				if (FD_ISSET(i,&rfd))
-					dprintf(5,"--> [%d] for reading\n",i);
+					gale_dprintf(5,"--> [%d] for reading\n",i);
 				if (FD_ISSET(i,&wfd))
-					dprintf(5,"--> [%d] for writing\n",i);
+					gale_dprintf(5,"--> [%d] for writing\n",i);
 			}
 		}
 
@@ -149,7 +126,7 @@ static void loop(void) {
 		prev = NULL; ptr = list;
 		while (ptr != NULL)
 			if (post_select(ptr,&rfd,&wfd)) {
-				dprintf(2,"[%d] lost connection\n",ptr->rfd);
+				gale_dprintf(2,"[%d] lost connection\n",ptr->rfd);
 				att = ptr->retry;
 				ptr->retry = NULL;
 				if (prev) {
@@ -179,7 +156,8 @@ static void add_link(char *arg) {
 		att->subs = gale_strndup(arg,at - arg);
 		att->server = gale_strdup(at + 1);
 	} else {
-		att->subs = gale_strdup(arg);
+		att->subs = "";
+		att->server = gale_strdup(arg);
 	}
 	att->next = try;
 	try = att;
@@ -187,9 +165,9 @@ static void add_link(char *arg) {
 
 static void usage(void) {
 	fprintf(stderr,
-	"usage: server -[dD] [-p port] [-l server]\n"
-	"flags: -d       Increment debugging level by one\n"
-	"       -D       Increment debugging level by five\n");
+	"usage: server [-p port] [-l [cat@]server]\n"
+	"flags: -p       Set the port to listen on\n"
+	"       -l       Configure a link to another server\n");
 	exit(1);
 }
 
@@ -201,10 +179,9 @@ int main(int argc,char *argv[]) {
 
 	srand48(time(NULL) ^ getpid());
 
-	debug_level = 0;
 	while ((opt = getopt(argc,argv,"dDp:l:")) != EOF) switch (opt) {
-	case 'd': ++debug_level; break;
-	case 'D': debug_level += 5; break;
+	case 'd': ++gale_debug; break;
+	case 'D': gale_debug += 5; break;
 	case 'l': add_link(optarg); break;
 	case 'p': port = atoi(optarg); break;
 	case '?': usage();
@@ -212,31 +189,29 @@ int main(int argc,char *argv[]) {
 
 	if (optind != argc) usage();
 
-	dprintf(0,"starting gale server\n");
+	gale_dprintf(0,"starting gale server\n");
 	openlog(argv[0],LOG_PID,LOG_DAEMON);
 
 	if (uname(&un)) 
-		early("uname");
+		gale_die("uname",errno);
 	tmp = gale_malloc(strlen(un.nodename) + 20);
 	sprintf(tmp,"%s:%d",un.nodename,port);
 	server_id = tmp;
 
 	listener = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
 	if (listener < 0) 
-		early("socket");
+		gale_die("socket",errno);
 	sin.sin_addr.s_addr = INADDR_ANY;
 	sin.sin_port = htons(port);
 	if (setsockopt(listener,SOL_SOCKET,SO_REUSEADDR,&one,sizeof(one)))
-		early("setsockopt");
+		gale_die("setsockopt",errno);
 	if (bind(listener,(struct sockaddr *)&sin,sizeof(sin))) 
-		early("bind");
+		gale_die("bind",errno);
 	if (listen(listener,20))
-		early("listen");
+		gale_die("listen",errno);
 
-	dprintf(1,"bound socket, entering main loop\n");
-	if (!debug_level && fork()) return 0;
-
-	if (!debug_level) setsid();
+	gale_dprintf(1,"bound socket, entering main loop\n");
+	gale_daemon();
 	loop();
 
 	return 0;

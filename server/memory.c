@@ -3,13 +3,14 @@
 
 #include "gale/util.h"
 #include "gale/compat.h"
+#include "gale/server.h"
 #include "server.h"
 
 void *gale_malloc(int size) {
 	void *r = malloc(size);
 	if (size && !r) {
 		syslog(LOG_CRIT,"Oof!  Out of memory.  Terminating!");
-		dprintf(0,"!!! out of memory\n");
+		gale_dprintf(0,"!!! out of memory\n");
 		exit(1);
 	}
 	return r;

@@ -7,6 +7,7 @@
 #include "gale/message.h"
 #include "gale/link.h"
 #include "gale/util.h"
+#include "gale/server.h"
 
 struct node {
 	char *spec;
@@ -27,7 +28,7 @@ static void add(struct node *ptr,const char *spec,int len,
 	int i;
 
 	if (len == 0) {
-		dprintf(4,"+++ adding connection to node\n");
+		gale_dprintf(4,"+++ adding connection to node\n");
 		if (ptr->num == ptr->size) {
 			struct connect **old = ptr->array;
 			ptr->size = ptr->size ? ptr->size * 2 : 10;
@@ -45,7 +46,7 @@ static void add(struct node *ptr,const char *spec,int len,
 	}
 
 	if (child == NULL) {
-		dprintf(4,"+++ creating new node for \"%.*s\"\n",len,spec);
+		gale_dprintf(4,"+++ creating new node for \"%.*s\"\n",len,spec);
 		node = gale_malloc(sizeof(struct node));
 		node->spec = gale_malloc(node->alloc = len);
 		node->len = len;
@@ -63,7 +64,7 @@ static void add(struct node *ptr,const char *spec,int len,
 	while (i < len && i < child->len && spec[i] == child->spec[i]) ++i;
 
 	if (i != child->len) {
-		dprintf(4,"+++ truncating \"%.*s\" node to \"%.*s\"\n",
+		gale_dprintf(4,"+++ truncating \"%.*s\" node to \"%.*s\"\n",
 		        child->len,child->spec,i,spec);
 		node = gale_malloc(sizeof(struct node));
 		node->spec = gale_malloc(node->alloc = child->len - i);
@@ -79,7 +80,7 @@ static void add(struct node *ptr,const char *spec,int len,
 		child->size = child->num = 0;
 		child->len = i;
 	} else
-		dprintf(4,"+++ matched \"%.*s\"\n",child->len,child->spec);
+		gale_dprintf(4,"+++ matched \"%.*s\"\n",child->len,child->spec);
 
 	add(child,spec + i,len - i,conn);
 }
@@ -88,7 +89,7 @@ void add_subscr(struct connect *conn) {
 	const char *ep,*cp = conn->subscr;
 	do {
 		for (ep = cp; *ep && *ep != ':'; ++ep) ;
-		dprintf(3,"[%d] subscribing to \"%.*s\"\n",
+		gale_dprintf(3,"[%d] subscribing to \"%.*s\"\n",
 		        conn->rfd,ep - cp,cp);
 		add(&root,cp,ep - cp,conn);
 		cp = ep + 1;
@@ -101,7 +102,7 @@ static void remove(struct node *ptr,const char *spec,int len,
 	struct node *parent = NULL,*prev;
 	int i;
 
-	dprintf(3,"[%d] unsubscribing from \"%.*s\"\n",conn->rfd,len,spec);
+	gale_dprintf(3,"[%d] unsubscribing from \"%.*s\"\n",conn->rfd,len,spec);
 
 	while (len != 0) {
 		parent = ptr;
@@ -113,33 +114,33 @@ static void remove(struct node *ptr,const char *spec,int len,
 		}
 		assert(ptr && ptr->len <= len &&
 			!memcmp(spec,ptr->spec,ptr->len));
-		dprintf(4,"--- matched \"%.*s\"\n",ptr->len,ptr->spec);
+		gale_dprintf(4,"--- matched \"%.*s\"\n",ptr->len,ptr->spec);
 		spec += ptr->len;
 		len -= ptr->len;
 	}
 
-	dprintf(4,"--- removing connection from node\n");
+	gale_dprintf(4,"--- removing connection from node\n");
 	for (i = 0; i < ptr->num && ptr->array[i] != conn; ++i) ;
 	assert(i != ptr->num);
 	ptr->array[i] = ptr->array[--ptr->num];
 
 	if (!parent) {
-		dprintf(4,"--- root node, all done\n");
+		gale_dprintf(4,"--- root node, all done\n");
 		return;
 	}
 
 	if (ptr->num) {
-		dprintf(4,"--- node still has other connections, all done\n");
+		gale_dprintf(4,"--- node still has other connections, all done\n");
 		return;
 	}
 
 	if (ptr->child && ptr->child->next) {
-		dprintf(4,"--- node has more than one child, all done\n");
+		gale_dprintf(4,"--- node has more than one child, all done\n");
 		return;
 	}
 
 	if (!ptr->child) {
-		dprintf(4,"--- removing node\n");
+		gale_dprintf(4,"--- removing node\n");
 		if (prev)
 			prev->next = ptr->next;
 		else
@@ -149,25 +150,25 @@ static void remove(struct node *ptr,const char *spec,int len,
 		gale_free(ptr);
 
 		if (parent->num) {
-			dprintf(4,"--- parent has connections, all done\n");
+			gale_dprintf(4,"--- parent has connections, all done\n");
 			return;
 		}
 		if (parent == &root) {
-			dprintf(4,"--- parent is root, all done\n");
+			gale_dprintf(4,"--- parent is root, all done\n");
 			return;
 		}
 		assert(parent->child);
 		if (parent->child->next) {
-			dprintf(4,"--- parent has more than one child,"
+			gale_dprintf(4,"--- parent has more than one child,"
 			          " all done\n");
 			return;
 		}
-		dprintf(4,"--- moving to parent ...\n");
+		gale_dprintf(4,"--- moving to parent ...\n");
 		ptr = parent;
 	}
 
 	prev = ptr->child;
-	dprintf(4,"--- merging with singleton child \"%.*s\"\n",
+	gale_dprintf(4,"--- merging with singleton child \"%.*s\"\n",
 	        prev->len,prev->spec);
 
 	if (ptr->alloc < ptr->len + prev->len) {
@@ -206,14 +207,14 @@ static void transmit(struct node *ptr,const char *spec,int len,
 	if (len < 0) return;
 	for (i = 0; i < ptr->num; ++i)
 		if (ptr->array[i]->stamp != stamp && ptr->array[i] != avoid) {
-			dprintf(4,"[%d] transmitting message\n",
+			gale_dprintf(4,"[%d] transmitting message\n",
 			        ptr->array[i]->wfd);
 			link_put(ptr->array[i]->link,msg);
 			ptr->array[i]->stamp = stamp;
 		}
 	for (ptr = ptr->child; ptr; ptr = ptr->next)
 		if (ptr->len <= len && !memcmp(ptr->spec,spec,ptr->len)) {
-			dprintf(4,"*** matched \"%.*s\"\n",ptr->len,ptr->spec);
+			gale_dprintf(4,"*** matched \"%.*s\"\n",ptr->len,ptr->spec);
 			transmit(ptr,spec + ptr->len,len - ptr->len,msg,avoid);
 		}
 }
@@ -223,7 +224,7 @@ void subscr_transmit(struct gale_message *msg,struct connect *avoid) {
 	++stamp;
 	do {
 		for (ep = cp; *ep && *ep != ':'; ++ep) ;
-		dprintf(3,"*** transmitting \"%.*s\", avoiding [%d]\n",
+		gale_dprintf(3,"*** transmitting \"%.*s\", avoiding [%d]\n",
 		        ep - cp,cp,avoid ? avoid->rfd : -1);
 		transmit(&root,cp,ep - cp,msg,avoid);
 		cp = ep + 1;

@@ -48,14 +48,14 @@ int post_select(struct connect *conn,fd_set *r,fd_set *w) {
 	char *cp;
 	int i;
 	if (FD_ISSET(conn->wfd,w)) {
-		dprintf(3,"[%d] sending data\n",conn->wfd);
+		gale_dprintf(3,"[%d] sending data\n",conn->wfd);
 		if (link_transmit(conn->link,conn->wfd)) {
 			process_will(conn);
 			return -1;
 		}
 	}
 	if (FD_ISSET(conn->rfd,r)) {
-		dprintf(3,"[%d] receiving data\n",conn->rfd);
+		gale_dprintf(3,"[%d] receiving data\n",conn->rfd);
 		if (link_receive(conn->link,conn->rfd)) {
 			process_will(conn);
 			return -1;
@@ -66,7 +66,7 @@ int post_select(struct connect *conn,fd_set *r,fd_set *w) {
 		gale_free(cp);
 	}
 	if ((i = link_lossage(conn->link))) {
-		dprintf(0,"[%d] %d messages lost\n",conn->wfd,i);
+		gale_dprintf(0,"[%d] %d messages lost\n",conn->wfd,i);
 		syslog(LOG_WARNING,"%d incoming messages lost",i);
 	}
 	if ((msg = link_get(conn->link))) {

@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "gale/util.h"
+#include "gale/server.h"
 #include "server.h"
 #include "attach.h"
 
@@ -41,7 +42,7 @@ static void tv_sub(struct timeval *a,const struct timeval *b) {
 }
 
 static void delay_attach(struct attach *att,struct timeval *now) {
-	dprintf(3,"... \"%s\": connection failed, waiting %d seconds\n",
+	gale_dprintf(3,"... \"%s\": connection failed, waiting %d seconds\n",
 	        att->server,att->wait);
 	att->time.tv_sec = now->tv_sec + att->wait;
 	att->time.tv_usec = now->tv_usec;
@@ -58,14 +59,15 @@ void attach_select(struct attach *att,fd_set *wfd,
 		if (tv_less(now,&att->time)) {
 			struct timeval diff = att->time;
 			tv_sub(&diff,now);
-			dprintf(4,"... \"%s\": setting timeout to %d.%06d\n",
+			gale_dprintf(4,
+			        "... \"%s\": setting timeout to %d.%06d\n",
 			        att->server,diff.tv_sec,diff.tv_usec);
 			if (tv_less(&diff,timeo)) *timeo = diff;
 			return;
 		}
 		if (!att->connect) {
-			dprintf(3,"... \"%s\": attempting connection\n",
-			        att->server);
+			gale_dprintf(3,"... \"%s\": attempting connection\n",
+			             att->server);
 			att->connect = make_connect(att->server);
 			if (!att->connect) delay_attach(att,now);
 		}
@@ -80,8 +82,8 @@ int select_attach(struct attach *att,fd_set *wfd,struct timeval *now) {
 	if (!fd) return -1;
 	att->connect = NULL;
 	if (fd > 0) {
-		dprintf(3,"[%d] \"%s\": successful connection\n",
-		        fd,att->server);
+		gale_dprintf(3,"[%d] \"%s\": successful connection\n",
+		             fd,att->server);
 		att->wait = 0;
 		return fd;
 	}
