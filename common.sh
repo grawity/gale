@@ -3,6 +3,10 @@ run() {
 	"$@" || exit 1
 }
 
+qgrep() {
+	grep "$@" > /dev/null
+}
+
 if [ -z "$SYS_DIR" ]; then
 	echo "Error: SYS_DIR not defined."
 	echo "\"make install\" calls this script; don't run it directly."
@@ -10,7 +14,9 @@ if [ -z "$SYS_DIR" ]; then
 fi
 
 CONF="$SYS_DIR/conf"
-
+umask 022
+PATH="$BIN_DIR:$SUID_DIR:$PATH"
+export PATH
 
 if [ -f "$CONF" ]; then
 	exec 3<"$CONF"

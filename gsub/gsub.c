@@ -43,6 +43,8 @@ char *tty,*agent;                       /* TTY device, user-agent string. */
 int do_ping = 1;			/* Should we answer Receipt-To's? */
 int do_termcap = 0;                     /* Should we highlight headers? */
 
+#define TIMEOUT 300			/* Interval to poll for tty death */
+
 void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
@@ -134,6 +136,23 @@ void default_gsubrc(void) {
 		if (!*tmp || *tmp == ':') return;
 	}
 
+	/* Format return receipts specially */
+	if (!strcmp(id_category(user_id,"user","receipt"),cat)) {
+		char *from_comment = getenv("HEADER_FROM");
+		fputs("* Received by",stdout);
+		print_id(getenv("GALE_SIGNED"),"unverified");
+		if (from_comment) printf(" (%s)",from_comment);
+		if ((tmp = getenv("HEADER_TIME"))) {
+			time_t when = atoi(tmp);
+			strftime(buf,sizeof(buf)," %m/%d %H:%M",
+			         localtime(&when));
+			fputs(buf,stdout);
+		}
+		fputs(nl,stdout);
+		fflush(stdout);
+		return;
+	}
+
 	/* Print the header: category, time, et cetera */
 	putchar('[');
 	tmode("md");
@@ -197,7 +216,7 @@ void default_gsubrc(void) {
 	if (count) fputs(nl,stdout);
 
 	/* Out it goes! */
-	fflush(stdout);
+	if (fflush(stdout) < 0) exit(1);
 }
 
 /* Transmit a message body to a gsubrc process. */
@@ -289,18 +308,7 @@ void present_message(struct gale_message *_msg) {
 
 		/* Process receipts, if we do. */
 		if (do_ping && !strcasecmp(key,"Receipt-To")) {
-			const char *colon = data;
 			struct gale_id *sign = id_encrypted;
-
-			/* Make sure the receipt only goes to categories
-			   beginning with "receipt/". */
-			while (colon && *colon && !strncmp(colon,"receipt/",8))
-				colon = strchr(colon + 1,':');
-			if (colon && *colon) {
-				gale_alert(GALE_WARNING,
-				           "invalid receipt header",0);
-				continue;
-			}
 
 			/* Generate a receipt. */
 			if (!sign) sign = user_id;
@@ -453,7 +461,7 @@ void set_agent(void) {
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gsub [-nkKrpy] [-f rcprog] [-l rclib] cat\n"
+	"usage: gsub [-enkKrpy] [-f rcprog] [-l rclib] cat\n"
 	"flags: -e          Do not include default subscriptions\n"
 	"       -n          Do not fork (default if stdout redirected)\n"
 	"       -k          Do not kill other gsub processes\n"
@@ -469,6 +477,7 @@ void usage(void) {
 	exit(1);
 }
 
+/* Search for and load a shared library with a custom message presenter. */
 void load_gsubrc(const char *name) {
 #ifdef HAVE_DLOPEN
 	const char *rc,*err;
@@ -516,6 +525,22 @@ void add_subs(char **subs,const char *add) {
 	} else *subs = gale_strdup(add);
 }
 
+/* timeout */
+
+void check_tty(int x) {
+	(void) x;
+	if (tty) {
+		struct sigaction act;
+		if (!isatty(1)) exit(1);
+		sigaction(SIGALRM,NULL,&act);
+		act.sa_handler = check_tty;
+		act.sa_flags &= ~SA_RESETHAND;
+		act.sa_flags |= SA_RESTART;
+		sigaction(SIGALRM,&act,NULL);
+		alarm(TIMEOUT);
+	}
+}
+
 /* main */
 
 int main(int argc,char **argv) {
@@ -541,6 +566,8 @@ int main(int argc,char **argv) {
 		if (tmp) tty = tmp + 1;
 		/* Go into the background; kill other gsub processes. */
 		do_fork = do_kill = 1;
+		/* Prepare to poll for tty death. */
+		check_tty(0);
 	}
 
 	/* Default subscriptions. */
@@ -600,7 +627,7 @@ int main(int argc,char **argv) {
 		/* Get messages and process them. */
 		while (!gale_send(client) && !gale_next(client)) {
 			struct gale_message *msg;
-			if (tty && !isatty(1)) return 0;
+			check_tty(0);
 			if ((msg = link_get(client->link))) {
 				present_message(msg);
 				release_message(msg);

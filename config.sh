@@ -1,7 +1,5 @@
 . ./common.sh
 
-umask 022
-
 run mkdir -p "$SYS_DIR"
 if [ ! -d "$SYS_DIR" ]; then
 	echo "Error: Invalid or unauthorized SYS_DIR: \"$SYS_DIR\"."
@@ -130,7 +128,7 @@ EOM
 GALE_SERVER $GALE_SERVER
 EOM
 
-gkinfo "$GALE_DOMAIN" 2>/dev/null | grep -q 'Signed by: <ROOT>' || cat << EOM
+gkinfo "$GALE_DOMAIN" 2>/dev/null | qgrep 'Signed by: <ROOT>' || cat << EOM
 
 *** You lack a signed key for your domain, "$GALE_DOMAIN".
 Become user "$GALE_USER" and make the "domain" target here to create

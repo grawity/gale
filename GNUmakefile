@@ -4,7 +4,10 @@ include $(TOP)/rules
 
 tar: squeaky
 	cd .. ; find gale -name CVS | \
-	tar -X - -X gale/rsaref/exclude -cvf - gale | bzip2 -9 > gale.tar.bz2
+	tar -X - -X gale/rsaref/exclude -cvzf - gale \
+	> gdist/gale-$(GALE_VERSION).tar.gz ; \
+	gzip -dc gale.tar.gz | bzip2 -9 \
+	> gdist/gale-$(GALE_VERSION).tar.bz2
 
 squeaky: clean
 	$(RM) config.cache include/gale/config.h config.log config.status defs

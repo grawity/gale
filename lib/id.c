@@ -10,6 +10,12 @@
 
 #define TIMEOUT 20 /* seconds */
 
+static int old_style(void) {
+	if (getenv("GALE_NEW_STYLE")) return 0;
+	if (getenv("GALE_OLD_STYLE")) return 0;
+	return time(NULL) <= 883641600;
+}
+
 struct auth_id *lookup_id(const char *spec) {
 	char *at = strchr(spec,'@');
 	struct auth_id *id;
@@ -28,13 +34,13 @@ struct auth_id *lookup_id(const char *spec) {
 
 char *id_category(struct gale_id *id,const char *pfx,const char *sfx) {
 	const char *name = auth_id_name(id);
-	char *tmp = gale_malloc(strlen(name) + strlen(pfx) + strlen(sfx) + 3);
+	char *tmp = gale_malloc(strlen(name) + strlen(pfx) + strlen(sfx) + 4);
 	const char *at = strchr(name,'@');
 
-	if (at)
+	if (old_style())
 		sprintf(tmp,"%s/%s/%.*s/%s",pfx,at+1,at - name,name,sfx);
 	else
-		sprintf(tmp,"%s/%s/%s",pfx,name,sfx);
+		sprintf(tmp,"@%s/%s/%.*s/%s",at+1,pfx,at - name,name,sfx);
 
 	return tmp;
 }

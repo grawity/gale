@@ -77,8 +77,11 @@ static void init_vars(struct passwd *pwd) {
 	}
 
 	if (!getenv("GALE_SUBS")) {
-		tmp = id_category(user_id,"GALE_SUBS=user","");
+		char *cat = id_category(user_id,"user","");
+		tmp = gale_malloc(strlen(cat) + 30);
+		sprintf(tmp,"GALE_SUBS=%s",cat);
 		putenv(tmp);
+		gale_free(cat);
 	}
 }
 

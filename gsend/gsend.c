@@ -9,17 +9,21 @@
 
 #include "gale/all.h"
 
+#ifdef HAVE_READLINE_READLINE_H
+#define HAVE_READLINE 1
+#include "readline/readline.h"
+#endif
+
 void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
 struct gale_message *msg;               /* The message we're building. */
-int do_sign = 1,do_encrypt = 0;		/* Various flags. */
+int do_sign = 1,do_encrypt = 0,do_rrcpt = 1;
 int alloc = 0;
 
 /* Whether we have collected any replacements for default headers. */
 int have_from = 0,have_to = 0,have_time = 0,have_type = 0;
 
-const char *pflag = NULL;               /* Return receipt destination. */
 struct auth_id **rcpt = NULL;		/* Encryption recipients. */
 struct auth_id *signer;			/* Identity to sign the message. */
 int num_rcpt = 0;			/* Number of recipients. */
@@ -88,10 +92,11 @@ void headers(void) {
 		sprintf(msg->data + msg->data_size,"Time: %lu\r\n",time(NULL));
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
-	if (pflag) {
-		reserve(20 + strlen(pflag));
+	if (do_rrcpt) {
+		char *rcpt_to = id_category(user_id,"user","receipt");
+		reserve(20 + strlen(rcpt_to));
 		sprintf(msg->data + msg->data_size,
-		        "Receipt-To: %s\r\n",pflag);
+		        "Receipt-To: %s\r\n",rcpt_to);
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
 
@@ -101,30 +106,70 @@ void headers(void) {
 	msg->data[msg->data_size++] = '\n';
 }
 
+/* Read a string, and return a pointer to it.  Returns NULL on EOF. */
+char *get_line(int tty)
+{
+	int alloc,len;
+	char *line;
+
+#ifdef HAVE_READLINE
+	if (tty) {
+		static int init = 1;
+		if (init) {
+			rl_initialize();
+			rl_bind_key('\t',rl_insert);
+			rl_bind_key('R' - '@',
+			            rl_named_function("redraw-current-line"));
+			init = 0;
+		}
+		return readline("");
+	}
+#endif
+
+	line = gale_malloc(alloc = 80);
+	len = 0;
+
+	do {
+		if (len == alloc) line = gale_realloc(line,alloc *= 2);
+		line[alloc - 2] = '\0';
+		if (!fgets(line + len,alloc - len,stdin)) break;
+		len += strlen(line + len);
+	} while (line[len - 1] != '\n');
+
+	if (!len) {
+		gale_free(line);
+		line = NULL;
+	} else if (line[len - 1] == '\n') line[len - 1] = '\0';
+
+	return line;
+}
+
+/* Output usage information, exit. */
 void usage(void) {
 	struct gale_id *id = lookup_id("username@domain");
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-aruU] [-c cat] [-S id] [-p cat] [id [id ...]]\n"
+		"usage: gsend [-aruUpP] [-S id] [-c cat] [id [id ...]]\n"
 		"flags: -c cat      Send message on category <cat>\n"
 		"       -S id       Sign message with a specific <id>\n"
 		"       -a          Do not sign message (anonymous)\n"
 		"       -r          Do not retry server connection\n"
-		"       -p cat      Request a return receipt\n"
+		"       -p          Always request a return receipt\n"
+		"       -P          Never request a return receipt\n"
 		"       -u          Expect user-supplied headers\n"
 		"       -U          Ditto, and don't supply default headers\n"
-		"With id, cat defaults to \"%s\".\n"
-		,GALE_BANNER,id_category(id,"user",""));
+		"Given an id of \"username@domain\", cat defaults to \"%s\".\n"
+		,GALE_BANNER
+		,id_category(id,"user",""));
 	exit(1);
 }
 
 /* I think you know what main does. */
-
 int main(int argc,char *argv[]) {
-	struct gale_client *client;          /* The client structure */
-	int arg,uflag = 0,rflag = 0;         /* Command line flags */
-	int ttyin = isatty(0),newline = 1;   /* Input options */
-	char *cp,*tmp,*sign = NULL;          /* Various temporary strings */
+	struct gale_client *client;		/* The client structure */
+	int arg,uflag = 0,do_retry = 1;		/* Command line flags */
+	int ttyin = isatty(0);	  		/* Input options */
+	char *line,*sign = NULL;		/* Various temporary strings */
 
 	/* Initialize the gale libraries. */
 	gale_init("gsend",argc,argv);
@@ -133,20 +178,21 @@ int main(int argc,char *argv[]) {
 	msg = new_message();
 
 	/* Parse command line options. */
-	while ((arg = getopt(argc,argv,"hac:t:p:S:ruU")) != EOF) 
+	while ((arg = getopt(argc,argv,"hac:t:PpS:ruU")) != EOF) 
 	switch (arg) {
-	case 'a': do_sign = 0; break;        /* Anonymous (no signature) */
-	case 'c': msg->category =            /* Select a category */
+	case 'a': do_sign = 0; break;		/* Anonymous (no signature) */
+	case 'c': msg->category =		/* Select a category */
 	          gale_strdup(optarg); 
 	          break;
-	case 'S': sign = optarg;             /* Select an ID to sign with */
+	case 'S': sign = optarg;		/* Select an ID to sign with */
 	          do_sign = 1; 
 	          break;
-	case 'p': pflag = optarg; break;     /* Request return receipt */
-	case 'r': rflag = 1; break;          /* Don't retry */
-	case 'u': uflag = 1; break;          /* Expect user-supplied headers */
-	case 'U': uflag = 2; break;          /* Don't supply our own headers */
-	case 'h':                            /* Usage message */
+	case 'p': do_rrcpt = 2; break;		/* Return receipt */
+	case 'P': do_rrcpt = 0; break;
+	case 'r': do_retry = 0; break;		/* Don't retry */
+	case 'u': uflag = 1; break;		/* User-supplied headers */
+	case 'U': uflag = 2; break;		/* Don't supply headers */
+	case 'h':
 	case '?': usage();
 	}
 
@@ -200,18 +246,20 @@ int main(int argc,char *argv[]) {
 		}
 		for (i = 0; i < num_rcpt; ++i) gale_free(n[i]);
 		gale_free(n);
-	} else if (!msg->category)       /* Wrong # arguments */
-		usage();
+	} else {
+		if (!msg->category) usage(); /* Wrong # arguments */
+		if (do_rrcpt == 1) do_rrcpt = 0;
+	}
 
 	/* A silly little check for a common mistake. */
 	if (ttyin && getpwnam(msg->category))
 		gale_alert(GALE_WARNING,"*** DANGER! ***\a "
 		                        "Category is a username!  "
-		                        "Did you forget \"-e\"?",0);
-	if (ttyin && strchr(msg->category,'@'))
+		                        "Did you want that?",0);
+	if (ttyin && msg->category[0] && strchr(msg->category + 1,'@'))
 		gale_alert(GALE_WARNING,"*** DANGER! ***\a "
 		                        "Category contains '@'!  "
-		                        "Did you forget \"-e\"?",0);
+		                        "Did you want that?",0);
 
 	/* Open a connection to the server; don't subscribe to anything. */
 	client = gale_open(NULL);
@@ -219,7 +267,8 @@ int main(int argc,char *argv[]) {
 	/* Retry as long as necessary to get the connection open. */
 	while (gale_error(client)) {
 		/* (Well, don't if they told us not to.) */
-		if (rflag) gale_alert(GALE_ERROR,"could not contact server",0);
+		if (!do_retry) 
+			gale_alert(GALE_ERROR,"could not contact server",0);
 		gale_retry(client);
 	}
 
@@ -229,7 +278,7 @@ int main(int argc,char *argv[]) {
 			printf("** PUBLIC ** message");
 		else {
 			int i;
-			printf("Message for ");
+			printf("Private message for ");
 			for (i = 0; i < num_rcpt; ++i) {
 				if (i > 0) {
 					if (i < num_rcpt - 1) 
@@ -248,34 +297,26 @@ int main(int argc,char *argv[]) {
 	/* Add the default headers to the message (unless we shouldn't) */
 	if (uflag == 0) headers();
 
-	/* Get the message.  "newline" is 1 when at the beginning of a line. */
-	for(;;) {
-		/* Reserve 80 characters.  This isn't a limit, it's just how
-                   much we preallocate... */
-		reserve(80);
-
-		/* Read some text from stdin. */
-		cp = msg->data + msg->data_size;
-		*cp = '\0'; /* just to make sure */
-		fgets(cp,alloc - msg->data_size - 1,stdin);
-
-		/* If no text was read, I guess that's EOF. */
-		tmp = cp + strlen(cp);
-		if (tmp == cp) break;
-
+	/* Get the message. */
+	while ((line = get_line(ttyin))) {
 		/* Check for a solitary dot if input comes from a TTY. */
-		if (ttyin && newline && !strcmp(cp,".\n")) break;
+		if (ttyin && !strcmp(line,".")) break;
+
+		/* Copy in the data. */
+		reserve(strlen(line) + 1);
+		strcpy(msg->data + msg->data_size,line);
+		msg->data_size += strlen(line);
 
 		/* If they're supplying headers, but we add defaults, check
                    to see if they replace any of the defaults. */
 		if (uflag == 1) {
-			if (!strncasecmp(cp,"From:",5)) 
+			if (!strncasecmp(line,"From:",5)) 
 				have_from = 1;
-			else if (!strncasecmp(cp,"Content-type:",13)) 
+			else if (!strncasecmp(line,"Content-type:",13)) 
 				have_type = 1;
-			else if (!strncasecmp(cp,"Time:",5)) 
+			else if (!strncasecmp(line,"Time:",5)) 
 				have_time = 1;
-			else if (!strcmp(cp,"\n")) {
+			else if (!strcmp(line,"\n")) {
 				/* Ooooh, they've finished the headers.  Now
                                    we get to add any remaining defaults. */
 				headers();
@@ -286,16 +327,9 @@ int main(int argc,char *argv[]) {
 			}
 		}
 
-		/* Extend the message to include the text we just read. */
-		msg->data_size = tmp - msg->data;
-
-		/* Convert NL to CRLF. */
-		if ((newline = (tmp[-1] == '\n'))) {
-			tmp[-1] = '\r';
-			*tmp++ = '\n';
-			*tmp = '\0';
-			++(msg->data_size);
-		}
+		reserve(3);
+		strcpy(msg->data + msg->data_size,"\r\n");
+		msg->data_size += 2;
 	}
 
 	/* Sign the message, unless we shouldn't. */
@@ -320,7 +354,7 @@ int main(int argc,char *argv[]) {
 	while (1) {
 		/* Flush out the queue. */
 		if (!gale_send(client)) break;
-		if (rflag) gale_alert(GALE_ERROR,"transmission failed",0);
+		if (!do_retry) gale_alert(GALE_ERROR,"transmission failed",0);
 		/* Retry as necessary; put the message back on the queue
 		   if it went away during the failure. */
 		gale_retry(client);
@@ -332,7 +366,7 @@ int main(int argc,char *argv[]) {
 	release_message(msg);
 
 	if (ttyin)
-		printf("Message sent.\n");   /* Ta-daa! */
+		printf("Message transmitted.\n");   /* Ta-daa! */
 
 	return 0;
 }
