@@ -6,6 +6,7 @@
 
 #include <ctype.h>
 #include <stdlib.h> /* TODO */
+#include <time.h> /* TODO */
 
 /* Return nonzero if a string needs quoting.  Escape quotes in the string. */
 static int quote_string(struct gale_text *string) {
@@ -80,13 +81,41 @@ static int id_width(struct gale_text var,struct gale_text dfl) {
    then it is no longer considered the Quote. */
 void default_gsubrc(void) {
 	char *buf, *quotebuf;
-	struct gale_text timecode,text;
+	struct gale_text timecode,text,loc_value;
 	struct gale_text presence = gale_var(G_("GALE_TEXT_NOTICE_PRESENCE"));
 	struct gale_text answer = gale_var(G_("GALE_TEXT_ANSWER_RECEIPT"));
 	struct gale_text from_name = gale_var(G_("GALE_TEXT_MESSAGE_SENDER"));
 	int i,len,buflen,bufloaded = 0,termwid = gale_columns(stdout);
+     int do_verbose = 0;
 
 	if (termwid < 2) termwid = 80; /* Don't crash */
+
+     /* Get the verbosity setting */
+     if (0 != (text = gale_var(G_("GALE_VERBOSE"))).l) {
+          do_verbose = gale_text_to_number(text);
+     }
+
+     /* Check for _gale.query messages */
+	i = 1;
+     loc_value = gale_var(G_("GALE_TO"));
+	if (0 != loc_value.l) {
+          do {
+               /* "_gale.query." is 12 characters long */
+               if (0 == gale_text_compare(
+                              gale_text_left(loc_value, 12),
+                              G_("_gale.query."))) {
+                    if (do_verbose)
+                         gale_alert(GALE_NOTICE,gale_text_concat(3,
+                              G_("not printing message to \""),
+                              loc_value,
+                              G_("\"")),0);
+                    return;
+               }
+               loc_value = gale_var(gale_text_concat(3,G_("GALE_TO"),G_("_"),
+                    gale_text_from_number(++i,10,0)));
+          } while (0 != loc_value.l);
+     }
+
 
 	/* Get the time */
 	if (0 == (timecode = gale_var(G_("GALE_TIME_ID_TIME"))).l) {

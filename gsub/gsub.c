@@ -382,6 +382,9 @@ static void *show_message(struct gale_message *msg) {
 		gale_set(name,value);
 	}
 
+     /* Set GALE_VERBOSE to the desired verbosity level */
+     gale_set(G_("GALE_VERBOSE"),gale_text_from_number(do_verbose,10,0));
+
 	/* Convert the message body to local format. */
 	szbody = gale_text_to(gale_global->enc_console,body);
 
