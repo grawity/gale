@@ -10,7 +10,7 @@ libgale_la_LDFLAGS = -version-info 11:0:0
 noinst_HEADERS = crypto_i.h key_i.h io.h
 
 libgale_la_SOURCES = \
-    core_cache.c core_init.c core_link.c core_signals.c \
+    core_init.c core_link.c core_signals.c \
     io_input.c io_output.c \
     client_alias.c client_default.c client_i.c client_location.c \
     client_pack.c client_queue.c client_server.c client_standard.c \
