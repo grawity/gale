@@ -9,6 +9,10 @@
 #include <sys/select.h>
 #endif
 
+#ifdef HAVE_GETOPT_H
+#include <getopt.h>
+#endif
+
 #if defined(OS_HPUX)
 void syslog(int priority, const char *message, ...);
 void openlog(const char *ident, int option, int facility);

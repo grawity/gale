@@ -127,7 +127,7 @@ else
 fi
 
 dnl Checks for header files.
-AC_CHECK_HEADERS(sys/bitypes.h sys/select.h curses.h term.h dlfcn.h readline/readline.h)
+AC_CHECK_HEADERS(sys/bitypes.h sys/select.h curses.h term.h dlfcn.h readline/readline.h getopt.h)
 
 if test ! -f "${srcdir}/rsaref/source/rsaref.h"; then
   AC_CHECK_HEADERS(rsaref.h,,[
