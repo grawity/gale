@@ -18,7 +18,8 @@ WARNINGS = -W -Wimplicit -Wreturn-type -Wunused -Wswitch -Wtrigraphs -Wformat \
 	-Wchar-subscripts -Wparentheses
 
 CPPFLAGS = $(INCLUDES) $(DEFINES)
-LDLIBS = -L$(TOP)/lib -lgale $(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB) $(CGIC_LIB)
+LDLIBS = -L$(TOP)/lib -lgale \
+	$(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB) $(CGIC_LIB) $(TERMCAP_LIB)
 
 all::
 	@$(MAKE) --no-print-directory subdirs TARGET=all
@@ -35,6 +36,13 @@ clean::
 	@echo rm: object files, executables, and libraries.
 	@$(RM) *.o core $(BIN_TARGETS) $(LIB_TARGETS)
 	@$(MAKE) --no-print-directory subdirs TARGET=clean
+
+relink::
+	@$(MAKE) --no-print-directory subdirs TARGET=relink
+	@$(RM) $(BIN_TARGETS) $(LIB_TARGETS)
+relink:: $(BIN_TARGETS) $(LIB_TARGETS)
+
+rebuild: clean all
 
 subdirs:
 	@for sub in $(SUBDIRS) "" ; do [ -z "$$sub" ] || $(MAKE) -C $$sub $(TARGET) || exit 1 ; done

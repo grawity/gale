@@ -33,7 +33,8 @@ static void incoming(void) {
 	int one = 1;
 	int newfd = accept(listener,(struct sockaddr *) &sin,&len);
 	if (newfd < 0) {
-		gale_alert(GALE_WARNING,"accept",errno);
+		if (errno != ECONNRESET)
+			gale_alert(GALE_WARNING,"accept",errno);
 		return;
 	}
 	gale_dprintf(2,"[%d] new connection\n",newfd);
@@ -166,7 +167,7 @@ static void add_link(char *arg) {
 static void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: server [-p port] [-l [cat@]server]\n"
+	"usage: galed [-p port] [-l [cat@]server]\n"
 	"flags: -p       Set the port to listen on\n"
 	"       -l       Configure a link to another server\n"
 	,GALE_BANNER);
@@ -179,7 +180,7 @@ int main(int argc,char *argv[]) {
 	int one = 1,opt;
 	char *tmp;
 
-	gale_init("server");
+	gale_init("galed",argc,argv);
 
 	srand48(time(NULL) ^ getpid());
 

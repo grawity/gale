@@ -1,5 +1,5 @@
 TOP = ..
-BIN_TARGETS = server
+BIN_TARGETS = galed
 include $(TOP)/rules
 
-server: server.o connect.o subscr.o memory.o attach.o
+galed: galed.o connect.o subscr.o memory.o attach.o

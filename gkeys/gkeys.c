@@ -17,7 +17,7 @@ void usage(void) {
 }
 
 int main(int argc,char *argv[]) {
-	gale_init("gkeys");
+	gale_init("gkeys",argc,argv);
 	if (argc > 2) usage();
 	if (argc > 1) {
 		if (argv[1][0] == '-') usage();

@@ -230,6 +230,7 @@ void usage(void) {
 
 int main(int argc,char *argv[]) {
 	int arg,do_fork = 0,do_kill = 0,do_retry = 1;
+	struct sigaction act;
 
 	if ((tty = ttyname(1))) {
 		char *tmp = strrchr(tty,'/');
@@ -237,12 +238,14 @@ int main(int argc,char *argv[]) {
 		do_fork = do_kill = 1;
 	}
 
-	gale_init("gwatch");
+	gale_init("gwatch",argc,argv);
 
 	subs = gale_malloc(sizeof(char*) * argc);
 	pings = gale_malloc(sizeof(struct gale_message *) * argc);
 
-	signal(SIGALRM,bye);
+	sigaction(SIGALRM,NULL,&act);
+	act.sa_handler = bye;
+	sigaction(SIGALRM,&act,NULL);
 
 	while ((arg = getopt(argc,argv,"hnkKi:d:p:m:s:w:f:")) != EOF) 
 	switch (arg) {

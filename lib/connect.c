@@ -98,7 +98,7 @@ static void delete(struct gale_connect *conn,int i) {
 }
 
 int select_connect(fd_set *wfd,struct gale_connect *conn) {
-	int fd,i = 0;
+	int fd,i = 0,one = 1;
 	while (i < conn->len) {
 		if (!FD_ISSET(conn->array[i].sock,wfd)) {
 			++i;
@@ -122,6 +122,7 @@ int select_connect(fd_set *wfd,struct gale_connect *conn) {
 	delete(conn,i);
 	abort_connect(conn);
 	fcntl(fd,F_SETFL,0);
+	setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,(char*) &one,sizeof(one));
 	return fd;
 }
 

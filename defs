@@ -19,11 +19,7 @@ CGIC_INC = -I$(CGIC)
 CGIC_LIB = $(CGIC)/libcgic.a
 endif
 
-LTXML = $(TOP)/../ltxml
-ifneq ($(wildcard $(LTXML)),)
-LTXML_INC = -I$(LTXML)/include -I$(LTXML_BUILD)/include
-LTXML_LIB = $(LTXML_BUILD)/src/nsl/libltnsl.a $(LTXML_BUILD)/src/std/libltstd.a
-endif
+TERMCAP_LIB = -ltermcap
 
 ifdef ARCH
 
@@ -32,7 +28,6 @@ ifdef ARCH
 
 	RSAREF_BUILD = $(RSAREF)/build.$(ARCH)
 	DB_BUILD = $(DB)/build.$(ARCH)
-	LTXML_BUILD = $(LTXML)/build.$(ARCH)
 
 else
 
@@ -41,6 +36,5 @@ else
 
 	RSAREF_BUILD = $(RSAREF)/build
 	DB_BUILD = $(DB)/build.unix
-	LTXML_BUILD = $(LTXML)/build
 
 endif

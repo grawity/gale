@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <signal.h>
+#include <termcap.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/types.h>
@@ -21,11 +22,8 @@ char *rcprog = "gsubrc";
 struct gale_client *client;
 char *tty,*agent;
 
-#ifndef NDEBUG
-char **restart_argv;
-#endif
-
-int pflag = 1;
+int do_ping = 1;
+int do_termcap = 0;
 
 void *gale_malloc(int size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
@@ -65,9 +63,23 @@ struct gale_message *slip(const char *cat,struct gale_id *sign) {
 	return msg;
 }
 
+void tmode(char id[2]) {
+	char *cap;
+	if (do_termcap && (cap = tgetstr(id,NULL))) tputs(cap,1,putchar);
+}
+
+void print_id(const char *id,const char *dfl) {
+	putchar(' ');
+	putchar(id ? '<' : '*');
+	tmode("md");
+	fputs(id ? id : dfl,stdout);
+	tmode("me");
+	putchar(id ? '>' : '*');
+}
+
 void default_gsubrc(void) {
 	char *tmp,buf[80],*cat = getenv("GALE_CATEGORY");
-	char *nl = isatty(1) ? "\r\n" : "\n";
+	char *nl = tty ? "\r\n" : "\n";
 	int count = 0;
 
 	tmp = cat;
@@ -76,14 +88,19 @@ void default_gsubrc(void) {
 		if (!*tmp || *tmp == ':') return;
 	}
 
-	printf("[%s]",cat);
+	putchar('[');
+	tmode("md");
+	fputs(cat,stdout);
+	tmode("me");
+	putchar(']');
 	if ((tmp = getenv("HEADER_TIME"))) {
 		time_t when = atoi(tmp);
 		strftime(buf,sizeof(buf)," %m/%d %H:%M",localtime(&when));
 		fputs(buf,stdout);
 	}
-
-	if (getenv("HEADER_RECEIPT_TO")) printf(" [rcpt]");
+	if (getenv("HEADER_RECEIPT_TO")) 
+		printf(" [rcpt]");
+	fputs(nl,stdout);
 
 	{
 		char *from_comment = getenv("HEADER_FROM");
@@ -91,28 +108,38 @@ void default_gsubrc(void) {
 		char *to_comment = getenv("HEADER_TO");
 		char *to_id = getenv("GALE_ENCRYPTED");
 
-		if (from_comment || from_id || to_comment || to_id)
-			fputs(nl,stdout);
+		fputs("From",stdout);
+		if (from_comment || from_id) {
+			print_id(from_id,"unverified");
+			if (from_comment) printf(" (%s)",from_comment);
+		} else
+			print_id(NULL,"anonymous");
 
-		if (from_comment || from_id) printf("From");
-		if (from_id) printf(" <%s>",from_id);
-		if (from_comment) printf(" (%s)",from_comment);
-
-		if (to_comment || to_id) printf(" to");
-		if (to_id) printf(" <%s>",to_id);
+		fputs(" to",stdout);
+		print_id(to_id,"everyone");
 		if (to_comment) printf(" (%s)",to_comment);
+
+		putchar(':');
+		fputs(nl,stdout);
 	}
 
 	fputs(nl,stdout);
-	fputs(nl,stdout);
 	while (fgets(buf,sizeof(buf),stdin)) {
-		int len = strlen(buf);
-		if (len && buf[len-1] == '\n') {
-			buf[len-1] = '\0';
-			fputs(buf,stdout);
-			fputs(nl,stdout);
-		} else
-			fputs(buf,stdout);
+		char *ptr,*end = buf + strlen(buf);
+		for (ptr = buf; ptr < end; ++ptr) {
+			if (isprint(*ptr) || *ptr == '\t')
+				putchar(*ptr);
+			else if (*ptr == '\n')
+				fputs(nl,stdout);
+			else {
+				tmode("mr");
+				if (*ptr < 32)
+					printf("^%c",*ptr + 64);
+				else
+					printf("[0x%X]",*ptr);
+				tmode("me");
+			}
+		}
 		++count;
 	}
 	if (count) fputs(nl,stdout);
@@ -197,7 +224,7 @@ void present_message(struct gale_message *msg) {
 				           "invalid receipt header",0);
 				continue;
 			}
-			if (pflag) {
+			if (do_ping) {
 				struct gale_message *rcpt;
 				struct gale_id *sign = id_encrypted;
 				if (!sign) sign = user_id;
@@ -227,8 +254,7 @@ void present_message(struct gale_message *msg) {
 	if (!strcmp(msg->category,"debug/restart") &&
 	    id_sign && !strcmp(id_sign->name,"egnor@ofb.net")) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
-		execvp(restart_argv[0],restart_argv);
-		gale_alert(GALE_WARNING,restart_argv[0],errno);
+		gale_restart();
 	}
 #endif
 
@@ -242,7 +268,6 @@ void present_message(struct gale_message *msg) {
 	pid = fork();
 	if (!pid) {
 		const char *rc;
-		signal(SIGPIPE,SIG_DFL);
 		environ = envp;
 		close(client->socket);
 		close(pfd[1]);
@@ -319,24 +344,26 @@ void usage(void) {
 	exit(1);
 }
 
-int main(int argc,char *argv[]) {
+int main(int argc,char **argv) {
 	int opt,do_retry = 1,do_notify = 1,do_fork = 0,do_kill = 0;
 	char *serv;
 
-	gale_init("gsub");
+	gale_init("gsub",argc,argv);
 	if ((tty = ttyname(1))) {
+		char *term = getenv("TERM");
 		char *tmp = strrchr(tty,'/');
 		if (tmp) tty = tmp + 1;
 		do_fork = do_kill = 1;
+		if (term && 1 == tgetent(NULL,term)) do_termcap = 1;
 	}
 
-	while (EOF != (opt = getopt(argc,argv,"hgnkKf:rp:y"))) switch (opt) {
+	while (EOF != (opt = getopt(argc,argv,"hgnkKf:rpy"))) switch (opt) {
 	case 'n': do_fork = 0; break;
 	case 'k': do_kill = 0; break;
 	case 'K': if (tty) gale_kill(tty,1); return 0;
 	case 'f': rcprog = optarg; break;
 	case 'r': do_retry = 0; break;
-	case 'p': pflag = 0; break;
+	case 'p': do_ping = 0; break;
 	case 'y': do_notify = 0; break;
 	case 'h':
 	case '?': usage();
@@ -357,7 +384,6 @@ int main(int argc,char *argv[]) {
 #ifndef NDEBUG
 	{
 		char *tmp = gale_malloc(strlen(serv) + 8);
-		restart_argv = argv;
 		sprintf(tmp,"%s:debug/",serv);
 		serv = tmp;
 	}
@@ -372,7 +398,6 @@ int main(int argc,char *argv[]) {
 		gale_kill(tty,do_kill);
 	}
 
-	signal(SIGPIPE,SIG_IGN);
 	set_agent();
 
 	if (do_notify) notify();

@@ -5,5 +5,5 @@ CGIC_INC = -I/ofb/include
 
 ZEPHYR_INC = -I/ofb/include
 ZEPHYR_LIB = -L/ofb/lib -lzephyr -lcom_err
-DB_LIB = -L/ofb/lib -ldb_g
+DB_LIB = -L/ofb/lib -ldb
 CGIC_LIB = -L/ofb/lib -lcgic

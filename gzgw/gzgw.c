@@ -243,7 +243,7 @@ int main(int argc,char *argv[]) {
 	int retval,opt;
 	fd_set fds;
 
-	gale_init("gzgw");
+	gale_init("gzgw",argc,argv);
 
 	openlog(argv[0],LOG_PID,LOG_DAEMON);
 

@@ -1,19 +1,21 @@
-done:
-signature not optional, more rationalized from/id
-get rid of 262144
-make timeout and countout work in gwatch
-spaces in categories
-makefile -> gnumakefile
-make key generator
-overwrite .gale-public-key as appropriate
-check gsend running from cron: works for me!?
-why doesn't "cat=notice" work in glcgi? (it seems to now... sigh)
-why does it crash? (fixed big messages)
-gzgw: smarter about crossposted messages
+done: (0.05)
+default gsubrc highlights, filters out unprintable characters
+category expressions in the log server should work now
+SIGUSR1 to restart gsub, server
+the server is now "galed" instead of "server"
+client now sets SO_KEEPALIVE; should fail better in the face of net problems
+programs all ignore SIGPIPE; this should help prevent undue server death
 
 to do:
+nonzero gsubrc return -> receipt?
+server: turn -l into GALE_...
+timestamps: when sent, not when started
+fix .gale/conf line-length error
+anchors
+add error messages to gsubrc protocol
 negative categories in sent messages
 signing with other keys
+key distribution; new crypto layer, file formats
 add flag to gsub to add to the defaults
 fix time on logout message
 make gwatchrc happen

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <pwd.h>
 
 #include "gale/all.h"
 
@@ -67,7 +68,7 @@ void usage(void) {
 	struct gale_id *id = lookup_id("username@domain");
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-uU] [-et id] [-p cat] cat\n"
+		"usage: gsend [-uU] [-e id] [-p cat] cat\n"
 		"flags: -e id       Encrypt message with <id>'s public key\n"
 		"       -a          Do not sign message (anonymous)\n"
 		"       -r          Do not retry server connection\n"
@@ -85,7 +86,7 @@ int main(int argc,char *argv[]) {
 	int ttyin = isatty(0),newline = 1;
 	char *cp,*tmp,*eflag = NULL;
 
-	gale_init("gsend");
+	gale_init("gsend",argc,argv);
 
 	while ((arg = getopt(argc,argv,"hae:t:p:ruU")) != EOF) 
 	switch (arg) {
@@ -112,6 +113,10 @@ int main(int argc,char *argv[]) {
 		usage();
 	else
 		msg->category = gale_strdup(argv[optind]);
+
+	if (ttyin && getpwnam(msg->category))
+		gale_alert(GALE_WARNING,"Category name matches username!  "
+		                        "Did you forget the \"-e\" flag?",0);
 
 	client = gale_open(NULL);
 

@@ -2,15 +2,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <assert.h>
 
 #include "gale/all.h"
 
 struct gale_dir *dot_gale,*home_dir,*sys_dir;
 struct gale_id *user_id;
+
+static int main_argc;
+static char * const *main_argv;
 
 static void init_vars(struct passwd *pwd) {
 	char *tmp;
@@ -66,9 +71,39 @@ static void read_conf(const char *s) {
 	} while (num == 2);
 }
 
-void gale_init(const char *s) {
+void gale_restart(void) {
+	assert(main_argv[main_argc] == NULL);
+	execvp(main_argv[0],main_argv);
+	gale_alert(GALE_WARNING,main_argv[0],errno);
+}
+
+static void sig_usr1(int x) {
+	(void) x;
+	gale_alert(GALE_NOTICE,"SIGUSR1 received, restarting",0);
+	gale_restart();
+}
+
+static void sig_pipe(int x) {
+	(void) x;
+	/* do nothing */
+}
+
+void gale_init(const char *s,int argc,char * const *argv) {
 	struct passwd *pwd = NULL;
 	char *user,*dir;
+	struct sigaction act;
+
+	main_argc = argc;
+	main_argv = argv;
+
+	sigaction(SIGUSR1,NULL,&act);
+	act.sa_handler = sig_usr1;
+	sigaction(SIGUSR1,&act,NULL);
+
+	sigaction(SIGPIPE,NULL,&act);
+	act.sa_flags &= ~SA_RESETHAND;
+	act.sa_handler = sig_pipe;
+	sigaction(SIGPIPE,&act,NULL);
 
 	if ((user = getenv("LOGNAME"))) pwd = getpwnam(user);
 	if (!pwd) pwd = getpwuid(getuid());

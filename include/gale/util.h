@@ -3,7 +3,8 @@
 
 extern struct gale_dir *dot_gale,*home_dir,*sys_dir;
 
-void gale_init(const char *);
+void gale_init(const char *,int argc,char * const *argv);
+void gale_restart(void);
 
 void *gale_malloc(int size);
 void gale_free(void *);
