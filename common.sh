@@ -11,6 +11,10 @@ testkey() {
 	gkinfo -x "$1" 2>/dev/null | qgrep "^Trusted public key: <$1>"
 }
 
+testkey_stdin() {
+	gkinfo -x 2>/dev/null | qgrep "^Trusted public key: <$1>"
+}
+
 if [ -n "$GALE_SYS_DIR" ]; then
 	SYS_DIR="$GALE_SYS_DIR"
 elif [ -n "$sysconfdir" ]; then

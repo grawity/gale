@@ -93,7 +93,7 @@ EOM
 		exit 1
 	fi
 
-	if gkinfo -x < "$skey" | qgrep "^Public key: <$CONF_GALE_DOMAIN>" ; then
+	if gkinfo -x < "$skey" 2>/dev/null | qgrep "public key: <$CONF_GALE_DOMAIN>" ; then
 		echo "Good, it looks like your key..."
 	else
 		echo "Error: \"$skey\" not for \"$CONF_GALE_DOMAIN\"."
@@ -102,7 +102,7 @@ EOM
 		exit 1
 	fi
 
-	if testkey "$skey" ; then
+	if testkey_stdin "$CONF_GALE_DOMAIN" < "$skey" ; then
 		echo "And it looks properly signed.  Hooray for you!"
 	else
 		echo "Error: \"$skey\" is not fully signed."
