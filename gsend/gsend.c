@@ -159,6 +159,9 @@ static void prepare_message() {
 		gale_text_accumulate(&body,G_("\r\n"));
 	}
 
+	/* To avoid sending a partial message if the user logs out. */
+	if (ttyin && !isatty(0)) return;
+
 	frag.name = G_("message/body");
 	frag.type = frag_text;
 	frag.value.text = gale_text_collect(&body);
