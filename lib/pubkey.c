@@ -211,7 +211,7 @@ void _ga_import_pub(struct auth_id **id,struct gale_data key,
 	/* OK... now install the key. */
 	if (!gale_group_null(try->pub_data) 
 	&&  !_ga_pub_equal(data,try->pub_data)) {
-		gale_alert(GALE_NOTICE,"replacing an old public key",0);
+		gale_alert(GALE_NOTICE,G_("replacing an old public key"),0);
 #if !SAFE_KEY
 		_ga_erase_inode(try->pub_inode);
 #endif
@@ -233,7 +233,7 @@ void _ga_import_pub(struct auth_id **id,struct gale_data key,
 invalid:
 	assert(NULL == *id);
 	if (NULL == try) 
-		gale_alert(GALE_WARNING,"invalid public key",0);
+		gale_alert(GALE_WARNING,G_("invalid public key"),0);
 	else
 		_ga_warn_id(G_("\"%\": malformed public key"),try);
 	return;

@@ -72,10 +72,11 @@ static void *on_error(struct gale_link *l,int err,void *d) {
 	assert(l == conn->link);
 	if (0 != err && ECONNRESET != err && EPIPE != err) {
 		if (AF_INET != conn->peer.sin_family)
-			gale_alert(GALE_WARNING,"I/O error",err);
+			gale_alert(GALE_WARNING,G_("I/O error"),err);
 		else
 			gale_alert(GALE_WARNING,
-			           inet_ntoa(conn->peer.sin_addr),err);
+				gale_text_from(NULL,
+					inet_ntoa(conn->peer.sin_addr),-1),err);
 	}
 	close_connect(conn);
 	return OOP_CONTINUE;

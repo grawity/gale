@@ -127,7 +127,7 @@ int main(int argc,char *argv[]) {
 	}
 
 	if (optind + 1 == argc) {
-		init_auth_id(&id,gale_text_from(gale_global->enc_system,argv[optind],-1));
+		init_auth_id(&id,gale_text_from(gale_global->enc_cmdline,argv[optind],-1));
 		if (auth_id_private(id)) priv_key(id);
 		if (auth_id_public(id)) pub_key(id);
 	} else {
@@ -136,7 +136,7 @@ int main(int argc,char *argv[]) {
 		if (optind != argc) usage();
 		if (isatty(0)) usage();
 		if (!_ga_load(0,&key)) 
-			gale_alert(GALE_ERROR,"could not read file",errno);
+			gale_alert(GALE_ERROR,G_("could not read file"),errno);
 
 		test = key;
 		if (gale_unpack_compare(&test,m_gale,sizeof(m_gale))) {
@@ -146,7 +146,7 @@ int main(int argc,char *argv[]) {
 				_ga_import_pub(&id,key,&inode,IMPORT_NORMAL);
 				if (NULL == id) 
 					gale_alert(GALE_ERROR,
-					           "public key invalid",0);
+					           G_("public key invalid"),0);
 				pub_key(id);
 			} else 
 			if (gale_unpack_compare(&test,m_priv,sizeof(m_priv))
@@ -154,26 +154,26 @@ int main(int argc,char *argv[]) {
 				_ga_import_priv(&id,key,NULL);
 				if (NULL == id) 
 					gale_alert(GALE_ERROR,
-					           "private key invalid",0);
+					           G_("private key invalid"),0);
 				priv_key(id);
 			} else
-				gale_alert(GALE_ERROR,"invalid key",0);
+				gale_alert(GALE_ERROR,G_("invalid key"),0);
 		} else if (gale_unpack_compare(&test,m_gale3,sizeof(m_gale3))) {
 			if (gale_unpack_compare(&test,m_pub3,sizeof(m_pub3))) {
 				struct inode inode = _ga_init_inode();
 				_ga_import_pub(&id,key,&inode,IMPORT_NORMAL);
 				if (NULL == id) 
 					gale_alert(GALE_ERROR,
-					           "new public key invalid",0);
+					           G_("public key invalid"),0);
 				pub_key(id);
 			} else
-				gale_alert(GALE_ERROR,"invalid key",0);
+				gale_alert(GALE_ERROR,G_("invalid key"),0);
 		} else
-			gale_alert(GALE_ERROR,"unknown file format",0);
+			gale_alert(GALE_ERROR,G_("unknown file format"),0);
 	}
 
 	if (!is_found)
-		gale_alert(GALE_ERROR,"could not find key",0);
+		gale_alert(GALE_ERROR,G_("could not find key"),0);
 	else if (do_name_only)
 		printf("%s\n",gale_text_to(gale_global->enc_console,auth_id_name(id)));
 

@@ -96,7 +96,8 @@ int _gale_find_id(struct auth_id *id) {
 	tmp = gale_malloc(80 + name.l);
 	sprintf(tmp,"requesting key \"%s\"",
 		gale_text_to(gale_global->enc_console,name));
-	gale_alert(GALE_NOTICE,tmp,0);
+	gale_alert(GALE_NOTICE,gale_text_concat(3,
+		G_("requesting key \""),name,G_("\"")),0);
 
 	/* create the connection */
 	category = id_category(id,G_("auth/key"),G_(""));

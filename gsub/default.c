@@ -37,11 +37,8 @@ void default_gsubrc(int do_beep) {
 	}
 
 	if (0 != gale_var(G_("GALE_DATA_SECURITY_ENCRYPTION")).l) {
-		gale_alert(GALE_WARNING,
-			gale_text_to(gale_global->enc_console,gale_text_concat(3,
-				G_("decryption error in \""),
-				cat,
-				G_("\""))),0);
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("decryption error in \""),cat,G_("\"")),0);
 		return;
 	}
 

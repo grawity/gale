@@ -12,13 +12,13 @@ pid_t gale_exec(const char *prog,char * const *argv,int *in,int *out,
 	pid_t pid;
 
 	if ((in && pipe(inp)) || (out && pipe(outp))) {
-		gale_alert(GALE_WARNING,"pipe",errno);
+		gale_alert(GALE_WARNING,G_("pipe"),errno);
 		goto error;
 	}
 
 	pid = fork();
 	if (pid < 0) {
-		gale_alert(GALE_WARNING,"fork",errno);
+		gale_alert(GALE_WARNING,G_("fork"),errno);
 		goto error;
 	}
 
@@ -37,7 +37,8 @@ pid_t gale_exec(const char *prog,char * const *argv,int *in,int *out,
 		if (def)
 			def(argv);
 		else
-			gale_alert(GALE_WARNING,prog,errno);
+			gale_alert(GALE_WARNING,
+			gale_text_from(gale_global->enc_console,prog,-1),errno);
 		_exit(0);
 	}
 
@@ -67,7 +68,7 @@ int gale_wait(pid_t pid) {
 	if (pid < 0) return pid;
 	while (waitpid(pid,&status,0) < 0) {
 		if (errno == EINTR) continue;
-		gale_alert(GALE_WARNING,"waitpid",errno);
+		gale_alert(GALE_WARNING,G_("waitpid"),errno);
 		return -999;
 	}
 	if (WIFEXITED(status)) return WEXITSTATUS(status);

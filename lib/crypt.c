@@ -59,7 +59,7 @@ void _ga_encrypt(int num,struct auth_id **ids,
 	}
 
 	if (R_SealInit(&ctx,ekey,ekeylen,iv,num,key,EA_DES_EDE3_CBC,r)) {
-		gale_alert(GALE_WARNING,"failure in encryption operation",0);
+		gale_alert(GALE_WARNING,G_("encryption failure"),0);
 		return;
 	}
 
@@ -108,13 +108,13 @@ void _ga_decrypt(struct auth_id **id,
 	else if (gale_unpack_compare(&cipher,magic2,sizeof(magic2)))
 		version = 2;
 	else {
-		gale_alert(GALE_WARNING,"unrecognized encryption format",0);
+		gale_alert(GALE_WARNING,G_("unrecognized encryption format"),0);
 		return;
 	}
 
 	if (!gale_unpack_copy(&cipher,iv,sizeof(iv))
 	||  !gale_unpack_u32(&cipher,&num)) {
-		gale_alert(GALE_WARNING,"invalid encryption format",0);
+		gale_alert(GALE_WARNING,G_("invalid encryption format"),0);
 		return;
 	}
 
@@ -125,13 +125,13 @@ void _ga_decrypt(struct auth_id **id,
 
 		if (version > 1) {
 			if (!gale_unpack_text(&cipher,&name)) {
-				gale_alert(GALE_WARNING,"malformed crypto",0);
+				gale_alert(GALE_WARNING,G_("malformed crypto"),0);
 				return;
 			}
 		} else {
 			const char *sz;
 			if (!gale_unpack_str(&cipher,&sz))
-				gale_alert(GALE_WARNING,"malformed crypto",0);
+				gale_alert(GALE_WARNING,G_("malformed crypto"),0);
 			name = gale_text_from(NULL,sz,-1);
 		}
 
@@ -144,12 +144,12 @@ void _ga_decrypt(struct auth_id **id,
 		}
 
 		if (!gale_unpack_u32(&cipher,&n)) {
-			gale_alert(GALE_WARNING,"truncated encryption",0);
+			gale_alert(GALE_WARNING,G_("truncated encryption"),0);
 			return;
 		}
 
 		if (n > MAX_ENCRYPTED_KEY_LEN || cipher.l < n) {
-			gale_alert(GALE_WARNING,"invalid encryption data",0);
+			gale_alert(GALE_WARNING,G_("invalid encryption data"),0);
 			return;
 		}
 

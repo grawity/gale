@@ -59,22 +59,22 @@ struct inode _ga_read_inode(int fd,struct gale_text name) {
 
 int _ga_inode_changed(struct inode i) {
 	struct stat buf;
-	if (stat(gale_text_to(gale_global->enc_system,i.name),&buf)) return 1;
+	if (stat(gale_text_to(gale_global->enc_filesys,i.name),&buf)) return 1;
 	return (buf.st_dev != i.device || buf.st_ino != i.inode
-	   ||  buf.st_ctime != i.inode_time || buf.st_mtime != i.file_time);
+	    ||  buf.st_ctime != i.inode_time || buf.st_mtime != i.file_time);
 }
 
 int _ga_erase_inode(struct inode file) {
 	struct stat buf;
 	int status = 0;
-	char *szname = gale_text_to(gale_global->enc_system,file.name);
+	char *szname = gale_text_to(gale_global->enc_filesys,file.name);
 
 	if (!szname || !*szname) return status;
 	if (!lstat(szname,&buf) 
 	&&  buf.st_dev == file.device
 	&&  buf.st_ino == file.inode) {
 		char *sztemp = gale_text_to(
-			gale_global->enc_system,
+			gale_global->enc_filesys,
 			make_temp(file.name));
 		if (!rename(szname,sztemp)) {
 			if (!lstat(sztemp,&buf)
@@ -92,36 +92,30 @@ int _ga_erase_inode(struct inode file) {
 
 int _ga_read_file(struct gale_text fn) {
 	struct stat buf,lbuf;
-	char *sz = gale_text_to(gale_global->enc_system,fn);
+	char *sz = gale_text_to(gale_global->enc_filesys,fn);
 	int fd = open(sz,O_RDWR);
 	if (fd < 0 && (errno == EACCES || errno == EPERM)) 
 		fd = open(sz,O_RDONLY);
 	if (fd < 0) goto error;
 
 	if (fstat(fd,&buf) || lstat(sz,&lbuf)) {
-		gale_alert(GALE_WARNING,sz,errno);
+		gale_alert(GALE_WARNING,fn,errno);
 		goto error;
 	}
 	if (buf.st_dev != lbuf.st_dev || buf.st_ino != lbuf.st_ino) {
-		char *sz = gale_malloc(fn.l + 64);
-		sprintf(sz,"\"%s\": symbolic link ignored",gale_text_to(gale_global->enc_console,fn));
-		gale_alert(GALE_WARNING,sz,0);
-		gale_free(sz);
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("\""),fn,G_("\": symbolic link ignored")),0);
 		goto error;
 	}
 	if (!S_ISREG(buf.st_mode)) {
-		char *sz = gale_malloc(fn.l + 64);
-		sprintf(sz,"\"%s\": special file ignored",gale_text_to(gale_global->enc_console,fn));
-		gale_alert(GALE_WARNING,sz,0);
-		gale_free(sz);
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("\""),fn,G_("\": special file ignored")),0);
 		goto error;
 	}
 
-	gale_free(sz);
 	return fd;
 
 error:
-	gale_free(sz);
 	if (fd >= 0) close(fd);
 	return -1;
 }
@@ -144,13 +138,13 @@ int _ga_load(int fd,struct gale_data *data) {
 			r = read(fd,p + dat.p,dat.l - p);
 		while (r < 0 && errno == EINTR);
 		if (r < 0) {
-			gale_alert(GALE_WARNING,"cannot read file",errno);
+			gale_alert(GALE_WARNING,G_("cannot read file"),errno);
 			goto error;
 		}
 
 		p += r;
 		if (p > MAX_SIZE) {
-			gale_alert(GALE_WARNING,"file exceeds maximum size",0);
+			gale_alert(GALE_WARNING,G_("file exceeds maximum size"),0);
 			goto error;
 		}
 	} while (r > 0);
@@ -168,10 +162,10 @@ error:
 }
 
 int _ga_write_file(struct gale_text fn) {
-	char *sz = gale_text_to(gale_global->enc_system,fn);
+	char *sz = gale_text_to(gale_global->enc_filesys,fn);
 	int fd = open(sz,O_WRONLY | O_CREAT,0666);
 	if (fd < 0) {
-		gale_alert(GALE_WARNING,sz,errno);
+		gale_alert(GALE_WARNING,fn,errno);
 		gale_free(sz);
 		return -1;
 	}
@@ -189,7 +183,7 @@ int _ga_save(int fd,struct gale_data data) {
 			r = write(fd,data.p,data.l);
 		while (r < 0 && errno == EINTR);
 		if (r <= 0) {
-			gale_alert(GALE_WARNING,"cannot write file",errno);
+			gale_alert(GALE_WARNING,G_("cannot write file"),errno);
 			return 0;
 		}
 		data.p += r;
@@ -211,21 +205,19 @@ int _ga_save_file(struct gale_text dir,
 
 	name = dir_file(dir,fn);
 	temp = make_temp(name);
-	fd = open(gale_text_to(gale_global->enc_system,temp),
+	fd = open(gale_text_to(gale_global->enc_filesys,temp),
 		O_RDWR | O_CREAT | O_EXCL,0600);
 	status = (fd >= 0 && _ga_save(fd,data));
 
 	if (fd < 0) 
-		gale_alert(GALE_WARNING,gale_text_to(gale_global->enc_console,temp),errno);
+		gale_alert(GALE_WARNING,temp,errno);
 	else {
 		fchmod(fd,mode);
 		if (rename(
-			gale_text_to(gale_global->enc_system,temp),
-			gale_text_to(gale_global->enc_system,name))) {
-			gale_alert(GALE_WARNING,
-				gale_text_to(gale_global->enc_console,name),
-				errno);
-			unlink(gale_text_to(gale_global->enc_system,temp));
+			gale_text_to(gale_global->enc_filesys,temp),
+			gale_text_to(gale_global->enc_filesys,name))) {
+			gale_alert(GALE_WARNING,name,errno);
+			unlink(gale_text_to(gale_global->enc_filesys,temp));
 			status = 0;
 		} else if (inode)
 			*inode = _ga_read_inode(fd,fn);

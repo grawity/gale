@@ -78,7 +78,7 @@ struct gale_message *slip(struct gale_text cat,
 	frag.value.text = presence;
 	gale_group_add(&msg->data,frag);
 
-	gale_add_id(&msg->data,gale_text_from(gale_global->enc_system,tty,-1));
+	gale_add_id(&msg->data,gale_text_from(gale_global->enc_filesys,tty,-1));
 	if (extra) gale_group_add(&msg->data,*extra);
 
 	/* Sign and encrypt the message, if appropriate. */
@@ -107,13 +107,13 @@ void notify(int in,struct gale_text presence) {
 /* Halt the main event loop when we finish sending our notices. */
 void *on_empty(struct gale_link *link,void *data) {
 	is_done = 1;
-	gale_alert(GALE_NOTICE,"disconnecting and terminating",0);
+	gale_alert(GALE_NOTICE,G_("disconnecting and terminating"),0);
 	return OOP_HALT;
 }
 
 /* Give up trying to send a disconnection notice. */
 void *on_timeout(oop_source *source,struct timeval time,void *x) {
-	gale_alert(GALE_WARNING,"cannot send logout notice, giving up",0);
+	gale_alert(GALE_WARNING,G_("cannot send logout notice, giving up"),0);
 	is_done = 1;
 	return OOP_HALT;
 }
@@ -175,7 +175,7 @@ void send_message(char *body,char *end,int fd) {
 			int r = write(fd,body,tmp - body);
 			if (r <= 0) {
 				if (errno != EPIPE)
-					gale_alert(GALE_WARNING,"write",errno);
+					gale_alert(GALE_WARNING,G_("write"),errno);
 				return;
 			}
 			body += r;
@@ -184,7 +184,7 @@ void send_message(char *body,char *end,int fd) {
 		/* Translate CRLF to NL. */
 		if (tmp != end) {
 			if (write(fd,"\n",1) != 1) {
-				gale_alert(GALE_WARNING,"write",errno);
+				gale_alert(GALE_WARNING,G_("write"),errno);
 				return;
 			}
 			++tmp;
@@ -221,7 +221,7 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 	   sender syndrome". */
 	if (!gale_text_compare(msg->cat,G_("debug/restart")) && id_sign 
 	&&  !gale_text_compare(auth_id_name(id_sign),G_("egnor@ofb.net"))) {
-		gale_alert(GALE_NOTICE,"restarting from debug/restart.",0);
+		gale_alert(GALE_NOTICE,G_("restarting from debug/restart."),0);
 		notify(0,G_("restarting"));
 		gale_set(G_("GALE_ANNOUNCE"),G_("in/restarted"));
 		gale_restart();
@@ -353,7 +353,7 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 
 	/* Create a pipe to communicate with the gsubrc with. */
 	if (pipe(pfd)) {
-		gale_alert(GALE_WARNING,"pipe",errno);
+		gale_alert(GALE_WARNING,G_("pipe"),errno);
 		goto done;
 	}
 
@@ -379,10 +379,10 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 		                gale_global->sys_dir,
 		                null_text);
 		if (rc.l) {
-			execl(gale_text_to(gale_global->enc_system,rc),
-			      gale_text_to(gale_global->enc_system,rcprog),
+			execl(gale_text_to(gale_global->enc_cmdline,rc),
+			      gale_text_to(gale_global->enc_cmdline,rcprog),
 			      NULL);
-			gale_alert(GALE_WARNING,gale_text_to(gale_global->enc_console,rc),errno);
+			gale_alert(GALE_WARNING,rc,errno);
 			exit(1);
 		}
 
@@ -391,7 +391,7 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 		exit(0);
 	}
 
-	if (pid < 0) gale_alert(GALE_WARNING,"fork",errno);
+	if (pid < 0) gale_alert(GALE_WARNING,G_("fork"),errno);
 
 	/* Send the message to the gsubrc. */
 	close(pfd[0]);
@@ -447,18 +447,19 @@ void load_gsubrc(struct gale_text name) {
 	if (!rc.l) {
 		if (name.l) 
 			gale_alert(GALE_WARNING,
-			           "cannot find specified shared library.",0);
+			           G_("cannot find specified shared library."),0);
 		return;
 	}
 
 #ifdef RTLD_LAZY
-	lib = dlopen(gale_text_to(gale_global->enc_system,rc),RTLD_LAZY);
+	lib = dlopen(gale_text_to(gale_global->enc_filesys,rc),RTLD_LAZY);
 #else
-	lib = dlopen(gale_text_to(gale_global->enc_system,rc),0);
+	lib = dlopen(gale_text_to(gale_global->enc_filesys,rc),0);
 #endif
 
 	if (!lib) {
-		while ((err = dlerror())) gale_alert(GALE_WARNING,err,0);
+		while ((err = dlerror())) gale_alert(GALE_WARNING,
+			gale_text_from(gale_global->enc_sys,err,-1),0);
 		return;
 	}
 
@@ -466,8 +467,8 @@ void load_gsubrc(struct gale_text name) {
 	if (!dl_gsubrc2) {
 		dl_gsubrc = (gsubrc_t *) dlsym(lib,"gsubrc");
 		if (!dl_gsubrc) {
-			while ((err = dlerror())) 
-				gale_alert(GALE_WARNING,err,0);
+			while ((err = dlerror())) gale_alert(GALE_WARNING,
+				gale_text_from(gale_global->enc_sys,err,-1),0);
 			dlclose(lib);
 			return;
 		}
@@ -475,7 +476,7 @@ void load_gsubrc(struct gale_text name) {
 
 #else
 	if (name.l)
-		gale_alert(GALE_WARNING,"dynamic loading not supported.",0);
+		gale_alert(GALE_WARNING,G_("dynamic loading not supported."),0);
 #endif
 }
 
@@ -498,19 +499,9 @@ void add_other(struct gale_text *subs,struct gale_text add) {
 			G_("no private key for \""),
 			auth_id_name(id),
 			G_("\""));
-		gale_alert(GALE_ERROR,gale_text_to(gale_global->enc_console,err),0);
+		gale_alert(GALE_ERROR,err,0);
 	}
 	add_subs(subs,id_category(id,G_("user"),G_("")));
-}
-
-/* set presence information; TODO: accept gale_text instead */
-
-void set_presence(char *arg) {
-	if (strchr(arg,'.') || strchr(arg,'/'))
-		presence = gale_text_from(gale_global->enc_system,arg,-1);
-	else
-		presence = gale_text_concat(2,G_("in/"),
-			gale_text_from(gale_global->enc_system,arg,-1));
 }
 
 /* notify the user when a connection is established */
@@ -519,10 +510,8 @@ void *on_connected(struct gale_server *server,
 	struct gale_text host,struct sockaddr_in addr,
 	void *d) 
 {
-	gale_alert(GALE_NOTICE,
-		gale_text_to(gale_global->enc_console,gale_text_concat(2,
-			G_("connected to "),
-			gale_connect_text(host,addr))),0);
+	gale_alert(GALE_NOTICE,gale_text_concat(2,
+		G_("connected to "),gale_connect_text(host,addr)),0);
 	return OOP_CONTINUE;
 }
 
@@ -562,7 +551,9 @@ int main(int argc,char **argv) {
 	if (!presence.l) presence = G_("in/present");
 
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"dDhaAbenkKro:f:l:p:"))) 
+	while (EOF != (opt = getopt(argc,argv,"dDhaAbenkKro:f:l:p:"))) {
+	struct gale_text str = !optarg ? null_text :
+		gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (opt) {
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
@@ -574,20 +565,18 @@ int main(int argc,char **argv) {
 	case 'e': do_default = 0; break;        /* Do not include defaults */
 	case 'n': do_fork = do_kill = 0; break; /* Do not background */
 	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
-	case 'K': if (tty) gale_kill(gale_text_from(gale_global->enc_system,tty,-1),1);
+	case 'K': if (tty) gale_kill(gale_text_from(
+			gale_global->enc_filesys,tty,-1),1);
 	          return 0;			/* only kill other gsubs */
 	case 'r': do_run_default = 1; break;	/* only run default_gsubrc */
-	case 'f': rcprog = gale_text_from(gale_global->enc_system,optarg,-1); break;       
-						/* Use a wacky gsubrc */
-	case 'l': rclib = gale_text_from(gale_global->enc_system,optarg,-1); break;	
-						/* Use a wacky gsubrc.so */
-	case 'o': add_other(&serv,gale_text_from(gale_global->enc_system,optarg,-1)); break;
-						/* Listen to a different id */
-	case 'p': do_presence = 1; set_presence(optarg); 
+	case 'f': rcprog = str;	break;          /* Use a wacky gsubrc */
+	case 'l': rclib = str; break;	        /* Use a wacky gsubrc.so */
+	case 'o': add_other(&serv,str); break;  /* Listen to a different id */
+	case 'p': do_presence = 1; presence = str;
 	          break;			/* Presence */
 	case 'h':                               /* Usage message */
 	case '?': usage();
-	}
+	} }
 
 	/* Figure out who we are. */
 	if (do_presence || do_keys) user_id = gale_user();
@@ -615,11 +604,11 @@ int main(int argc,char **argv) {
 	/* One argument, at most (subscriptions) */
 	if (optind < argc - 1) usage();
 	if (optind == argc - 1) 
-		add_subs(&serv,gale_text_from(gale_global->enc_system,argv[optind],-1));
+		add_subs(&serv,gale_text_from(gale_global->enc_cmdline,argv[optind],-1));
 
 	/* We need to subscribe to *something* */
 	if (0 == serv.l)
-		gale_alert(GALE_ERROR,"No subscriptions specified.",0);
+		gale_alert(GALE_ERROR,G_("No subscriptions specified."),0);
 
 	/* Look for a gsubrc.so */
 	load_gsubrc(rclib);
@@ -644,7 +633,7 @@ int main(int argc,char **argv) {
 	source->on_signal(source,SIGTERM,on_signal,NULL);
 	source->on_signal(source,SIGINT,on_signal,NULL);
 	if (tty) {
-		gale_kill(gale_text_from(gale_global->enc_system,tty,-1),do_kill);
+		gale_kill(gale_text_from(gale_global->enc_filesys,tty,-1),do_kill);
 		gale_watch_tty(source,1);
 	}
 

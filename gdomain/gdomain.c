@@ -60,7 +60,7 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *data) {
 	signature = auth_verify(&msg->data);
 
 	if (!gale_group_lookup(msg->data,G_("question/key"),frag_text,&frag))
-		gale_alert(GALE_WARNING,"cannot determine the key wanted",0);
+		gale_alert(GALE_WARNING,G_("cannot determine the key wanted"),0);
 	else {
 		struct auth_id *key;
 		init_auth_id(&key,frag.value.text);
@@ -92,7 +92,7 @@ int main(int argc,char *argv[]) {
 
 	init_auth_id(&domain,gale_var(G_("GALE_DOMAIN")));
 	if (!domain || !auth_id_private(domain))
-		gale_alert(GALE_ERROR,"no access to domain private key",0);
+		gale_alert(GALE_ERROR,G_("no access to domain private key"),0);
 
 	category = dom_category(auth_id_name(domain),G_("auth/query"));
 	link = new_link(source);

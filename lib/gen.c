@@ -34,15 +34,14 @@ static void sign_key(struct gale_data in,struct gale_data *out) {
 
 static void stash(char * const * argv) {
 	struct gale_data data;
-	struct gale_text fn = gale_text_from(gale_global->enc_system,argv[1],-1);
+	struct gale_text fn = gale_text_from(gale_global->enc_cmdline,argv[1],-1);
 	struct inode inode;
 	if (_ga_load(0,&data) 
 	&& _ga_save_file(gale_global->dot_private,fn,0600,data,&inode)) {
-		gale_alert(GALE_NOTICE,
-		gale_text_to(gale_global->enc_console,gale_text_concat(5, 
+		gale_alert(GALE_NOTICE,gale_text_concat(5, 
 			G_("saving private key in \""),
 			gale_global->dot_private,G_("/"),inode.name,
-			G_("\""))),0);
+			G_("\"")),0);
 	}
 }
 
@@ -78,7 +77,7 @@ static void write_priv(struct auth_id *id) {
 		int fd;
 		pid_t pid;
 		char *argv[] = { "gkstash", NULL, NULL };
-		argv[1] = gale_text_to(gale_global->enc_system,id->name);
+		argv[1] = gale_text_to(gale_global->enc_cmdline,id->name);
 		pid = gale_exec("gkstash",argv,&fd,NULL,stash);
 		if (fd >= 0) {
 			_ga_save(fd,key);
@@ -115,12 +114,10 @@ static void write_pub(struct auth_id *id) {
 		struct inode inode;
 		_ga_save_file(gale_global->sys_local,id->name,0644,key,NULL);
 		if (_ga_save_file(gale_global->dot_local,id->name,0644,key,&inode)) {
-			gale_alert(GALE_NOTICE,
-			gale_text_to(gale_global->enc_console,
-			    gale_text_concat(5, 
+			gale_alert(GALE_NOTICE,gale_text_concat(5, 
 				G_("saving signed public key in \""),
 				gale_global->dot_local,G_("/"),inode.name,
-				G_("\""))),0);
+				G_("\"")),0);
 		}
 	}
 }
@@ -158,17 +155,17 @@ void auth_id_gen(struct auth_id *id,struct gale_text comment) {
 	if (proto.bits == 0) proto.bits = 768; /* default */
 
 	if (proto.bits > MAX_RSA_MODULUS_BITS) {
-		gale_alert(GALE_WARNING,"key size too big; truncating",0);
+		gale_alert(GALE_WARNING,G_("key size too big; truncating"),0);
 		proto.bits = MAX_RSA_MODULUS_BITS;
 	} else if (proto.bits < MIN_RSA_MODULUS_BITS) {
-		gale_alert(GALE_WARNING,"key size too small; expanding",0);
+		gale_alert(GALE_WARNING,G_("key size too small; expanding"),0);
 		proto.bits = MIN_RSA_MODULUS_BITS;
 	}
 
 	gale_create(rsapub);
 	gale_create(rsapriv);
 	proto.useFermat4 = 1;
-	gale_alert(GALE_NOTICE,"generating keys, please wait...",0);
+	gale_alert(GALE_NOTICE,G_("generating keys, please wait..."),0);
 	err = R_GeneratePEMKeys(rsapub,rsapriv,&proto,_ga_rrand());
 	assert(!err);
 
@@ -215,5 +212,5 @@ void auth_id_gen(struct auth_id *id,struct gale_text comment) {
 
 	write_priv(id);
 	write_pub(id);
-	gale_alert(GALE_NOTICE,"done generating keys",0);
+	gale_alert(GALE_NOTICE,G_("done generating keys"),0);
 }

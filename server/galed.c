@@ -41,7 +41,7 @@ static void *on_incoming(oop_source *source,int fd,oop_event ev,void *user) {
 	int newfd = accept(fd,(struct sockaddr *) &sin,&len);
 	if (newfd < 0) {
 		if (errno != ECONNRESET)
-			gale_alert(GALE_WARNING,"accept",errno);
+			gale_alert(GALE_WARNING,G_("accept"),errno);
 		return OOP_CONTINUE;
 	}
 	gale_dprintf(2,"[%d] new connection from %s\n",
@@ -98,7 +98,7 @@ static void add_links(oop_source *source) {
 	(void) new_attach(source,link,link_filter,NULL,in,out);
 
 	if (gale_text_token(str,';',&link))
-		gale_alert(GALE_WARNING,"extra GALE_LINKS ignored",0);
+		gale_alert(GALE_WARNING,G_("extra GALE_LINKS ignored"),0);
 }
 
 static void usage(void) {
@@ -115,7 +115,7 @@ static void make_listener(oop_source *source,int port) {
 	struct sockaddr_in sin;
 	int one = 1,sock = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
 	if (sock < 0) {
-		gale_alert(GALE_ERROR,"socket",errno);
+		gale_alert(GALE_ERROR,G_("socket"),errno);
 		return;
 	}
 	fcntl(sock,F_SETFD,1);
@@ -123,14 +123,14 @@ static void make_listener(oop_source *source,int port) {
 	sin.sin_port = htons(port);
 	if (setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,
 	               (SETSOCKOPT_ARG_4_T) &one,sizeof(one)))
-		gale_alert(GALE_ERROR,"setsockopt",errno);
+		gale_alert(GALE_ERROR,G_("setsockopt"),errno);
 	if (bind(sock,(struct sockaddr *)&sin,sizeof(sin))) {
-		gale_alert(GALE_ERROR,"bind",errno);
+		gale_alert(GALE_ERROR,G_("bind"),errno);
 		close(sock);
 		return;
 	}
 	if (listen(sock,20)) {
-		gale_alert(GALE_ERROR,"listen",errno);
+		gale_alert(GALE_ERROR,G_("listen"),errno);
 		close(sock);
 		return;
 	}

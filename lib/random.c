@@ -35,7 +35,7 @@ void _ga_random(struct gale_data buf) {
 			if (r.fd >= 0 
 			&&  (fstat(r.fd,&r.st) || (r.st.st_mode & 077))) {
 				gale_alert(GALE_WARNING,
-				           "insecure \".gale/auth/random\"",0);
+				    G_("insecure \".gale/auth/random\""),0);
 				close(r.fd);
 				r.fd = -1;
 			}
@@ -44,7 +44,7 @@ void _ga_random(struct gale_data buf) {
 		if (r.fd < 0 || 
 		    read(r.fd,r.stuff,HASH_SIZE) != HASH_SIZE)
 			gale_alert(GALE_WARNING,
-		                   "good random numbers unavailable",0);
+				G_("good random numbers unavailable"),0);
 		if (r.fd >= 0) close(r.fd);
 	}
 

@@ -51,11 +51,9 @@ static void *on_retry(oop_source *source,struct timeval tv,void *user) {
 
 static void do_retry(struct gale_server *s,int do_alert) {
 	if (do_alert && 0 == s->retry_time)
-		gale_alert(GALE_WARNING,gale_text_to(
-			gale_global->enc_console,
-			gale_text_concat(3,
-				G_("link to "),s->host,
-				G_(" failed, will retry"))),0);
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("link to "),s->host,
+			G_(" failed, will retry")),0);
 
 	gettimeofday(&s->retry_when,NULL);
 	s->retry_when.tv_sec += s->retry_time;
@@ -79,11 +77,9 @@ static void *on_connect(int fd,
 	else {
 		if (0 != s->retry_time) {
 			s->retry_time = 0;
-			gale_alert(GALE_NOTICE,
-			        gale_text_to(gale_global->enc_console,
-					gale_text_concat(3,
-						G_("link to "),s->host,
-						G_(" ok"))),0);
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
+				G_("link to "),s->host,
+				G_(" ok")),0);
 		}
 		s->connect = NULL;
 		link_set_fd(s->link,fd);
@@ -123,8 +119,7 @@ struct gale_server *gale_open(
 	s->host = server;
 	if (0 == s->host.l) s->host = gale_var(G_("GALE_PROXY"));
 	if (0 == s->host.l) s->host = gale_var(G_("GALE_DOMAIN"));
-        if (0 == s->host.l)
-            gale_alert(GALE_ERROR,"$GALE_DOMAIN not set",0);
+        if (0 == s->host.l) gale_alert(GALE_ERROR,G_("$GALE_DOMAIN not set"),0);
 	s->connect = NULL;
 	s->sub = sub;
 

@@ -22,7 +22,7 @@ struct gale_text dir_file(struct gale_text path,struct gale_text file) {
 			r = gale_text_concat(2,r,part);
 		else {
 			gale_alert(GALE_WARNING,
-			           "replaced .. with __ in filename",0);
+			           G_("replaced .. with __ in filename"),0);
 			r = gale_text_concat(3,r,G_("__"),
 				gale_text_right(part,-2));
 		}
@@ -37,19 +37,19 @@ struct gale_text dir_search(struct gale_text fn,int f,struct gale_text t,...) {
 	struct gale_text r = null_text;
 
 	if (fn.l > 0 && fn.p[0] == '/') {
-		if (access(gale_text_to(gale_global->enc_system,fn),F_OK)) 
+		if (access(gale_text_to(gale_global->enc_filesys,fn),F_OK)) 
 			return null_text;
 		else
 			return fn;
 	}
 
-	if (f && !access(gale_text_to(gale_global->enc_system,fn),F_OK))
+	if (f && !access(gale_text_to(gale_global->enc_filesys,fn),F_OK))
 		return fn;
 
 	va_start(ap,t);
 	while (0 == r.l && 0 != t.l) {
 		r = dir_file(t,fn);
-		if (access(gale_text_to(gale_global->enc_system,r),F_OK)) 
+		if (access(gale_text_to(gale_global->enc_filesys,r),F_OK)) 
 			r.l = 0;
 		t = va_arg(ap,struct gale_text);
 	}
@@ -59,24 +59,20 @@ struct gale_text dir_search(struct gale_text fn,int f,struct gale_text t,...) {
 
 void make_dir(struct gale_text path,int mode) {
 	struct stat buf;
-	if (stat(gale_text_to(gale_global->enc_system,path),&buf) 
+	if (stat(gale_text_to(gale_global->enc_filesys,path),&buf) 
 	|| !S_ISDIR(buf.st_mode))
 		if (mode 
-		&&  mkdir(gale_text_to(gale_global->enc_system,path),mode))
-			gale_alert(GALE_WARNING,
-				gale_text_to(gale_global->enc_console,path),
-				errno);
+		&&  mkdir(gale_text_to(gale_global->enc_filesys,path),mode))
+			gale_alert(GALE_WARNING,path,errno);
 }
 
 struct gale_text sub_dir(struct gale_text path,struct gale_text sub,int mode) {
 	struct stat buf;
 	struct gale_text ret = dir_file(path,sub);
-	if ((stat(gale_text_to(gale_global->enc_system,ret),&buf) 
+	if ((stat(gale_text_to(gale_global->enc_filesys,ret),&buf) 
 	|| !S_ISDIR(buf.st_mode)))
-		if (mkdir(gale_text_to(gale_global->enc_system,ret),mode))
-			gale_alert(GALE_WARNING,
-				gale_text_to(gale_global->enc_console,ret),
-				errno);
+		if (mkdir(gale_text_to(gale_global->enc_filesys,ret),mode))
+			gale_alert(GALE_WARNING,ret,errno);
 	return ret;
 }
 

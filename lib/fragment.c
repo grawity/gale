@@ -208,7 +208,7 @@ int gale_unpack_group(struct gale_data *data,struct gale_group *group) {
 
 		if (0 != fdata.l) {
 		warning:
-			gale_alert(GALE_WARNING,"invalid message fragment",0);
+			gale_alert(GALE_WARNING,G_("invalid fragment"),0);
 			frag.name = G_("error");
 			frag.type = frag_data;
 			frag.value.data = gale_data_copy(fdata);

@@ -59,7 +59,9 @@ extern struct gale_global_data {
 	struct gale_errors *error;
 	struct in_addr *local_addrs; /* terminated by 0 */
 
-	struct gale_encoding *enc_ascii,*enc_console,*enc_system;
+	struct gale_encoding 
+		*enc_ascii,*enc_console,*enc_sys,*enc_filesys,
+		*enc_environ,*enc_cmdline;
 } *gale_global;
 
 #endif

@@ -54,7 +54,7 @@ struct auth_id *auth_verify(struct gale_group *grp) {
 
 	if (!gale_unpack_u32(&frag.value.data,&len) 
 	||  len > frag.value.data.l) {
-		gale_alert(GALE_WARNING,"invalid signature format",0);
+		gale_alert(GALE_WARNING,G_("invalid signature format"),0);
 		return NULL;
 	}
 
@@ -64,7 +64,7 @@ struct auth_id *auth_verify(struct gale_group *grp) {
 	_ga_import_sig(&sig,frag.value.data);
 
 	if (!sig.id) {
-		gale_alert(GALE_WARNING,"invalid signature",0);
+		gale_alert(GALE_WARNING,G_("invalid signature"),0);
 		id = NULL;
 	} else if (!auth_id_public(sig.id)) {
 		_ga_warn_id(G_("cannot find key \"%\" to validate"),sig.id);
@@ -85,7 +85,7 @@ struct auth_id *auth_verify(struct gale_group *grp) {
 
         if (!gale_unpack_u32(&data,&zero) || zero != 0
         ||  !gale_unpack_group(&data,&group)) {
-                gale_alert(GALE_WARNING,"invalid signature payload",0);
+                gale_alert(GALE_WARNING,G_("invalid signature payload"),0);
                 id = NULL;
 	} else
 		*grp = group;
@@ -137,7 +137,7 @@ struct auth_id *auth_decrypt(struct gale_group *grp) {
 
 		if (!gale_unpack_u32(&plain,&zero) || zero != 0
 		||  !gale_unpack_group(&plain,&group)) {
-			gale_alert(GALE_WARNING,"unknown encryption format",0);
+			gale_alert(GALE_WARNING,G_("unknown encryption"),0);
 			return NULL;
 		}
 

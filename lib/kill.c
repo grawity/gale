@@ -15,23 +15,22 @@ struct gale_text dotfile = { NULL, 0 };
 static void remove_dotfile(void *data) {
 	if (0 != dotfile.l) {
 		struct gale_text df = dir_file(gale_global->dot_gale,dotfile);
-		unlink(gale_text_to(gale_global->enc_system,df));
+		unlink(gale_text_to(gale_global->enc_filesys,df));
 	}
 }
 
 static int send_kill(int pid,int sig,const char *name) {
 	if (!kill(pid,sig)) {
-		gale_alert(GALE_NOTICE,gale_text_to(gale_global->enc_console,
-			gale_text_concat(4,
-				G_("sent "),
-				gale_text_from(gale_global->enc_system,name,-1),
-				G_(" signal to process "),
-				gale_text_from_number(pid,10,0))),0);
+		gale_alert(GALE_NOTICE,gale_text_concat(4,
+			G_("sent "),
+			gale_text_from(gale_global->enc_sys,name,-1),
+			G_(" signal to process "),
+			gale_text_from_number(pid,10,0)),0);
 		return 1;
 	}
 
 	if (ESRCH != errno && ENOENT != errno)
-		gale_alert(GALE_WARNING,"kill",errno);
+		gale_alert(GALE_WARNING,G_("kill"),errno);
 	return 0;
 }
 
@@ -63,36 +62,33 @@ void gale_kill(struct gale_text class,int do_kill) {
 	const char *df;
 
 	dotfile = gale_text_concat(6,
-		gale_text_from(
-			gale_global->enc_system,
-			gale_global->error_prefix,-1),G_("."),
+		gale_text_from(NULL,gale_global->error_prefix,-1),G_("."),
 		gale_var(G_("HOST")),G_("."),
 		class,G_("."));
 	len = dotfile.l;
 	dotfile = gale_text_concat(2,dotfile,gale_text_from_number(pid,10,0));
 
 	gale_cleanup(remove_dotfile,NULL);
-	df = gale_text_to(gale_global->enc_system,
+	df = gale_text_to(gale_global->enc_filesys,
 		dir_file(gale_global->dot_gale,dotfile));
 	fd = creat(df,0666);
 	if (fd >= 0) 
 		close(fd);
 	else
-		gale_alert(GALE_WARNING,
-			gale_text_to(gale_global->enc_console,dotfile),errno);
+		gale_alert(GALE_WARNING,dotfile,errno);
 
 	if (do_kill) {
-		pdir = opendir(gale_text_to(gale_global->enc_system,
+		pdir = opendir(gale_text_to(gale_global->enc_filesys,
 			dir_file(gale_global->dot_gale,G_("."))));
 		if (pdir == NULL) {
-			gale_alert(GALE_WARNING,"opendir",errno);
+			gale_alert(GALE_WARNING,G_("opendir"),errno);
 			return;
 		}
 
 		while ((de = readdir(pdir))) {
 			struct gale_text dn;
 			dn = gale_text_from(
-				gale_global->enc_system,
+				gale_global->enc_filesys,
 				de->d_name,-1);
 			if (!gale_text_compare(
 				gale_text_left(dn,len),
@@ -101,7 +97,7 @@ void gale_kill(struct gale_text class,int do_kill) {
 					gale_text_right(dn,-len));
 				if (kpid != pid) {
 					terminate(kpid);
-					unlink(gale_text_to(gale_global->enc_system,
+					unlink(gale_text_to(gale_global->enc_filesys,
 						dir_file(gale_global->dot_gale,dn)));
 				}
 			}

@@ -19,11 +19,15 @@
 
 /* Safely output a string to the console. */
 void gale_print(FILE *fp,int attr,struct gale_text);
+void gale_print_line(FILE *fp,int attr,struct gale_text);
+
 /* Predict the column movement a character would cause. */
 int gale_column(int start,wch);
 int gale_text_width(struct gale_text);
+
 /* Beep. */
 void gale_beep(FILE *fp);
+
 /* Get the terminal width. */
 int gale_columns(FILE *fp);
 
@@ -39,7 +43,9 @@ void gale_restart(void);
    similarly for "out", standard out, open for reading.  The last argument is
    a function to call (with the argument list) if the exec failed, to provide
    default functionality; if NULL, it will report an error and exit the sub-
-   process instead. */
+   process instead. 
+
+   TODO -- change arguments to gale_text. */
 pid_t gale_exec(const char *prog,char * const *argv,int *in,int *out,
                 void (*)(char * const *));
 /* Wait for the subprogram to exit and return its return code.  You should call
@@ -251,14 +257,13 @@ struct gale_text dir_file(struct gale_text path,struct gale_text file);
 struct gale_text dir_search(struct gale_text name,int cwd,struct gale_text,...);
 
 /* -- error reporting ------------------------------------------------------ */
-/* XXX - these should use gale_text, not char* */
 
 /* Types of error severity. */
 typedef enum { GALE_NOTICE, GALE_WARNING, GALE_ERROR } gale_error;
 
 /* Report an error.  If GALE_ERROR, the program will terminate, otherwise it
    will continue. */
-void gale_alert(int severity,const char *,int err);
+void gale_alert(int severity,struct gale_text,int err);
 
 /* Error handler function prototypes. */
 typedef void *gale_call_error(gale_error severity,struct gale_text msg,void *);

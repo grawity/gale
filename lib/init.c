@@ -36,13 +36,13 @@ static void init_vars(struct passwd *pwd) {
 	struct hostent *host;
 
 	if (!getenv("GALE_DOMAIN"))
-		gale_alert(GALE_ERROR,"GALE_DOMAIN not set",0);
+		gale_alert(GALE_ERROR,G_("GALE_DOMAIN not set"),0);
 
-	if (uname(&un) < 0) gale_alert(GALE_ERROR,"uname",errno);
+	if (uname(&un) < 0) gale_alert(GALE_ERROR,G_("uname"),errno);
 
 	if (!gale_var(G_("HOST")).l)
 		gale_set(G_("HOST"),
-			gale_text_from(gale_global->enc_system,un.nodename,-1));
+			gale_text_from(gale_global->enc_sys,un.nodename,-1));
 
 	host = gethostbyname(un.nodename);
 	if (NULL == host) {
@@ -64,7 +64,7 @@ static void init_vars(struct passwd *pwd) {
 
 	if (!gale_var(G_("LOGNAME")).l)
 		gale_set(G_("LOGNAME"),gale_text_from(
-			gale_global->enc_system,pwd->pw_name,-1));
+			gale_global->enc_sys,pwd->pw_name,-1));
 
 	{
 		struct gale_text new = gale_text_concat(5,
@@ -84,23 +84,24 @@ static void init_vars(struct passwd *pwd) {
 		char *name = strtok(pwd->pw_gecos,",");
 		if (!name || !*name) name = "unknown";
 		gale_set(G_("GALE_FROM"),gale_text_from(
-			gale_global->enc_system,name,-1));
+			gale_global->enc_sys,name,-1));
 	}
 
 	if (!gale_var(G_("GALE_ID")).l)
 		gale_set(G_("GALE_ID"),gale_text_from(
-			gale_global->enc_system,pwd->pw_name,-1));
+			gale_global->enc_sys,pwd->pw_name,-1));
 }
 
 void gale_restart(void) {
 	assert(main_argv[main_argc] == NULL);
 	alarm(0);
 	execvp(main_argv[0],main_argv);
-	gale_alert(GALE_WARNING,main_argv[0],errno);
+	gale_alert(GALE_WARNING,
+	    gale_text_from(gale_global->enc_cmdline,main_argv[0],-1),errno);
 }
 
 static void *on_restart(oop_source *source,int sig,void *user) {
-	gale_alert(GALE_NOTICE,"SIGUSR1 received, restarting",0);
+	gale_alert(GALE_NOTICE,G_("SIGUSR1 received, restarting"),0);
 	gale_restart();
 	return OOP_HALT;
 }
@@ -109,18 +110,15 @@ static void *on_report(oop_source *source,int sig,void *user) {
 	struct gale_text fn = dir_file(gale_global->dot_gale,
 		gale_text_concat(4,
 			G_("report."),
-			gale_text_from(
-				gale_global->enc_system,
-				gale_global->error_prefix,-1),
+			gale_text_from(NULL,gale_global->error_prefix,-1),
 			G_("."),
 			gale_text_from_number(getpid(),10,0)));
 
-	FILE *fp = fopen(gale_text_to(gale_global->enc_system,fn),"w");
+	FILE *fp = fopen(gale_text_to(gale_global->enc_filesys,fn),"w");
 	if (NULL == fp) 
-		gale_alert(GALE_WARNING,
-			gale_text_to(gale_global->enc_console,fn),errno);
+		gale_alert(GALE_WARNING,fn,errno);
 	else {
-		fputs(gale_text_to(gale_global->enc_system,
+		fputs(gale_text_to(gale_global->enc_filesys,
 			gale_report_run(gale_global->report)),fp);
 		fclose(fp);
 	}
@@ -169,7 +167,7 @@ void gale_init(const char *s,int argc,char * const *argv) {
 
 	if ((user = getenv("LOGNAME"))) pwd = getpwnam(user);
 	if (!pwd) pwd = getpwuid(geteuid());
-	if (!pwd) gale_alert(GALE_ERROR,"you do not exist",0);
+	if (!pwd) gale_alert(GALE_ERROR,G_("you do not exist"),0);
 
 	/* Set up global variables. */
 

@@ -72,19 +72,19 @@ void _ga_import_priv(struct auth_id **id,struct gale_data key,struct inode *in)
 	if (gale_unpack_compare(&key,magic,sizeof(magic))) {
 		const char *sz;
 		if (!gale_unpack_str(&key,&sz)) {
-			gale_alert(GALE_WARNING,"invalid private key format",0);
+			gale_alert(GALE_WARNING,G_("invalid private key"),0);
 			return;
 		}
 		init_auth_id(&try,gale_text_from(NULL,sz,-1));
 	} else if (gale_unpack_compare(&key,magic2,sizeof(magic2))) {
 		struct gale_text text;
 		if (!gale_unpack_text(&key,&text)) {
-			gale_alert(GALE_WARNING,"invalid private key format",0);
+			gale_alert(GALE_WARNING,G_("invalid private key"),0);
 			return;
 		}
 		init_auth_id(&try,text);
 	} else {
-		gale_alert(GALE_WARNING,"unknown private key format",0);
+		gale_alert(GALE_WARNING,G_("unknown private key format"),0);
 		return;
 	}
 

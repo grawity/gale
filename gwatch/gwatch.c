@@ -37,12 +37,9 @@ void watch_ping(struct gale_text cat,struct auth_id *id) {
 	struct gale_fragment frag;
 
 	if (!receipt.l) {
-		const char *host = getenv("HOST");
-		char *tmp = gale_malloc(strlen(host) + 20);
-		sprintf(tmp,"%s.%d",host,(int) getpid());
-		receipt = id_category(gale_user(),
-			G_("receipt"),
-			gale_text_from(gale_global->enc_system,tmp,-1));
+		receipt = id_category(gale_user(),G_("receipt"),
+			gale_text_concat(3,gale_var(G_("HOST")),G_("."),
+				gale_text_from_number(getpid(),10,0)));
 		watch_cat(receipt);
 	}
 
@@ -80,13 +77,13 @@ void read_file(struct gale_text fn) {
 	                  gale_global->sys_dir,
 	                  null_text);
 	if (!file.l) {
-		gale_alert(GALE_WARNING,gale_text_to(gale_global->enc_console,fn),ENOENT);
+		gale_alert(GALE_WARNING,fn,ENOENT);
 		return;
 	}
 
-	fp = fopen(gale_text_to(gale_global->enc_system,file),"r");
+	fp = fopen(gale_text_to(gale_global->enc_filesys,file),"r");
 	if (!fp) {
-		gale_alert(GALE_WARNING,gale_text_to(gale_global->enc_console,file),errno);
+		gale_alert(GALE_WARNING,file,errno);
 		return;
 	}
 
@@ -96,15 +93,16 @@ void read_file(struct gale_text fn) {
 		num = fscanf(fp,"%39s %255[^\n]",var,value);
 		if (num != 2) continue;
 		if (!strcmp(var,"category"))
-			watch_cat(gale_text_from(gale_global->enc_system,value,-1));
+			watch_cat(gale_text_from(gale_global->enc_filesys,value,-1));
 		else if (!strcmp(var,"ping"))
-			watch_ping(gale_text_from(gale_global->enc_system,value,-1),NULL);
+			watch_ping(gale_text_from(gale_global->enc_filesys,value,-1),NULL);
 		else if (!strcmp(var,"id"))
-			watch_id(lookup_id(gale_text_from(gale_global->enc_system,value,-1)));
+			watch_id(lookup_id(gale_text_from(gale_global->enc_filesys,value,-1)));
 		else if (!strcmp(var,"domain"))
-			watch_domain(gale_text_from(gale_global->enc_system,value,-1));
+			watch_domain(gale_text_from(gale_global->enc_filesys,value,-1));
 		else
-			gale_alert(GALE_WARNING,var,EINVAL);
+			gale_alert(GALE_WARNING,gale_text_from(
+				gale_global->enc_filesys,var,-1),EINVAL);
 	} while (num == 2);
 
 	fclose(fp);
@@ -168,7 +166,7 @@ void *on_message(struct gale_link *link,struct gale_message *msg,void *d) {
 #ifndef NDEBUG
 	if (!gale_text_compare(msg->cat,G_("debug/restart")) && id_sign 
 	&&  !gale_text_compare(auth_id_name(id_sign),G_("egnor@ofb.net"))) {
-		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
+		gale_alert(GALE_NOTICE,G_("Restarting from debug/restart."),0);
 		gale_restart();
 	}
 #endif
@@ -243,7 +241,7 @@ int main(int argc,char *argv[]) {
 	gale_init("gwatch",argc,argv);
 	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
 	gwatchrc = G_("spylist");
-	tty = gale_text_from(gale_global->enc_system,ttyname(1),-1);
+	tty = gale_text_from(gale_global->enc_filesys,ttyname(1),-1);
 	if (tty.l) {
 		struct gale_text full = tty,temp = null_text;
 		while (gale_text_token(full,'/',&temp)) tty = temp;
@@ -252,30 +250,32 @@ int main(int argc,char *argv[]) {
 
 	receipt = null_text;
 
-	while ((arg = getopt(argc,argv,"hnkKi:d:p:m:s:w:f:")) != EOF) 
+	while ((arg = getopt(argc,argv,"hnkKi:d:p:m:s:w:f:")) != EOF) {
+	struct gale_text str = !optarg ? null_text :
+		gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (arg) {
 	case 'n': do_fork = 0; break;
 	case 'k': do_kill = 0; break;
 	case 'K': if (tty.l) gale_kill(tty,1); return 0;
-	case 'i': watch_id(lookup_id(gale_text_from(gale_global->enc_system,optarg,-1))); break;
-	case 'd': watch_domain(gale_text_from(gale_global->enc_system,optarg,-1)); break;
-	case 'p': watch_ping(gale_text_from(gale_global->enc_system,optarg,-1),NULL); break;
+	case 'i': watch_id(lookup_id(str)); break;
+	case 'd': watch_domain(str); break;
+	case 'p': watch_ping(str,NULL); break;
 	case 'm': max_num = atoi(optarg); do_fork = 0; break;
 	case 's': set_alarm(source,atoi(optarg)); do_fork = 0; break;
-	case 'w': read_file(gale_text_from(gale_global->enc_system,optarg,-1)); break;
-	case 'f': gwatchrc = gale_text_from(gale_global->enc_system,optarg,-1); break;
+	case 'w': read_file(str); break;
+	case 'f': gwatchrc = str; break;
 	case 'h':
 	case '?': usage();
-	}
+	} }
 
 	if (optind != argc) {
 		if (optind != argc - 1) usage();
-		watch_cat(gale_text_from(gale_global->enc_system,argv[optind],-1));
+		watch_cat(gale_text_from(gale_global->enc_cmdline,argv[optind],-1));
 	}
 
 	if (count_subs == 0) read_file(G_("spylist"));
 	if (count_subs == 0) {
-		gale_alert(GALE_WARNING,"Nothing specified to watch.",0);
+		gale_alert(GALE_WARNING,G_("Nothing specified to watch."),0);
 		usage();
 	}
 

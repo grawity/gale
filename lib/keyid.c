@@ -23,7 +23,7 @@ void _ga_warn_id(struct gale_text text,...) {
 	}
 	va_end(ap);
 
-	gale_alert(GALE_WARNING,gale_text_to(gale_global->enc_console,out),0);
+	gale_alert(GALE_WARNING,out,0);
 }
 
 void init_auth_id(struct auth_id **pid,struct gale_text name) {

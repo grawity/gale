@@ -38,10 +38,9 @@ void *on_connect(struct gale_server *server,
                  void *data) 
 {
 	struct attach *att = (struct attach *) data;
-	gale_alert(GALE_NOTICE,gale_text_to(gale_global->enc_console,
-		gale_text_concat(2,
-			G_("connected to "),
-			gale_connect_text(name,addr))),0);
+	gale_alert(GALE_NOTICE,gale_text_concat(2,
+		G_("connected to "),
+		gale_connect_text(name,addr)),0);
 	att->name = name;
 	link_will(att->link,gale_error_message(
 		gale_text_concat(3,
@@ -52,9 +51,8 @@ void *on_connect(struct gale_server *server,
 
 void *on_disconnect(struct gale_server *server,void *data) {
 	struct attach *att = (struct attach *) data;
-	gale_alert(GALE_WARNING,gale_text_to(gale_global->enc_console,
-		gale_text_concat(3,
-			G_("disconnected from \""),att->name,G_("\""))),0);
+	gale_alert(GALE_WARNING,gale_text_concat(3,
+		G_("disconnected from \""),att->name,G_("\"")),0);
 	return OOP_CONTINUE;
 }
 

@@ -78,7 +78,7 @@ int _ga_find_pub(struct auth_id *id) {
 	if (NULL != gale_global->find_public 
 	&&  gale_global->find_public(id)) return 1;
 
-	argv[1] = gale_text_to(gale_global->enc_system,id->name);
+	argv[1] = gale_text_to(gale_global->enc_cmdline,id->name);
 	pid = gale_exec("gkfind",argv,NULL,&fd,nop);
 	status = open_pub_fd(id,fd,null_text,IMPORT_NORMAL);
 	gale_wait(pid);
@@ -161,7 +161,7 @@ static int get_private(struct auth_id *id) {
 	if (gale_global->find_private && gale_global->find_private(id)) 
 		return 1;
 
-	argv[1] = gale_text_to(gale_global->enc_system,id->name);
+	argv[1] = gale_text_to(gale_global->enc_cmdline,id->name);
 	pid = gale_exec("gkfetch",argv,NULL,&fd,nop);
 	status = open_priv_fd(id,fd,null_text);
 	gale_wait(pid);
@@ -173,7 +173,7 @@ int auth_id_private(struct auth_id *id) {
 
 	if (!auth_id_public(id)) {
 		gale_alert(GALE_WARNING,
-		"ignoring private key with no public counterpart",0);
+		G_("ignoring private key with no public counterpart"),0);
 		return 0;
 	}
 

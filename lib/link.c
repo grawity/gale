@@ -126,13 +126,11 @@ static void ifn_version(struct input_state *inp) {
 	assert(0 == inp->data.l);
 /* gale_dprintf(1,"[%d] got: version %d\n",l->fd,version); */
 	if (version > PROTOCOL_VERSION) {
-		struct gale_text error = gale_text_concat(4,
+		gale_alert(GALE_WARNING,gale_text_concat(4,
 			G_("remote protocol v"),
 			gale_text_from_number(version,10,0),
 			G_(" > our protocol v"),
-			gale_text_from_number(PROTOCOL_VERSION,10,0));
-		gale_alert(GALE_WARNING,
-			gale_text_to(gale_global->enc_console,error),0);
+			gale_text_from_number(PROTOCOL_VERSION,10,0)),0);
 		l->in_version = PROTOCOL_VERSION;
 	} else l->in_version = version;
 	l->in_length = 0;
@@ -153,7 +151,7 @@ static void ifn_opcode(struct input_state *inp) {
 	assert(0 == inp->data.l);
 /* gale_dprintf(1,"[%d] got: opcode %d, length %d\n",l->fd,l->in_opcode,l->in_length); */
 	if (l->in_length > SIZE_LIMIT) {
-		gale_alert(GALE_WARNING,"excessively big message dropped",0);
+		gale_alert(GALE_WARNING,G_("oversize message dropped"),0);
 		ist_unknown(inp);
 	} else switch (l->in_opcode) {
 	case opcode_puff:
@@ -196,7 +194,7 @@ static void ifn_message_body(struct input_state *inp) {
 
 	if (!gale_unpack_u32(&inp->data,&zero) || 0 != zero 
 	||  !gale_unpack_group(&inp->data,&l->in_msg->data))
-		gale_alert(GALE_WARNING,"invalid message format ignored",0);
+		gale_alert(GALE_WARNING,G_("invalid message ignored"),0);
 	else switch (l->in_opcode) {
 	case opcode_puff:
 		assert(NULL == l->in_puff);
@@ -243,7 +241,7 @@ static void ifn_category_len(struct input_state *inp) {
 	assert(NULL == l->in_msg);
 
 	if (u > l->in_length) {
-		gale_alert(GALE_WARNING,"ignoring malformed message",0);
+		gale_alert(GALE_WARNING,G_("ignoring malformed message"),0);
 		ist_unknown(inp);
 		return;
 	}
@@ -262,7 +260,7 @@ static void ist_message(struct input_state *inp) {
 	struct gale_link *l = (struct gale_link *) inp->private;
 
 	if (gale_u32_size() > l->in_length) {
-		gale_alert(GALE_WARNING,"ignoring truncated message",0);
+		gale_alert(GALE_WARNING,G_("ignoring truncated message"),0);
 		ist_unknown(inp);
 		return;
 	}

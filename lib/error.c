@@ -45,55 +45,45 @@ void gale_on_error(oop_source *source,gale_call_error *call,void *data) {
 	gale_global->error = error;
 }
 
-void gale_alert(int sev,const char *msg,int err) {
+void gale_alert(int sev,struct gale_text msg,int err) {
 	struct error_message *message;
-	char *tmp;
-	time_t when;
-	int len = strlen(msg) + 256;
-	if (NULL != gale_global->error_prefix) 
-		len += strlen(gale_global->error_prefix);
-	tmp = gale_malloc(len);
+	struct gale_text stamp,prefix,label;
 
-	time(&when);
-	strftime(tmp,40,"%Y-%m-%d %H:%M:%S ",localtime(&when));
-
-	if (gale_global->error_prefix) {
-		strcat(tmp,gale_global->error_prefix);
-		strcat(tmp," ");
+	{
+		char timebuf[256];
+		time_t when = time(NULL);
+		strftime(timebuf,40,"%Y-%m-%d %H:%M:%S",localtime(&when));
+		stamp = gale_text_from(NULL,timebuf,-1);
 	}
+
+	prefix = null_text;
+	if (gale_global && gale_global->error_prefix)
+		prefix = gale_text_concat(2,G_(" "),
+			 gale_text_from(NULL,gale_global->error_prefix,-1));
 
 	switch (sev) {
-	case GALE_NOTICE: strcat(tmp,"notice"); break;
-	case GALE_WARNING: strcat(tmp,"warning"); break;
-	case GALE_ERROR: strcat(tmp,"error"); break;
+	case GALE_NOTICE: label = G_(" notice"); break;
+	case GALE_WARNING: label = G_(" warning"); break;
+	case GALE_ERROR: label = G_(" error"); break;
 	}
 
-	if (err) {
-		strcat(tmp," (");
-		strcat(tmp,msg);
-		strcat(tmp,"): ");
-		strcat(tmp,strerror(err));
-	} else {
-		strcat(tmp,": ");
-		strcat(tmp,msg);
-	}
-
-	message = gale_malloc(sizeof(*message));
+	gale_create(message);
 	message->severity = sev;
-	if (NULL == gale_global)
-		message->text = gale_text_from(NULL,tmp,-1);
+	if (0 != err) 
+		message->text = gale_text_concat(7,
+			stamp,prefix,label,G_(" ("),msg,G_("): "),
+			gale_text_from(gale_global->enc_sys,strerror(err),-1));
 	else
-		message->text = gale_text_from(gale_global->enc_console,tmp,-1);
+		message->text = gale_text_concat(5,
+			stamp,prefix,label,G_(": "),msg);
 
 	if (NULL == gale_global || NULL == gale_global->error)
 		output(message);
-	else {
-		message->text = gale_text_from(gale_global->enc_console,tmp,-1);
+	else
 		gale_global->error->source->on_time(
 			gale_global->error->source,
 			OOP_TIME_NOW,
 			on_error,message);
-	}
 
-	if (sev == GALE_ERROR) exit(1);
+	if (GALE_ERROR == sev) exit(1);
 }

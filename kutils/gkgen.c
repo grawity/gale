@@ -33,40 +33,40 @@ int main(int argc,char *argv[]) {
 	gale_init("gkgen",argc,argv);
 	disable_gale_akd();
 
-	while ((arg = getopt(argc,argv,"hnr:u:s:")) != EOF)
+	while ((arg = getopt(argc,argv,"hnr:u:s:")) != EOF) {
+	struct gale_text str = !optarg ? null_text :
+		gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (arg) {
 	case 'n': do_wipe = 0; break;
-	case 'r': out_priv = gale_text_from(gale_global->enc_system,optarg,-1); break;
-	case 'u': out_pub = gale_text_from(gale_global->enc_system,optarg,-1); break;
-	case 's': init_auth_id(&redirect,gale_text_from(gale_global->enc_system,optarg,-1)); 
+	case 'r': out_priv = str; break;
+	case 'u': out_pub = str; break;
+	case 's': init_auth_id(&redirect,str); 
 	          break;
 	case 'h':
 	case '?': usage();
-	}
+	} }
 
 	switch (argc - optind) {
-	case 2: comment = gale_text_from(gale_global->enc_system,argv[optind + 1],-1); break;
+	case 2: comment = gale_text_from(gale_global->enc_cmdline,argv[optind + 1],-1); break;
 	case 1: comment = null_text; break;
 	default:  usage();
 	}
 
-	init_auth_id(&id,gale_text_from(gale_global->enc_system,argv[optind],-1));
+	init_auth_id(&id,gale_text_from(gale_global->enc_cmdline,argv[optind],-1));
 	if (!gale_text_compare(G_("ROOT"),_ga_signer(auth_id_name(id))))
-		gale_alert(GALE_WARNING,"making top-level domain key!",0);
+		gale_alert(GALE_WARNING,G_("making top-level domain key!"),0);
 	if (do_wipe) {
 		while (auth_id_public(id) && _ga_erase_inode(id->pub_inode)) {
-			gale_alert(GALE_NOTICE,
-			gale_text_to(gale_global->enc_console,gale_text_concat(3,
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
 				G_("erased old public key file \""),
 				id->pub_inode.name,
-				G_("\""))),0);
+				G_("\"")),0);
 		}
 		while (auth_id_private(id) &&_ga_erase_inode(id->priv_inode)) {
-			gale_alert(GALE_NOTICE,
-			gale_text_to(gale_global->enc_console,gale_text_concat(3,
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
 				G_("erased old private key file \""),
 				id->priv_inode.name,
-				G_("\""))),0);
+				G_("\"")),0);
 		}
 	}
 
@@ -82,7 +82,8 @@ int main(int argc,char *argv[]) {
 		struct gale_data blob;
 
 		_ga_export_pub(id,&blob,EXPORT_TRUSTED);
-		if (0 == blob.l) gale_alert(GALE_ERROR,"no public key to write!",0);
+		if (0 == blob.l) 
+			gale_alert(GALE_ERROR,G_("no public key to write!"),0);
 		fn = out_pub;
 		if (0 == fn.l) {
 			assert(!trust);
@@ -91,20 +92,18 @@ int main(int argc,char *argv[]) {
 		}
 
 		if (!_ga_save_file(dir,fn,0644,blob,&inode))
-			gale_alert(GALE_ERROR,"couldn't write public key",0);
+			gale_alert(GALE_ERROR,G_("couldn't write public key"),0);
 
 		if (trust)
-			gale_alert(GALE_NOTICE,
-			gale_text_to(gale_global->enc_console,gale_text_concat(3,
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
 				G_("copying public key to \""),
 				inode.name,
-				G_("\", as directed"))),0);
+				G_("\", as directed")),0);
 		else
-			gale_alert(GALE_NOTICE,
-			gale_text_to(gale_global->enc_console,gale_text_concat(5,
+			gale_alert(GALE_NOTICE,gale_text_concat(5,
 				G_("saving *unsigned* public key in \""),
 				dir,(dir.l ? G_("/") : dir),inode.name,
-				(out_pub.l ? G_("\", as directed") : G_("\"")))),0);
+				(out_pub.l ? G_("\", as directed") : G_("\""))),0);
 	}
 
 	if (0 != out_priv.l) {
@@ -112,16 +111,16 @@ int main(int argc,char *argv[]) {
 		struct gale_data blob;
 
 		_ga_export_priv(id,&blob);
-		if (0 == blob.l) gale_alert(GALE_ERROR,"no private key to write!",0);
+		if (0 == blob.l) 
+			gale_alert(GALE_ERROR,G_("no private key to write!"),0);
 
 		if (!_ga_save_file(null_text,out_priv,0600,blob,&inode))
-			gale_alert(GALE_ERROR,"couldn't write private key",0);
+			gale_alert(GALE_ERROR,G_("couldn't write private key"),0);
 
-		gale_alert(GALE_NOTICE,
-		gale_text_to(gale_global->enc_console,gale_text_concat(3,
+		gale_alert(GALE_NOTICE,gale_text_concat(3,
 			G_("copying private key to \""),
 			inode.name,
-			G_("\", as directed"))),0);
+			G_("\", as directed")),0);
 	}
 
 	return 0;

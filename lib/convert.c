@@ -34,7 +34,7 @@ struct gale_encoding *gale_make_encoding(struct gale_text name) {
 
 		if ((iconv_t) -1 == enc->from
 		||  (iconv_t) -1 == enc->to) {
-			gale_alert(GALE_WARNING,gale_text_to(NULL,name),errno);
+			gale_alert(GALE_WARNING,name,errno);
 			enc = NULL;
 		}
 	}
@@ -119,16 +119,17 @@ struct gale_text gale_text_from(struct gale_encoding *e,const char *p,int l) {
 		switch (errno)
 		{
 		case EILSEQ:
-			++inbuf;
-			--inbytes;
+		case EINVAL:
+			* (wch *) outbuf = 0xFFFD;
+			to_ucs((wch *) outbuf); 
+			outbuf += sizeof(wch); outbytes -= sizeof(wch);
+			++inbuf; --inbytes;
 			break;
 		case E2BIG:
 			assert(0); /* >1 character per byte?! */
 		default:
-			gale_alert(GALE_WARNING,"conversion error",errno);
-		case EINVAL:
-			inbuf += inbytes;
-			inbytes = 0;
+			gale_alert(GALE_WARNING,G_("conversion error"),errno);
+			inbuf += inbytes; inbytes = 0;
 			break;
 		}
 
@@ -169,6 +170,7 @@ char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
 
 	for (;;) {
 		char *newbuf;
+		int diff;
 
 		size_t ret = iconv(e->to,&inbuf,&inbytes,&outbuf,&outbytes);
 		if ((size_t) -1 != ret) {
@@ -188,9 +190,15 @@ char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
 		switch (errno) {
 		case EINVAL:
 		case EILSEQ:
-			assert(0); /* invalid UCS-2/UCS-4?  impossible!! */
+			/* "invalid" here means "can't convert" */
+			assert(inbytes > 0);
+			diff = 1 + ((inbytes - 1) % sizeof(wch));
+			inbuf += diff;
+			inbytes -= diff;
+			break;
+
 		default:
-			gale_alert(GALE_WARNING,"conversion error",errno);
+			gale_alert(GALE_WARNING,G_("conversion error"),errno);
 			inbuf += inbytes;
 			inbytes = 0;
 			break;

@@ -87,7 +87,7 @@ static struct gale_text temp(void) {
 	pid = getpid();
 
 	return gale_text_concat(6,G_("temp."),
-	       gale_text_from(gale_global->enc_system,un.nodename,-1),G_("."),
+	       gale_text_from(gale_global->enc_sys,un.nodename,-1),G_("."),
 	       gale_text_from_number(pid,10,0),G_("."),
 	       gale_text_from_number(++seq,10,0));
 }
@@ -103,9 +103,8 @@ static int find(struct cid cid,struct gale_text dir,struct gale_text file,
 {
 	struct stat buf;
 	struct gale_data data;
-	const char *sz = gale_text_to(
-		gale_global->enc_system,
-		dir_file(dir,file));
+	struct gale_text filename = dir_file(dir,file);
+	const char *sz = gale_text_to(gale_global->enc_filesys,filename);
 	int fd = -1,r;
 
 	if (NULL != pdata) {
@@ -115,24 +114,24 @@ static int find(struct cid cid,struct gale_text dir,struct gale_text file,
 
 	if (0 > (fd = open(sz,O_RDONLY))) {
 		if (ENOENT == errno) return 0;
-		gale_alert(GALE_WARNING,sz,errno);
+		gale_alert(GALE_WARNING,filename,errno);
 		goto error;
 	}
 	if (!fstat(fd,&buf)) {
-		gale_alert(GALE_WARNING,sz,errno);
+		gale_alert(GALE_WARNING,filename,errno);
 		goto error;
 	}
 	if (!S_ISREG(buf.st_mode)) {
-                char *err = gale_malloc(strlen(sz) + 64);
-                sprintf(err,"\"%s\": not an ordinary file",sz);
-		gale_alert(GALE_WARNING,err,0);
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("\""),filename,G_("\": not an ordinary file")),0);
 		goto error;
 	}
 	if (buf.st_size != cid.size) {
-                char *err = gale_malloc(strlen(sz) + 64);
-                sprintf(err,"\"%s\": expected size %d, found size %lu",
-		        sz,cid.size,buf.st_size);
-		gale_alert(GALE_WARNING,err,0);
+		gale_alert(GALE_WARNING,gale_text_concat(6,
+			G_("\""),filename,G_("\": expected size "),
+			gale_text_from_number(cid.size,10,0),
+			G_(", found size "),
+			gale_text_from_number(buf.st_size,10,0)),0);
 		goto error;
 	}
 
@@ -140,20 +139,18 @@ static int find(struct cid cid,struct gale_text dir,struct gale_text file,
 	data.l = cid.size;
 	r = read(fd,data.p,cid.size);
 	if (r < 0) {
-		gale_alert(GALE_WARNING,sz,errno);
+		gale_alert(GALE_WARNING,filename,errno);
 		goto error;
 	}
 	if (r != cid.size) {
-                char *err = gale_malloc(strlen(sz) + 64);
-                sprintf(err,"\"%s\": read truncated",sz);
-		gale_alert(GALE_WARNING,err,0);
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("\""),filename,G_("\": read truncated")),0);
 		goto error;
 	}
 
 	if (0 != compare(cid,compute(data))) {
-                char *err = gale_malloc(strlen(sz) + 64);
-		sprintf(err,"\"%s\": invalid checksum",sz);
-		gale_alert(GALE_WARNING,err,0);
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("\""),filename,G_("\": invalid checksum")),0);
 		goto error;
 	}
 
@@ -163,7 +160,7 @@ static int find(struct cid cid,struct gale_text dir,struct gale_text file,
 error:
 	{
 		const char *szt = gale_text_to(
-			gale_global->enc_system,
+			gale_global->enc_filesys,
 			dir_file(dir,temp()));
 		if (!rename(sz,szt)) unlink(szt);
 	}
@@ -173,7 +170,7 @@ error:
 
 static int getlock(struct gale_text dir,struct gale_text file) {
 	const char *sz = gale_text_to(
-		gale_global->enc_system,
+		gale_global->enc_filesys,
 		dir_file(dir,file));
 	const char *szt = NULL;
 	int fd = -1;
@@ -183,7 +180,7 @@ static int getlock(struct gale_text dir,struct gale_text file) {
 	if (!stat(sz,&buf)) goto failed;
 
 	/* Now, create a unique file... */
-	szt = gale_text_to(gale_global->enc_system,dir_file(dir,temp()));	
+	szt = gale_text_to(gale_global->enc_filesys,dir_file(dir,temp()));
 	fd = creat(szt,0444);
 	if (fd < 0) goto failed;
 	close(fd); fd = -1;
@@ -203,17 +200,15 @@ failed:
 }
 
 static void clean(struct gale_text dir) {
-	const char *sz = gale_text_to(gale_global->enc_system,dir);
-	char *msg = gale_malloc(2*dir.l + 64);
 	pid_t pid;
 
-	sprintf(msg,"our turn to clean \"%s\"",sz);
-	gale_alert(GALE_NOTICE,msg,0);
+	gale_alert(GALE_NOTICE,gale_text_concat(3,
+		G_("our turn to clean \""),dir,G_("\"")),0);
 
 	pid = fork();
 
 	if (pid < 0) {
-		gale_alert(GALE_WARNING,"fork",errno);
+		gale_alert(GALE_WARNING,G_("fork"),errno);
 		return;
 	} else if (pid > 0) {
 		gale_wait(pid);
@@ -231,10 +226,9 @@ static void clean(struct gale_text dir) {
 
 static int store(struct gale_text dir,struct gale_text name,struct gale_data data) {
 	struct gale_text file = dir_file(dir,name);
-	const char *sz = gale_text_to(gale_global->enc_system,file);
-	const char *szt = gale_text_to(
-		gale_global->enc_system,
-		dir_file(dir,temp()));
+	const char *sz = gale_text_to(gale_global->enc_filesys,file);
+	struct gale_text tempname = dir_file(dir,temp());
+	const char *szt = gale_text_to(gale_global->enc_filesys,tempname);
 	struct stat buf;
 	int fd = -1,r;
 
@@ -248,13 +242,12 @@ static int store(struct gale_text dir,struct gale_text name,struct gale_data dat
 
 	r = write(fd,data.p,data.l);
 	if (r < 0) {
-		gale_alert(GALE_WARNING,szt,errno);
+		gale_alert(GALE_WARNING,tempname,errno);
 		goto error;
 	}
 	if (r < data.l) {
-                char *err = gale_malloc(strlen(szt) + 64);
-                sprintf(err,"\"%s\": write truncated",szt);
-		gale_alert(GALE_WARNING,err,0);
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("\""),tempname,G_("\": write truncated")),0);
 		goto error;
 	}
 
@@ -263,7 +256,7 @@ static int store(struct gale_text dir,struct gale_text name,struct gale_data dat
 	close(fd); fd = -1;
 
 	if (rename(szt,sz)) {
-		gale_alert(GALE_WARNING,sz,errno);
+		gale_alert(GALE_WARNING,file,errno);
 		goto error;
 	}
 

@@ -72,7 +72,7 @@ void headers(void) {
 
 	tty = ttyname(0);
 	if (tty && strchr(tty,'/')) tty = strrchr(tty,'/') + 1;
-	gale_add_id(&msg->data,gale_text_from(gale_global->enc_system,tty,-1));
+	gale_add_id(&msg->data,gale_text_from(gale_global->enc_filesys,tty,-1));
 
 	if (do_rrcpt) {
 		frag.name = G_("question/receipt");
@@ -179,49 +179,43 @@ int main(int argc,char *argv[]) {
 	msg->data = gale_group_empty();
 
 	/* Parse command line options. */
-	while ((arg = getopt(argc,argv,"Ddhac:C:t:Pps:S:uU")) != EOF) 
+	while ((arg = getopt(argc,argv,"Ddhac:C:t:Pps:S:uU")) != EOF) {
+		struct gale_text str = (NULL == optarg) ? null_text :
+			gale_text_from(gale_global->enc_cmdline,optarg,-1);
 	switch (arg) {
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
 	case 'a': do_identify = 0; break;	/* Anonymous */
-	case 'c': if (!public.p) public =       /* Public message */
-	          gale_text_from(gale_global->enc_system,optarg,-1);
-	          else public = 
-	          gale_text_concat(3,public,G_(":"),
-			gale_text_from(gale_global->enc_system,optarg,-1));
+	case 'c': if (!public.p) public = str;  /* Public message */
+	          else public = gale_text_concat(3,public,G_(":"),str);
 	          break;
-	case 'C': msg->cat =			/* Select a category */
-	          gale_text_from(gale_global->enc_system,optarg,-1); 
+	case 'C': msg->cat = str;		/* Select a category */
 	          break;
-	case 's': subject =                     /* Set the subject */
-	          gale_text_from(gale_global->enc_system,optarg,-1);
+	case 's': subject = str;                /* Set the subject */
 	          break;
-	case 'S': signer =      		/* Select an ID to sign with */
-	          lookup_id(gale_text_from(gale_global->enc_system,optarg,-1));
+	case 'S': signer = lookup_id(str);	/* Select an ID to sign with */
 	          break;
 	case 'p': do_rrcpt = 2; break;		/* Return receipt */
 	case 'P': do_rrcpt = 0; break;
-	case 't': parse_text(			/* User defined fragment */
-	          gale_text_from(gale_global->enc_system,optarg,-1));
+	case 't': parse_text(str);		/* User defined fragment */
 	          break;
 	case 'h':
 	case '?': usage();
-	}
+	} }
 
 	/* Sign with our key by default. */
 	if (do_identify && NULL == signer) signer = gale_user();
 
 	gale_create_array(rcpt,argc - optind);
 	for (; argc != optind; ++optind) {
-		struct auth_id *id = 
-			lookup_id(gale_text_from(gale_global->enc_system,argv[optind],-1));
+		struct gale_text arg = gale_text_from(
+			gale_global->enc_cmdline,argv[optind],-1);
+		struct auth_id *id = lookup_id(arg);
 		if (!public.p) do_encrypt = 1;
 
 		if (!auth_id_public(id)) {
-			char *buf = gale_malloc(strlen(argv[optind]) + 30);
-			sprintf(buf,"cannot find user \"%s\"",argv[optind]);
-			gale_alert(GALE_WARNING,buf,0);
-			gale_free(buf);
+			gale_alert(GALE_WARNING,gale_text_concat(3,
+				G_("cannot find user \""),arg,G_("\"")),0);
 			continue;
 		}
 
@@ -229,10 +223,10 @@ int main(int argc,char *argv[]) {
 	}
 
 	if (do_encrypt && !num_rcpt) 
-		gale_alert(GALE_ERROR,"No valid recipients.",0);
+		gale_alert(GALE_ERROR,G_("No valid recipients."),0);
 
 	if (signer && !auth_id_private(signer))
-		gale_alert(GALE_ERROR,"No private key to sign with.",0);
+		gale_alert(GALE_ERROR,G_("No private key to sign with."),0);
 
 	if (!msg->cat.p && !public.p && !num_rcpt) usage();
 	if (!do_encrypt && do_rrcpt == 1) do_rrcpt = 0;
@@ -252,10 +246,10 @@ int main(int argc,char *argv[]) {
 	}
 
 	/* A silly little check for a common mistake. */
-	if (ttyin && getpwnam(gale_text_to(gale_global->enc_system,msg->cat))) {
+	if (ttyin && getpwnam(gale_text_to(gale_global->enc_sys,msg->cat))) {
 		gale_beep(stderr);
-		gale_alert(GALE_WARNING,"*** DANGER! *** "
-		                        "Category is a username!",0);
+		gale_alert(GALE_WARNING,
+			G_("*** DANGER! *** Category is a username!"),0);
 	}
 	if (ttyin) {
 		int found = 0;
@@ -274,8 +268,8 @@ int main(int argc,char *argv[]) {
 
 		if (found) {
 			gale_beep(stderr);
-			gale_alert(GALE_WARNING,"*** HEATH ALERT! *** "
-			           "Category may be an ID!",0);
+			gale_alert(GALE_WARNING,
+				G_("*** HEATH ALERT! *** Category may be an ID!"),0);
 		}
 	}
 
@@ -341,7 +335,7 @@ int main(int argc,char *argv[]) {
 
 	/* Ounce is being completely psychotic right now. */
 	if (do_encrypt && !auth_encrypt(&msg->data,num_rcpt,rcpt))
-		gale_alert(GALE_ERROR,"encryption failure",0);
+		gale_alert(GALE_ERROR,G_("encryption failure"),0);
 
 	/* Add the message to the outgoing queue. */
 	link_put(link,msg);

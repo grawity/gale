@@ -25,13 +25,13 @@ void _ga_import_sig(struct signature *sig,struct gale_data data) {
 
 	if (!_ga_unpack_compare(&data,magic,sizeof(magic))
 	||  !_ga_unpack_u32(&data,&len) || len > MAX_SIGNATURE_LEN) {
-		gale_alert(GALE_WARNING,"invalid signature format",0);
+		gale_alert(GALE_WARNING,G_("invalid signature format"),0);
 		return;
 	}
 
 	ret.sig.p = gale_malloc(ret.sig.l = len);
 	if (!_ga_unpack_copy(&data,ret.sig.p,ret.sig.l)) {
-		gale_alert(GALE_WARNING,"invalid signature data",0);
+		gale_alert(GALE_WARNING,G_("invalid signature data"),0);
 		return;
 	}
 

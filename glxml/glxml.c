@@ -202,11 +202,12 @@ static void *on_message(struct gale_link *l,struct gale_message *msg,void *x) {
 
 	struct gale_time when_received = gale_time_now();
 	struct auth_id *who_signed = auth_verify(&msg->data);
-	const char *fn = gale_text_to(gale_global->enc_system,format_date(when_received,0));
+	struct gale_text name = format_date(when_received,0);
+	const char *fn = gale_text_to(gale_global->enc_filesys,name);
 	FILE *fp = fopen(fn,"r+");
 	if (NULL == fp) fp = fopen(fn,"w+");
 	if (NULL == fp) {
-		gale_alert(GALE_WARNING,fn,errno);
+		gale_alert(GALE_WARNING,name,errno);
 		return OOP_CONTINUE;
 	}
 
@@ -218,9 +219,8 @@ static void *on_message(struct gale_link *l,struct gale_message *msg,void *x) {
 	     ||  EOF != fgetc(fp)
 	     ||  0 != strcmp(buffer,trailer)
 	     ||  0 != fseek(fp,-trailer_len,SEEK_END)) {
-		char errbuf[1024];
-		sprintf(errbuf,"corrupted file: %s",fn);
-		gale_alert(GALE_WARNING,errbuf,0);
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("corrupted file: \""),name,G_("\"")),0);
 		fclose(fp);
 		return OOP_CONTINUE;
 	}
@@ -264,7 +264,7 @@ int main(int argc,char *argv[]) {
 	case '?': usage();
 	}
 	if (1 + optind != argc) usage();
-	subs = gale_text_from(gale_global->enc_system,argv[optind],-1);
+	subs = gale_text_from(gale_global->enc_cmdline,argv[optind],-1);
 
 	link = new_link(source);
 	link_on_message(link,on_message,NULL);
@@ -275,7 +275,7 @@ int main(int argc,char *argv[]) {
 		char buf[PATH_MAX] = "(error)";
 		gale_daemon(source);
 		getcwd(buf,PATH_MAX);
-		gale_kill(gale_text_from(gale_global->enc_system,buf,-1),1);
+		gale_kill(gale_text_from(gale_global->enc_filesys,buf,-1),1);
 		gale_detach();
 	}
 
