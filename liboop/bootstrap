@@ -1,6 +1,8 @@
 #!/bin/sh -x
 
+[ -x "`which automake-1.7 2>/dev/null`" ] && ver="-1.7" || ver=""
+
 libtoolize --copy --force &&
-aclocal &&
-automake --add-missing &&
+aclocal$ver &&
+automake$ver --add-missing &&
 autoconf

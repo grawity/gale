@@ -7,7 +7,7 @@
 # See the file COPYING for details.
 
 AUTOMAKE_OPTIONS = foreign 1.7
-lib_LTLIBRARIES = liboop-adns.la liboop-glib.la liboop-glib2.la liboop-tcl.la liboop-www.la liboop-rl.la liboop.la
+lib_LTLIBRARIES = liboop-adns.la liboop-glib2.la liboop-glib.la liboop-tcl.la liboop-www.la liboop-rl.la liboop.la
 
 # versions updated as of 0.8
 liboop_la_LDFLAGS = -version-info 4:0:0 # version:revision:age
@@ -46,6 +46,7 @@ include_HEADERS = oop.h oop-adns.h oop-glib.h oop-tcl.h oop-www.h oop-rl.h oop-r
 noinst_PROGRAMS = test-oop
 
 test_oop_SOURCES = test-oop.c
+test_oop_CFLAGS = $(GLIB2_CFLAGS) $(GLIB_INCLUDES) $(TCL_INCLUDES) $(WWW_INCLUDES)
 test_oop_LDADD = $(lib_LTLIBRARIES)
 
 release: dist
