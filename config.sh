@@ -1,4 +1,4 @@
-. ./common.sh
+. "$srcdir/common.sh"
 
 run mkdir -p "$SYS_DIR"
 if [ ! -d "$SYS_DIR" ]; then
@@ -6,12 +6,12 @@ if [ ! -d "$SYS_DIR" ]; then
 	exit 1
 fi
 
-run mkdir -p $SYS_DIR/auth/trusted
-run mkdir -p $SYS_DIR/auth/private
-run mkdir -p $SYS_DIR/auth/local
-run mkdir -p $SYS_DIR/auth/cache
-run chmod 1777 $SYS_DIR/auth/local
-run chmod 1777 $SYS_DIR/auth/cache
+run mkdir -p "$SYS_DIR/auth/trusted"
+run mkdir -p "$SYS_DIR/auth/private"
+run mkdir -p "$SYS_DIR/auth/local"
+run mkdir -p "$SYS_DIR/auth/cache"
+run chmod 1777 "$SYS_DIR/auth/local"
+run chmod 1777 "$SYS_DIR/auth/cache"
 
 [ -n "$CONF_GALE_USER" ] && GALE_USER="$CONF_GALE_USER"
 [ -n "$CONF_GALE_DOMAIN" ] && GALE_DOMAIN="$CONF_GALE_DOMAIN"
@@ -40,10 +40,13 @@ else
 	echo "Using \"$GALE_USER\" as the Gale owner."
 fi
 
-run chown $GALE_USER $SUID_DIR/gksign
-run chmod 4755 $SUID_DIR/gksign
+run chown $GALE_USER "$sbindir/gksign"
+run chmod 4755 "$sbindir/gksign"
+if [ "x$bindir" != "x$sbindir" ]; then
+	run ln -s "$sbindir/gksign" "$bindir/gksign"
+fi
 
-[ -f "$SYS_DIR/auth/trusted/ROOT" ] || run cp auth/ROOT "$SYS_DIR/auth/trusted"
+[ -f "$SYS_DIR/auth/trusted/ROOT" ] || run cp "$srcdir/auth/ROOT" "$SYS_DIR/auth/trusted"
 
 if [ -z "$GALE_DOMAIN" ] ; then
 cat << EOM

@@ -6,3 +6,4 @@
 #include "gale/server.h"
 #include "gale/core.h"
 #include "gale/misc.h"
+#include "gale/types.h"

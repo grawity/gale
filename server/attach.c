@@ -12,7 +12,8 @@
 struct attach *new_attach(void) {
 	struct attach *att = gale_malloc(sizeof(struct attach));
 	att->server = NULL;
-	att->subs = NULL;
+	att->subs.p = NULL;
+	att->subs.l = 0;
 	att->next = NULL;
 	att->connect = NULL;
 	att->time.tv_sec = 0;
@@ -23,7 +24,7 @@ struct attach *new_attach(void) {
 
 void free_attach(struct attach *att) {
 	if (att->server) gale_free(att->server);
-	if (att->subs) gale_free(att->subs);
+	free_gale_text(att->subs);
 	if (att->connect) abort_connect(att->connect);
 }
 

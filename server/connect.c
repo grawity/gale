@@ -6,15 +6,16 @@
 #include "subscr.h"
 #include "server.h"
 
-struct connect *new_connect(int rfd,int wfd) {
+struct connect *new_connect(int rfd,int wfd,int old) {
 	struct connect *conn = gale_malloc(sizeof(struct connect));
 	fcntl(wfd,F_SETFL,O_NONBLOCK);
 	fcntl(rfd,F_SETFD,1);
 	fcntl(wfd,F_SETFD,1);
 	conn->rfd = rfd;
 	conn->wfd = wfd;
-	conn->link = new_link();
-	conn->subscr = NULL;
+	conn->link = old ? new_old_link() : new_link();
+	conn->subscr.p = NULL;
+	conn->subscr.l = 0;
 	conn->next = NULL;
 	conn->retry = NULL;
 	return conn;
@@ -24,9 +25,9 @@ void free_connect(struct connect *conn) {
 	free_link(conn->link);
 	close(conn->rfd);
 	if (conn->wfd != conn->rfd) close(conn->wfd);
-	if (conn->subscr) {
+	if (conn->subscr.p) {
 		remove_subscr(conn);
-		gale_free(conn->subscr);
+		free_gale_text(conn->subscr);
 	}
 	if (conn->retry) free_attach(conn->retry);
 	gale_free(conn);
@@ -47,8 +48,7 @@ void process_will(struct connect *conn) {
 
 int post_select(struct connect *conn,fd_set *r,fd_set *w) {
 	struct gale_message *msg;
-	char *cp;
-	int i;
+	struct gale_text sub;
 	if (FD_ISSET(conn->wfd,w)) {
 		gale_dprintf(3,"[%d] sending data\n",conn->wfd);
 		if (link_transmit(conn->link,conn->wfd)) {
@@ -63,26 +63,23 @@ int post_select(struct connect *conn,fd_set *r,fd_set *w) {
 			return -1;
 		}
 	}
-	if ((cp = link_subscribed(conn->link))) {
-		subscribe_connect(conn,cp);
-		gale_free(cp);
+	sub = link_subscribed(conn->link);
+	if (sub.p) {
+		subscribe_connect(conn,sub);
+		free_gale_text(sub);
 	}
-	if ((i = link_lossage(conn->link))) {
-		gale_dprintf(0,"[%d] %d messages lost\n",conn->wfd,i);
-		syslog(LOG_WARNING,"%d incoming messages lost",i);
-	}
-	if ((msg = link_get(conn->link))) {
+	while ((msg = link_get(conn->link))) {
 		subscr_transmit(msg,conn);
 		release_message(msg);
 	}
 	return 0;
 }
 
-void subscribe_connect(struct connect *conn,char *cp) {
-	if (conn->subscr) {
+void subscribe_connect(struct connect *conn,struct gale_text sub) {
+	if (conn->subscr.p) {
 		remove_subscr(conn);
-		gale_free(conn->subscr);
+		free_gale_text(conn->subscr);
 	}
-	conn->subscr = gale_strdup(cp);
+	conn->subscr = gale_text_dup(sub);
 	add_subscr(conn);
 }

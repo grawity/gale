@@ -25,31 +25,29 @@ struct gale_message *sign_message(struct gale_id *id,struct gale_message *in) {
 
     if (old_auth()) {
 
-	char *hdr = sign_data(id,in->data,in->data + in->data_size);
+	char *hdr = sign_data(id,in->data.p,in->data.p + in->data.l);
 	int len = strlen(hdr) + 13;
 	out = new_message();
-	out->category = gale_strdup(in->category);
-	out->data = gale_malloc(out->data_size = len + in->data_size);
-	sprintf(out->data,"Signature: %s\r\n",hdr);
-	memcpy(out->data + len,in->data,in->data_size);
+	out->cat = gale_text_dup(in->cat);
+	out->data.p = gale_malloc(out->data.l = len + in->data.l);
+	sprintf(out->data.p,"Signature: %s\r\n",hdr);
+	memcpy(out->data.p + len,in->data.p,in->data.l);
 	gale_free(hdr);
 
     } else {
 
-	struct gale_data data,sig;
-	data.p = in->data;
-	data.l = in->data_size;
-	auth_sign(id,data,&sig);
+	struct gale_data sig;
+	auth_sign(id,in->data,&sig);
 	if (sig.p) {
 		int len = armor_len(sig.l);
 		out = new_message();
-		out->category = gale_strdup(in->category);
-		out->data_size = 16 + len + in->data_size;
-		out->data = gale_malloc(out->data_size);
-		strcpy(out->data,"Signature: g2/");
-		armor(sig.p,sig.l,out->data + 14);
-		strcpy(out->data + 14 + len,"\r\n");
-		memcpy(out->data + 16 + len,in->data,in->data_size);
+		out->cat = gale_text_dup(in->cat);
+		out->data.l = 16 + len + in->data.l;
+		out->data.p = gale_malloc(out->data.l);
+		strcpy(out->data.p,"Signature: g2/");
+		armor(sig.p,sig.l,out->data.p + 14);
+		strcpy(out->data.p + 14 + len,"\r\n");
+		memcpy(out->data.p + 16 + len,in->data.p,in->data.l);
 		gale_free(sig.p);
 	}
 
@@ -67,7 +65,7 @@ struct gale_message *encrypt_message(int num,struct gale_id **id,
 
     if (old_auth()) {
 
-	char *cend,*crypt = gale_malloc(in->data_size + ENCRYPTION_PADDING);
+	char *cend,*crypt = gale_malloc(in->data.l + ENCRYPTION_PADDING);
 	char *hdr;
 	int len;
 
@@ -76,18 +74,18 @@ struct gale_message *encrypt_message(int num,struct gale_id **id,
 		return NULL;
 	}
 
-	hdr = encrypt_data(*id,in->data,in->data + in->data_size,crypt,&cend);
+	hdr = encrypt_data(*id,in->data.p,in->data.p + in->data.l,crypt,&cend);
 	len = strlen(hdr) + 14;
 	out = new_message();
-	out->category = gale_strdup(in->category);
-	out->data = gale_malloc(out->data_size = len + cend - crypt);
-	sprintf(out->data,"Encryption: %s\r\n",hdr);
-	memcpy(out->data + len,crypt,cend - crypt);
+	out->cat = gale_text_dup(in->cat);
+	out->data.p = gale_malloc(out->data.l = len + cend - crypt);
+	sprintf(out->data.p,"Encryption: %s\r\n",hdr);
+	memcpy(out->data.p + len,crypt,cend - crypt);
 	gale_free(hdr);
 
     } else {
 
-	struct gale_data plain,cipher;
+	struct gale_data cipher;
 	int i;
 
 	for (i = 0; i < num; ++i)
@@ -96,17 +94,15 @@ struct gale_message *encrypt_message(int num,struct gale_id **id,
 			return NULL;
 		}
 
-	plain.p = in->data;
-	plain.l = in->data_size;
-	auth_encrypt(num,id,plain,&cipher);
+	auth_encrypt(num,id,in->data,&cipher);
 
 	if (!cipher.p) return NULL;
 
 	out = new_message();
-	out->category = gale_strdup(in->category);
-	out->data = gale_malloc(out->data_size = cipher.l + 16);
-	strcpy(out->data,"Encryption: g2\r\n");
-	memcpy(out->data + 16,cipher.p,cipher.l);
+	out->cat = gale_text_dup(in->cat);
+	out->data.p = gale_malloc(out->data.l = cipher.l + 16);
+	strcpy(out->data.p,"Encryption: g2\r\n");
+	memcpy(out->data.p + 16,cipher.p,cipher.l);
 	gale_free(cipher.p);
 
     }
@@ -115,8 +111,8 @@ struct gale_message *encrypt_message(int num,struct gale_id **id,
 }
 
 struct gale_id *verify_message(struct gale_message *in) {
-	const char *ptr = in->data,*end;
-	const char *dptr,*dend = in->data + in->data_size;
+	const char *ptr = in->data.p,*end;
+	const char *dptr,*dend = in->data.p + in->data.l;
 	struct gale_id *id = NULL;
 
 	for (end = ptr; end < dend && *end != '\r'; ++end) ;
@@ -129,7 +125,7 @@ struct gale_id *verify_message(struct gale_message *in) {
 		char *sig = gale_strndup(ptr + 11,end - ptr - 11);
 		id = verify_data(sig,dptr,dend);
 		gale_free(sig);
-	} else if (!strncasecmp(in->data,"Signature: g2/",14)) {
+	} else if (!strncasecmp(in->data.p,"Signature: g2/",14)) {
 		struct gale_data data,sig;
 
 		ptr += 14;
@@ -150,8 +146,8 @@ struct gale_id *verify_message(struct gale_message *in) {
 struct gale_id *decrypt_message(struct gale_message *in,
                                 struct gale_message **out) 
 {
-	const char *ptr = in->data,*end;
-	const char *dptr,*dend = in->data + in->data_size;
+	const char *ptr = in->data.p,*end;
+	const char *dptr,*dend = in->data.p + in->data.l;
 	struct gale_id *id = NULL;
 	*out = in;
 
@@ -171,9 +167,9 @@ struct gale_id *decrypt_message(struct gale_message *in,
 
 		if (id) {
 			*out = new_message();
-			(*out)->category = gale_strdup(in->category);
-			(*out)->data = plain;
-			(*out)->data_size = pend - plain;
+			(*out)->cat = gale_text_dup(in->cat);
+			(*out)->data.p = plain;
+			(*out)->data.l = pend - plain;
 		}
 	} else if (!strncasecmp(ptr,"Encryption: g2",14)) {
 		struct gale_data cipher,plain;
@@ -185,9 +181,9 @@ struct gale_id *decrypt_message(struct gale_message *in,
 
 		if (id) {
 			*out = new_message();
-			(*out)->category = gale_strdup(in->category);
-			(*out)->data = plain.p;
-			(*out)->data_size = plain.l;
+			(*out)->cat = gale_text_dup(in->cat);
+			(*out)->data.p = plain.p;
+			(*out)->data.l = plain.l;
 		}
 	}
 

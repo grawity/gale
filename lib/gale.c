@@ -1,4 +1,5 @@
 #include "gale/misc.h"
+#include "gale/core.h"
 
 #include <string.h>
 

@@ -17,7 +17,8 @@ ZSubscription_t sub;
 
 u_short port;
 struct gale_client *client;
-const char *myname,*category;
+const char *myname;
+struct gale_text cat;
 
 char *buf = NULL;
 int buf_len = 0,buf_alloc = 0;
@@ -45,6 +46,7 @@ void append(int len,const char *s) {
 
 void to_g(ZNotice_t *notice) {
 	struct gale_message *msg;
+	struct gale_text inst;
 	int len;
 	char *ptr,*end,num[15];
 
@@ -63,10 +65,11 @@ void to_g(ZNotice_t *notice) {
 		*ptr = tolower(*ptr);
 
 	msg = new_message();
-	msg->category = gale_malloc(10 + 
-		strlen(category) +
-		strlen(notice->z_class_inst));
-	sprintf(msg->category,"%s%s",category,notice->z_class_inst);
+	msg->cat = new_gale_text(cat.l + strlen(notice->z_class_inst));
+	gale_text_append(&msg->cat,cat);
+	inst = gale_text_from_latin1(notice->z_class_inst,-1);
+	gale_text_append(&msg->cat,inst);
+	free_gale_text(inst);
 
 	reset();
 	append(-1,"Content-type: text/x-zwgc\r\nTime: ");
@@ -103,9 +106,9 @@ void to_g(ZNotice_t *notice) {
 		}
 	}
 
-	msg->data_size = buf_len;
-	msg->data = gale_malloc(msg->data_size);
-	memcpy(msg->data,buf,msg->data_size);
+	msg->data.l = buf_len;
+	msg->data.p = gale_malloc(msg->data.l);
+	memcpy(msg->data.p,buf,msg->data.l);
 	link_put(client->link,msg);
 	release_message(msg);
 }
@@ -131,7 +134,8 @@ void to_z(struct gale_message *_msg) {
 	const char *sig;
 	struct gale_message *msg;
 	struct auth_id *signature,*encryption;
-	int retval,len;
+	struct gale_text token = { NULL,0 };
+	int retval;
 
 	encryption = decrypt_message(_msg,&msg);
 	if (!msg) return;
@@ -147,23 +151,18 @@ void to_z(struct gale_message *_msg) {
 	notice.z_sender = signature ? (char*) auth_id_name(signature) : "gale";
 	notice.z_recipient = "";
 
-	next = msg->category;
-	len = strlen(category);
-	while ((next = strstr(next,category))) {
-		if (next == msg->category || next[-1] == ':') {
-			const char *colon = strchr(next + len,':');
-			int size = sizeof(instance) - 1;
-			if (colon != NULL && colon - next + len < size)
-				size = colon - next + len;
-			strncpy(instance,next + len,size);
+	while (gale_text_token(msg->cat,':',&token)) {
+		if (!gale_text_compare(cat,gale_text_left(token,cat.l))) {
+			strncpy(instance,
+				gale_text_hack(gale_text_right(token,cat.l)),
+				255);
 			break;
 		}
-		next += len;
 	}
 
 	sig = NULL;
-	end = msg->data + msg->data_size;
-	next = msg->data;
+	end = msg->data.p + msg->data.l;
+	next = msg->data.p;
 	while (parse_header(&next,&key,&data,end)) {
 		if (!strcasecmp(key,"From"))
 			sig = data;
@@ -246,18 +245,19 @@ int main(int argc,char *argv[]) {
 		sub.zsub_class = "message";
 
 	if (optind < argc) {
-		category = argv[optind];
+		cat = gale_text_from_local(argv[optind],-1);
 		++optind;
 	} else {
 		const char *domain = getenv("GALE_DOMAIN");
 		char *tmp = gale_malloc(strlen(domain) + 30);
 		sprintf(tmp,"zephyr/%s/",domain);
-		category = tmp;
+		cat = gale_text_from_latin1(tmp,-1);
+		gale_free(tmp);
 	}
 	if (optind < argc) usage();
 
-	gale_dprintf(2,"subscribing to gale: \"%s\"\n",category);
-	client = gale_open(category);
+	gale_dprintf(2,"subscribing to gale: \"%s\"\n",gale_text_hack(cat));
+	client = gale_open(cat);
 
 	gale_dprintf(2,"subscribing to Zephyr\n");
 	if (gale_debug > 3) {

@@ -7,15 +7,19 @@ qgrep() {
 	grep "$@" > /dev/null
 }
 
-if [ -z "$SYS_DIR" ]; then
-	echo "Error: SYS_DIR not defined."
+if [ -n "$GALE_SYS_DIR" ]; then
+	SYS_DIR="$GALE_SYS_DIR"
+elif [ -n "$sysconfdir" ]; then
+	SYS_DIR="$sysconfdir/gale"
+else
+	echo "Error: neither of \$GALE_SYS_DIR or \$sysconfdir defined."
 	echo "\"make install\" calls this script; don't run it directly."
 	exit 1
 fi
 
 CONF="$SYS_DIR/conf"
 umask 022
-PATH="$BIN_DIR:$SUID_DIR:$PATH"
+PATH="$bindir:$sbindir:$PATH"
 export PATH
 
 if [ -f "$CONF" ]; then

@@ -1,6 +1,62 @@
-puff <size> <category>[:<category>...] <crlf> <data>
-will <size> <category>[:<category>...] <crlf> <data>
-gimme <category>[:<category>...] <crlf>
-lossage <number> <crlf>
-enq <cookie>
-ack <cookie>
+Protocol:
++--+--+--+--+- / +--+--+--+--+--+--+--+--+--+--+--+-||-+ \
+|proto vers.| (  |  opcode   |  length   | data ... || |  ) *
++--+--+--+--+- \ +--+--+--+--+--+--+--+--+--+--+--+-||-+ /
+  (only 0)                               |<- length  ->|
+
+Opcode 0x00000000: puff
+Opcode 0x00000001: will
++--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+-
+| cat. len. | message category ... || | msg. typ. | 
++--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+-
+            |<--- category length --->| (only 0)
+
+ / +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+ \
+(  |   type    |  length   | submessage data ...  || |  ) *
+ \ +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+ /
+                           |<------- length -------->|
+
+Opcode 0x00000002: gimme
++--+--+--+--+--+--+--+-||-+
+| message category ... || |
++--+--+--+--+--+--+--+-||-+
+
+Submessage 0x00001000: digital signature
+Submessage 0x00001100: encrypted message
+Content formats are out of scope for this document, but rather similar to
+the current signature/encryption data (without the need for base-64 encoding, 
+of course).  Signatures cover the remainder of the message; encrypted blocks
+include a complete message body.
+
+Submessage 0x00002000: subject text
+Submessage 0x00002001: keywords text
+Submessage 0x00002100: friendly sender name
+Submessage 0x00002101: friendly recipient name
+Contents are plain text.
+
+Submessage 0x00003000: message timestamp
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+|seconds from Unix epoch| fraction of a second  |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+Submessage 0x00003001: agent instance identifier
+Submessage 0x00003002: agent class identifier
+Contents are plain text specific to the agent.
+Where present, this triple is guaranteed to form a unique message ID.
+
+Submessage 0x00004000: user message body
++--+--+--+--+--+--+--+--+--+-||-+
+| body type | body data ...  || |
++--+--+--+--+--+--+--+--+--+-||-+
+Submessage 0x00004100: receipt request
++--+--+--+--+--+--+--+--+--+-||-+
+| receipt category ...       || |
++--+--+--+--+--+--+--+--+--+-||-+
+Submessage 0x00004101: receipt reply
++--+--+--+--+--+--+--+--+--+-||-+
+| original category ...      || |
++--+--+--+--+--+--+--+--+--+-||-+
+
+Body type 0x00000000: plain text
+(Others: subdivide?  MIME typing?)
+
+All text is Unicode.

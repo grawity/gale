@@ -49,7 +49,7 @@ void gale_free(void *ptr) { free(ptr); }
 
 /* Generate a trivial little message with the given category.  Used for
    return receipts, login/logout notifications, and such. */
-struct gale_message *slip(const char *cat,
+struct gale_message *slip(struct gale_text cat,
                           struct gale_id *sign,struct auth_id *encrypt)
 {
 	struct gale_message *msg;
@@ -60,12 +60,12 @@ struct gale_message *slip(const char *cat,
 
 	/* Create a new message. */
 	msg = new_message();
-	msg->category = gale_strdup(cat);
-	msg->data = gale_malloc(128 + len);
+	msg->cat = gale_text_dup(cat);
+	msg->data.p = gale_malloc(128 + len);
 
 	/* A few obvious headers. */
 	if (auth_id_comment(user_id))
-		sprintf(msg->data,
+		sprintf(msg->data.p,
 			"From: %s\r\n"
 			"Time: %lu\r\n"
 			"Agent: %s\r\n"
@@ -73,13 +73,13 @@ struct gale_message *slip(const char *cat,
 			"\r\n",
 		        getenv("GALE_FROM"),time(NULL),agent,sequence++);
 	else
-		sprintf(msg->data,
+		sprintf(msg->data.p,
 			"Time: %lu\r\n"
 			"Agent: %s\r\n"
 			"Sequence: %d\r\n"
 			"\r\n",time(NULL),agent,sequence++);
 
-	msg->data_size = strlen(msg->data);
+	msg->data.l = strlen(msg->data.p);
 
 	/* Sign and encrypt the message, if appropriate. */
 	if (sign) {
@@ -191,6 +191,7 @@ void default_gsubrc(void) {
 
 		putchar(':');
 		fputs(nl,stdout);
+		if (to_id) putchar('\a');
 	}
 
 	/* Print the message body.  Make sure to escape unprintables. */
@@ -262,6 +263,7 @@ void present_message(struct gale_message *_msg) {
 	struct gale_id *id_encrypted = NULL,*id_sign = NULL;
 	struct gale_message *rcpt = NULL,*msg = NULL;
 	int envp_global,envp_alloc,envp_len,status;
+	struct gale_text restart = gale_text_from_latin1("debug/restart",-1);
 	pid_t pid;
 
 	/* Count the number of global environment variables. */
@@ -275,16 +277,18 @@ void present_message(struct gale_message *_msg) {
 	envp_len = envp_global;
 
 	/* GALE_CATEGORY: the message category */
-	next = gale_malloc(strlen(_msg->category) + 15);
-	sprintf(next,"GALE_CATEGORY=%s",_msg->category);
+	tmp = gale_text_to_local(_msg->cat);
+	next = gale_malloc(strlen(tmp) + 15);
+	sprintf(next,"GALE_CATEGORY=%s",tmp);
+	gale_free(tmp);
 	envp[envp_len++] = next;
 
 	/* Decrypt, if necessary. */
 	id_encrypted = decrypt_message(_msg,&msg);
 	if (!msg) {
-		char *tmp = gale_malloc(strlen(_msg->category) + 80);
+		char *tmp = gale_malloc(_msg->cat.l + 80);
 		sprintf(tmp,"cannot decrypt message on category \"%s\"",
-		        _msg->category);
+		        gale_text_hack(_msg->cat));
 		gale_alert(GALE_WARNING,tmp,0);
 		gale_free(tmp);
 		goto error;
@@ -305,15 +309,17 @@ void present_message(struct gale_message *_msg) {
 	}
 
 	/* Go through the message headers. */
-	next = msg->data;
-	end = msg->data + msg->data_size;
+	next = msg->data.p;
+	end = msg->data.p + msg->data.l;
 	while (parse_header(&next,&key,&data,end)) {
 
 		/* Process receipts, if we do. */
 		if (do_ping && !strcasecmp(key,"Receipt-To")) {
 			/* Generate a receipt. */
+			struct gale_text cat = gale_text_from_latin1(data,-1);
 			if (rcpt) release_message(rcpt);
-			rcpt = slip(data,user_id,id_sign);
+			rcpt = slip(cat,user_id,id_sign);
+			free_gale_text(cat);
 		}
 
 		/* Create a HEADER_... environment entry for this. */
@@ -336,7 +342,7 @@ void present_message(struct gale_message *_msg) {
 
 #ifndef NDEBUG
 	/* In debug mode, restart if we get a properly authorized message. */
-	if (!strcmp(msg->category,"debug/restart") &&
+	if (!gale_text_compare(msg->cat,restart) &&
 	    id_sign && !strcmp(auth_id_name(id_sign),"egnor@ofb.net")) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
 		gale_restart();
@@ -426,19 +432,19 @@ error:
 /* Send a login notification, arrange for a logout notification. */
 void notify(void) {
 	struct gale_message *msg;
-	char *tmp;
+	struct gale_text tmp;
 
 	/* Login: send it right away. */
 	tmp = id_category(user_id,"notice","login");
 	msg = slip(tmp,user_id,NULL);
-	gale_free(tmp);
+	free_gale_text(tmp);
 	link_put(client->link,msg);
 	release_message(msg);
 
 	/* Logout: "will" it to happen when we disconnect. */
 	tmp = id_category(user_id,"notice","logout");
 	msg = slip(tmp,user_id,NULL);
-	gale_free(tmp);
+	free_gale_text(tmp);
 	link_will(client->link,msg);
 	release_message(msg);
 }
@@ -451,17 +457,17 @@ void set_agent(void) {
 
 	/* Construct the string from our version, the user running us,
            the host we're on and so on. */
-	len = strlen(GALE_VERSION) + strlen(user) + strlen(host);
+	len = strlen(VERSION) + strlen(user) + strlen(host);
 	len += (tty ? strlen(tty) : 0) + 30;
 	agent = gale_malloc(len);
 	sprintf(agent,"gsub/%s %s@%s %s %d",
-	        GALE_VERSION,user,host,tty ? tty : "none",(int) getpid());
+	        VERSION,user,host,tty ? tty : "none",(int) getpid());
 }
 
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gsub [-enkKrpy] [-f rcprog] [-l rclib] cat\n"
+	"usage: gsub [-enkKrpa] [-f rcprog] [-l rclib] cat\n"
 	"flags: -e          Do not include default subscriptions\n"
 	"       -n          Do not fork (default if stdout redirected)\n"
 	"       -k          Do not kill other gsub processes\n"
@@ -597,7 +603,7 @@ int main(int argc,char **argv) {
 #endif
 
 	/* Open a connection to the server. */
-	client = gale_open(serv);
+	client = gale_open(gale_text_from_local(serv,-1));
 	if (!do_retry && gale_error(client))
 		gale_alert(GALE_ERROR,"Could not connect to server.",0);
 

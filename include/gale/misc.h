@@ -3,9 +3,10 @@
 #ifndef GALE_MISC_H
 #define GALE_MISC_H
 
-/* -- process management --------------------------------------------------- */
+#include <string.h>
+#include "gale/types.h"
 
-#include <sys/types.h>
+/* -- process management --------------------------------------------------- */
 
 /* Restart ourselves -- re-exec() the program with the same argc and argv.
    Called automatically on SIGUSR1. */
@@ -48,6 +49,46 @@ char *gale_strndup(const char *,int);
 
 /* Not really safe. */
 void *gale_realloc(void *,size_t);
+
+/* -- text buffer manipulation --------------------------------------------- */
+
+struct gale_text new_gale_text(size_t alloc);
+void free_gale_text(struct gale_text);
+
+void gale_text_append(struct gale_text *,struct gale_text);
+
+struct gale_text gale_text_dup(struct gale_text);
+struct gale_text gale_text_left(struct gale_text,int);
+struct gale_text gale_text_right(struct gale_text,int);
+int gale_text_token(struct gale_text string,wch sep,struct gale_text *token);
+int gale_text_compare(struct gale_text,struct gale_text);
+
+typedef struct gale_text gale_text_from(const char *,int len);
+typedef char *gale_text_to(struct gale_text);
+
+gale_text_from gale_text_from_local,gale_text_from_latin1;
+gale_text_to gale_text_to_local,gale_text_to_latin1;
+
+char *gale_text_hack(struct gale_text);
+
+/* -- data interchange conversion ------------------------------------------ */
+
+int gale_unpack_copy(struct gale_data *,void *,size_t);
+int gale_unpack_compare(struct gale_data *,const void *,size_t);
+void gale_pack_copy(struct gale_data *,const void *,size_t);
+#define gale_copy_size(s) (s)
+
+int gale_unpack_rle(struct gale_data *,void *,size_t);
+void gale_pack_rle(struct gale_data *,const void *,size_t);
+#define gale_rle_size(s) (((s)+127)/128+(s))
+
+int gale_unpack_str(struct gale_data *,const char **);
+void gale_pack_str(struct gale_data *,const char *);
+#define gale_str_size(t) (strlen(t) + 1)
+
+int gale_unpack_u32(struct gale_data *,u32 *);
+void gale_pack_u32(struct gale_data *,u32);
+#define gale_u32_size() (sizeof(u32))
 
 /* -- directory management stuff ------------------------------------------- */
 

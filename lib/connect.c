@@ -12,7 +12,7 @@
 #include "gale/server.h" 
 #include "gale/compat.h"
 
-#define DEF_PORT (8413)
+#define DEF_PORT (11511)
 
 struct attempt {
 	int sock;

@@ -1,4 +1,4 @@
-. ./common.sh
+. $srcdir/common.sh
 
 if [ -z "$HOME" ]; then
 	cd
@@ -45,9 +45,9 @@ To re-do the domain setup process, remove these and try again:
 EOM
 
 	for dir in \
-		"$HOME/.gale/auth/local" \
-		"$HOME/.gale/auth/private" \
-		"$HOME/.gale/auth/trusted" \
+		"$GALE/auth/local" \
+		"$GALE/auth/private" \
+		"$GALE/auth/trusted" \
 		"$SYS_DIR/auth/cache" \
 		"$SYS_DIR/auth/local" \
 		"$SYS_DIR/auth/private" \

@@ -1,18 +1,13 @@
 Gale installation directions
 ----------------------------
 
-See http://ofb.net/~egnor/gale/ for more information on Gale.
-You can get the latest distribution from http://ofb.net/~egnor/gale.tar.gz.
+See http://gale.org/ for more information on Gale.
+You can get the latest distribution from http://gale.org/dist/gale.tar.gz.
 
 For the most part, installing Gale is a matter of building the binaries and
 getting them in the right places.  The exception is the authentication system,
 which requires a certain amount of finicky setup -- including setuid binaries 
 -- to do its job correctly and securely.
-
-0. Make sure you have GNU Make version 3.67 or better.  Older versions might
-   work, but I can't swear to it.  You can get it by anonymous FTP from
-   prep.ai.mit.edu in the /pub/gnu directory.  You can't build Gale with a
-   non-GNU 'make' utility, sorry.
 
 1. Get the RSAREF library.  You can retrieve the source from ftp.rsa.com, if 
    you live in the US or Canada.  It you don't, you might try using a workalike
@@ -43,15 +38,15 @@ which requires a certain amount of finicky setup -- including setuid binaries
    Once you've figured out the right options and set environment variables
    as needed, run the script.
 
-3. Run GNU make ("gmake" or "make" or however it's installed) in the top-level
-   Gale directory.  With luck, this will build everything without incident.
-   If not, now you get to figure out what went wrong and why; enjoy!
-   Feel free to contact me (egnor@ofb.net) with questions.  Many architectures
-   are currently unsupported, but the changes are typically not too painful.
+3. Run "make" in the top-level Gale directory.  With luck, this will build 
+   everything without incident.  If not, now you get to figure out what went 
+   wrong and why; enjoy!  Feel free to contact me (egnor@gale.org) with 
+   questions and patches.  Many architectures are currently unsupported, but 
+   the changes are typically not too painful.
 
 4. Become a user (eg. "root") which has permission to write/create the
    install directories (/usr/local/..., unless you specified otherwise).  
-   Make "install" from the top-level Gale directory; this should install 
+   "make install" from the top-level Gale directory; this should install 
    the Gale binaries, libraries, and header files.
 
    This may ask questions if it can't find a previous configuration.
@@ -61,9 +56,11 @@ which requires a certain amount of finicky setup -- including setuid binaries
    Make sure the installed binaries are on the PATH for future steps!
 
 5. If you have not already set up your domain, you need to do so.
-   Become the "gale user" you selected in step 4 and run "make domain".
-   Follow the directions; these will involve sending your key to the
-   proper authority to get it signed.  I manage ROOT and most of the top-level
-   domains (.edu, .com, etc.) for now.  When in doubt, you can ask me.
+   Become the "gale user" you selected for step 4 and run "make domain".
+   Follow the directions; these will involve sending your key to the proper 
+   authority to get it signed.  I manage ROOT and most "top-level" domains
+   (.edu, .com, .org, .nu, .ml.org, etc.) for now.  When in doubt, ask me.
 
 6. Happy puffing!
+
+-- Dan <egnor@gale.org>

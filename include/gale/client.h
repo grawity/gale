@@ -3,21 +3,22 @@
 #ifndef GALE_CLIENT_H
 #define GALE_CLIENT_H
 
-/* -- simplified interface to server connections ----------------------------*/
+#include "gale/core.h"
 
-struct gale_link; /* defined in core.h */
+/* -- simplified interface to server connections ----------------------------*/
 
 /* Client structure.  Don't write any of these fields yourself. */
 
 struct gale_client {
 	int socket;                   /* The file descriptor (for select). */
 	struct gale_link *link;       /* The link object (see link.h) */
-	char *server,*subscr;         /* Name of server and sub list */
+	char *server;                 /* Name of server */
+	struct gale_text subscr;      /* Sub list */
 };
 
 /* Open a connection to the server (defined by GALE_SERVER).  "spec" is the
    subscription list to use; NULL if you don't want to subscribe. */
-struct gale_client *gale_open(const char *spec);
+struct gale_client *gale_open(struct gale_text spec);
 
 /* Close a connection opened by gale_open. */
 void gale_close(struct gale_client *);
@@ -73,11 +74,11 @@ struct auth_id *lookup_id(const char *);
 /* Locate the public key, locally or remotely.  (Potentially) very slow! */
 int find_id(struct auth_id *);
 
-/* Return @ domain / prefix / user / suffix in a newly allocated string. */
-char *id_category(struct auth_id *,const char *prefix,const char *suffix);
+/* Return @ domain / pfx / user / sfx in a newly allocated string. */
+struct gale_text id_category(struct auth_id *,const char *pfx,const char *sfx);
 
-/* Return @ dom / prefix / in a newly allocated string.  NULL dom = default */
-char *dom_category(const char *dom,const char *prefix);
+/* Return @ dom / pfx / in a newly allocated string.  NULL dom = default */
+struct gale_text dom_category(const char *dom,const char *pfx);
 
 /* For compatibility.  Deprecated. */
 #define gale_id auth_id

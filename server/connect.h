@@ -12,7 +12,7 @@
 struct connect {
 	int rfd,wfd;
 	struct gale_link *link;
-	char *subscr;
+	struct gale_text subscr;
 	struct connect *next;
 	struct attach *retry;
 
@@ -20,12 +20,12 @@ struct connect {
 	struct connect *sub_next;
 };
 
-struct connect *new_connect(int rfd,int wfd);
+struct connect *new_connect(int rfd,int wfd,int old);
 void free_connect(struct connect *);
 
 void pre_select(struct connect *,fd_set *r,fd_set *w);
 int post_select(struct connect *,fd_set *r,fd_set *w);
 
-void subscribe_connect(struct connect *,char *);
+void subscribe_connect(struct connect *,struct gale_text);
 
 #endif

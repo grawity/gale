@@ -32,28 +32,37 @@ struct auth_id *lookup_id(const char *spec) {
 	return id;
 }
 
-char *id_category(struct gale_id *id,const char *pfx,const char *sfx) {
+struct gale_text id_category(struct gale_id *id,const char *pfx,const char *sfx)
+{
 	const char *name = auth_id_name(id);
 	char *tmp = gale_malloc(strlen(name) + strlen(pfx) + strlen(sfx) + 4);
 	const char *at = strchr(name,'@');
+	struct gale_text text;
 
 	if (old_style())
 		sprintf(tmp,"%s/%s/%.*s/%s",pfx,at+1,at - name,name,sfx);
 	else
 		sprintf(tmp,"@%s/%s/%.*s/%s",at+1,pfx,at - name,name,sfx);
 
-	return tmp;
+	text = gale_text_from_local(tmp,-1);
+	gale_free(tmp);
+	return text;
 }
 
-char *dom_category(const char *dom,const char *pfx) {
+struct gale_text dom_category(const char *dom,const char *pfx) {
 	char *tmp;
+	struct gale_text text;
+
 	if (!dom) dom = getenv("GALE_DOMAIN");
 	tmp = gale_malloc(strlen(pfx) + strlen(dom) + 4);
 	if (old_style())
 		sprintf(tmp,"%s/%s/",pfx,dom);
 	else
 		sprintf(tmp,"@%s/%s/",dom,pfx);
-	return tmp;
+
+	text = gale_text_from_local(tmp,-1);
+	gale_free(tmp);
+	return text;
 }
 
 /*
@@ -76,8 +85,8 @@ static int process(struct auth_id *id,struct auth_id *domain,struct gale_message
 	} else {
 		if (domain && signature == domain) {
 			char *next,*key,*data,*end;
-			next = msg->data;
-			end = next + msg->data_size;
+			next = msg->data.p;
+			end = next + msg->data.l;
 			while (parse_header(&next,&key,&data,end)) {
 				if (!strcasecmp(key,"subject")
 				&&  !strncasecmp(data,"failure",7)) {
@@ -106,7 +115,8 @@ static int process(struct auth_id *id,struct auth_id *domain,struct gale_message
 int find_id(struct auth_id *id) {
 	struct gale_client *client;
 	struct gale_message *msg,*_msg;
-	char *tmp,*tmp2,*category;
+	char *tmp;
+	struct gale_text category,cat1,cat2,colon;
 	const char *name = auth_id_name(id);
 	struct auth_id *domain = NULL;
 	time_t timeout;
@@ -132,18 +142,23 @@ int find_id(struct auth_id *id) {
 
 	msg = new_message();
 
-	tmp = id_category(id,"dom","key");
-	tmp2 = id_category(id,"user","ping");
-	msg->category = gale_malloc(strlen(tmp) + strlen(tmp2) + 2);
-	sprintf(msg->category,"%s:%s",tmp,tmp2);
-	gale_free(tmp); gale_free(tmp2);
+	cat1 = id_category(id,"dom","key");
+	cat2 = id_category(id,"user","ping");
+	colon = gale_text_from_latin1(":",1);
+	msg->cat = new_gale_text(cat1.l + cat2.l + colon.l);
+	gale_text_append(&msg->cat,cat1);
+	gale_text_append(&msg->cat,colon);
+	gale_text_append(&msg->cat,cat2);
+	free_gale_text(cat1); free_gale_text(cat2); free_gale_text(colon);
 
-	msg->data = gale_malloc(strlen(category) + 256);
-	sprintf(msg->data,
+	msg->data.p = gale_malloc(category.l + 256);
+	tmp = gale_text_to_latin1(category);
+	sprintf(msg->data.p,
 	        "Receipt-To: %s\r\n"
 	        "Time: %lu\r\n",
-	        category,timeout);
-	msg->data_size = strlen(msg->data);
+		tmp,timeout);
+	gale_free(tmp);
+	msg->data.l = strlen(msg->data.p);
 
 	_msg = sign_message(user_id,msg);
 	if (_msg) {
@@ -155,7 +170,8 @@ int find_id(struct auth_id *id) {
 	link_put(client->link,msg);
 	while (gale_send(client) && time(NULL) < timeout) {
 		gale_retry(client);
-		if (!link_queue(client->link)) link_put(client->link,msg);
+		if (link_queue_num(client->link) < 1) 
+			link_put(client->link,msg);
 	}
 
 	while (!status && time(NULL) < timeout) {
@@ -189,7 +205,7 @@ int find_id(struct auth_id *id) {
 
 	if (domain) free_auth_id(domain);
 	release_message(msg);
-	gale_free(category);
+	free_gale_text(category);
 	gale_close(client);
 	return status > 0;
 }

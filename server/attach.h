@@ -2,6 +2,7 @@
 #define ATTACH_H
 
 #include "gale/core.h"
+#include "gale/misc.h"
 
 #include <sys/time.h>
 #include <sys/types.h>
@@ -9,7 +10,7 @@
 
 struct attach {
 	char *server;
-	char *subs;
+	struct gale_text subs;
 	struct attach *next;
 
 	struct gale_connect *connect;

@@ -25,7 +25,7 @@ static void do_connect(struct gale_client *client) {
 		select(FD_SETSIZE,NULL,(SELECT_ARG_2_T) &fds,NULL,NULL);
 		client->socket = select_connect(&fds,conn);
 	} while (!client->socket);
-	if (client->socket > 0 && client->subscr)
+	if (client->socket > 0 && client->subscr.p)
 		link_subscribe(client->link,client->subscr);
 }
 
@@ -49,13 +49,13 @@ void gale_retry(struct gale_client *client) {
 	gale_alert(GALE_NOTICE,"server connection ok",0);
 }
 
-struct gale_client *gale_open(const char *spec) {
+struct gale_client *gale_open(struct gale_text spec) {
 	struct gale_client *client;
 
 	client = gale_malloc(sizeof(*client));
 
 	client->server = gale_strdup(getenv("GALE_SERVER"));
-	client->subscr = spec ? gale_strdup(spec) : NULL;
+	client->subscr = gale_text_dup(spec);
 	client->socket = -1;
 	client->link = new_link();
 
@@ -69,7 +69,7 @@ struct gale_client *gale_open(const char *spec) {
 void gale_close(struct gale_client *client) {
 	if (client->socket != -1) close(client->socket);
 	free_link(client->link);
-	if (client->subscr) gale_free(client->subscr);
+	free_gale_text(client->subscr);
 	gale_free(client->server);
 	gale_free(client);
 }

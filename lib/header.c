@@ -14,7 +14,7 @@ static int skip_newline(char **next,char *end) {
 }
 
 static int complain(void) {
-	gale_alert(GALE_WARNING,"invalid header parsed\r\n",0);
+	gale_alert(GALE_WARNING,"invalid header parsed",0);
 	return 1;
 }
 

@@ -9,7 +9,7 @@
 
 #include "gale/all.h"
 
-#ifdef HAVE_READLINE_READLINE_H
+#if defined(HAVE_READLINE_READLINE_H) && defined(HAVE_LIBREADLINE)
 #define HAVE_READLINE 1
 #include "readline/readline.h"
 #endif
@@ -19,7 +19,7 @@ void gale_free(void *ptr) { free(ptr); }
 
 struct gale_message *msg;               /* The message we're building. */
 int do_sign = 1,do_encrypt = 0,do_rrcpt = 1;
-int alloc = 0;
+size_t alloc = 0;
 
 /* Whether we have collected any replacements for default headers. */
 int have_from = 0,have_to = 0,have_time = 0,have_type = 0;
@@ -29,18 +29,18 @@ struct auth_id *signer;			/* Identity to sign the message. */
 int num_rcpt = 0;			/* Number of recipients. */
 
 /* Reserve space in the message buffer. */
-void reserve(int len) {
+void reserve(size_t len) {
 	char *tmp;
 
 	/* Reallocate as appropriate. */
-	while (msg->data_size + len >= alloc) {
+	while (msg->data.l + len >= alloc) {
 		alloc = alloc ? alloc * 2 : 4096;
 		tmp = gale_malloc(alloc);
-		if (msg->data) {
-			memcpy(tmp,msg->data,msg->data_size);
-			gale_free(msg->data);
+		if (msg->data.p) {
+			memcpy(tmp,msg->data.p,msg->data.l);
+			gale_free(msg->data.p);
 		}
-		msg->data = tmp;
+		msg->data.p = tmp;
 	}
 }
 
@@ -49,9 +49,9 @@ void headers(void) {
 	/* This one is a little silly. */
 	if (!have_type) {
 		reserve(40);
-		sprintf(msg->data + msg->data_size,
+		sprintf(msg->data.p + msg->data.l,
 			"Content-type: text/plain\r\n");
-		msg->data_size += strlen(msg->data + msg->data_size);
+		msg->data.l += strlen(msg->data.p + msg->data.l);
 	}
 
 	/* Most of these are fairly obvious. */
@@ -60,8 +60,8 @@ void headers(void) {
 		if (signer != user_id) from = auth_id_comment(signer);
 		if (!from || !*from) from = getenv("GALE_FROM");
 		reserve(20 + strlen(from));
-		sprintf(msg->data + msg->data_size,"From: %s\r\n",from);
-		msg->data_size += strlen(msg->data + msg->data_size);
+		sprintf(msg->data.p + msg->data.l,"From: %s\r\n",from);
+		msg->data.l += strlen(msg->data.p + msg->data.l);
 	}
 	if (!have_to && num_rcpt) {
 		/* Build a comma-separated list of encryption recipients. */
@@ -75,35 +75,37 @@ void headers(void) {
 		}
 		reserve(size);
 
-		strcpy(msg->data + msg->data_size,"To: ");
-		msg->data_size += 4;
+		strcpy(msg->data.p + msg->data.l,"To: ");
+		msg->data.l += 4;
 
 		for (i = 0; i < num_rcpt; ++i) {
-			strcpy(msg->data + msg->data_size,i ? ", " : "");
-			strcat(msg->data + msg->data_size,n[i]);
-			msg->data_size += strlen(msg->data + msg->data_size);
+			strcpy(msg->data.p + msg->data.l,i ? ", " : "");
+			strcat(msg->data.p + msg->data.l,n[i]);
+			msg->data.l += strlen(msg->data.p + msg->data.l);
 		}
 
-		strcpy(msg->data + msg->data_size,"\r\n");
-		msg->data_size += 2;
+		strcpy(msg->data.p + msg->data.l,"\r\n");
+		msg->data.l += 2;
 	}
 	if (!have_time) {
 		reserve(20);
-		sprintf(msg->data + msg->data_size,"Time: %lu\r\n",time(NULL));
-		msg->data_size += strlen(msg->data + msg->data_size);
+		sprintf(msg->data.p + msg->data.l,"Time: %lu\r\n",time(NULL));
+		msg->data.l += strlen(msg->data.p + msg->data.l);
 	}
 	if (do_rrcpt) {
-		char *rcpt_to = id_category(user_id,"user","receipt");
-		reserve(20 + strlen(rcpt_to));
-		sprintf(msg->data + msg->data_size,
-		        "Receipt-To: %s\r\n",rcpt_to);
-		msg->data_size += strlen(msg->data + msg->data_size);
+		struct gale_text cat = id_category(user_id,"user","receipt");
+		char *pch = gale_text_to_latin1(cat);
+		reserve(20 + strlen(pch));
+		sprintf(msg->data.p + msg->data.l,"Receipt-To: %s\r\n",pch);
+		msg->data.l += strlen(msg->data.p + msg->data.l);
+		free_gale_text(cat);
+		gale_free(pch);
 	}
 
 	/* Add a CRLF pair to end the headers. */
 	reserve(2);
-	msg->data[msg->data_size++] = '\r';
-	msg->data[msg->data_size++] = '\n';
+	msg->data.p[msg->data.l++] = '\r';
+	msg->data.p[msg->data.l++] = '\n';
 }
 
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
@@ -122,6 +124,11 @@ char *get_line(int tty)
 			rl_bind_key('\t',rl_insert);
 			rl_bind_key('R' - '@',
 			            rl_named_function("redraw-current-line"));
+/*
+			rl_parse_and_bind("set meta-flag On\n");
+			rl_parse_and_bind("set convert-meta Off\n");
+			rl_parse_and_bind("set output-meta On\n");
+*/
 			init = 0;
 		}
 		return readline("");
@@ -149,11 +156,11 @@ char *get_line(int tty)
 
 /* Output usage information, exit. */
 void usage(void) {
-	struct gale_id *id = lookup_id("username@domain");
+	struct gale_id *id = lookup_id("name@domain");
 	fprintf(stderr,
 		"%s\n"
 		"usage: gsend [-aruUpP] [-S id] [-c cat] [id [id ...]]\n"
-		"flags: -c cat      Send message on category <cat>\n"
+		"flags: -c category Send message on category <cat>\n"
 		"       -S id       Sign message with a specific <id>\n"
 		"       -a          Do not sign message (anonymous)\n"
 		"       -r          Do not retry server connection\n"
@@ -161,9 +168,9 @@ void usage(void) {
 		"       -P          Never request a return receipt\n"
 		"       -u          Expect user-supplied headers\n"
 		"       -U          Ditto, and don't supply default headers\n"
-		"Given an id of \"username@domain\", cat defaults to \"%s\".\n"
+		"With an id of \"name@domain\", category defaults to \"%s\".\n"
 		,GALE_BANNER
-		,id_category(id,"user",""));
+		,gale_text_hack(id_category(id,"user","")));
 	exit(1);
 }
 
@@ -184,8 +191,8 @@ int main(int argc,char *argv[]) {
 	while ((arg = getopt(argc,argv,"hac:t:PpS:ruU")) != EOF) 
 	switch (arg) {
 	case 'a': do_sign = 0; break;		/* Anonymous (no signature) */
-	case 'c': msg->category =		/* Select a category */
-	          gale_strdup(optarg); 
+	case 'c': msg->cat =			/* Select a category */
+	          gale_text_from_local(optarg,-1); 
 	          break;
 	case 'S': sign = optarg;		/* Select an ID to sign with */
 	          do_sign = 1; 
@@ -232,46 +239,47 @@ int main(int argc,char *argv[]) {
 	/* Generate keys. */
 	if (do_encrypt || do_sign) gale_keys();
 
-	if (!msg->category && do_encrypt) {  /* Default category... */
-		char **n = gale_malloc(sizeof(char *) * num_rcpt);
-		int i,size = 0;
+	if (!msg->cat.p && do_encrypt) {  /* Default category... */
+		struct gale_text *n = gale_malloc(sizeof(*n) * num_rcpt);
+		struct gale_text colon = gale_text_from_latin1(":",1);
+		int i;
+		size_t size = 0;
 		for (i = 0; i < num_rcpt; ++i) {
 			n[i] = id_category(rcpt[i],"user","");
-			size += strlen(n[i]) + 1;
+			size += n[i].l + 1;
 		}
-		msg->category = gale_malloc(size);
+		msg->cat = new_gale_text(size);
 		for (i = 0; i < num_rcpt; ++i) {
-			if (i) {
-				strcat(msg->category,":");
-				strcat(msg->category,n[i]);
-			} else
-				strcpy(msg->category,n[i]);
+			if (i) gale_text_append(&msg->cat,colon);
+			gale_text_append(&msg->cat,n[i]);
 		}
-		for (i = 0; i < num_rcpt; ++i) gale_free(n[i]);
+		for (i = 0; i < num_rcpt; ++i) free_gale_text(n[i]);
+		free_gale_text(colon);
 		gale_free(n);
 	} else {
-		if (!msg->category) usage(); /* Wrong # arguments */
+		if (!msg->cat.p) usage(); /* Wrong # arguments */
 		if (do_rrcpt == 1) do_rrcpt = 0;
 	}
 
 	/* A silly little check for a common mistake. */
-	if (ttyin && getpwnam(msg->category))
+	if (ttyin && getpwnam(gale_text_hack(msg->cat)))
 		gale_alert(GALE_WARNING,"*** DANGER! ***\a "
 		                        "Category is a username!  "
 		                        "Did you want that?",0);
 	if (ttyin) {
-		char *at = msg->category;
-		while ((at = strchr(at,'@'))) {
-			if (at > msg->category && at[-1] != ':')
+		char *at,*cat = gale_text_to_latin1(msg->cat);
+		for (at = cat; (at = strchr(at,'@')); ) {
+			if (at != cat && at[-1] != ':')
 				gale_alert(GALE_WARNING,"*** DANGER! ***\a "
 					"Category contains '@'!  "
 					"Did you want that?",0);
 			++at;
 		}
+		gale_free(cat);
 	}
 
 	/* Open a connection to the server; don't subscribe to anything. */
-	client = gale_open(NULL);
+	client = gale_open(gale_text_from_latin1(NULL,0));
 
 	/* Retry as long as necessary to get the connection open. */
 	while (gale_error(client)) {
@@ -299,7 +307,7 @@ int main(int argc,char *argv[]) {
 			}
 		}
 		putchar(num_rcpt > 1 ? '\n' : ' ');
-		printf("in category \"%s\":\n",msg->category);
+		printf("in category \"%s\":\n",gale_text_hack(msg->cat));
 		printf("(End your message with EOF or a solitary dot.)\n");
 	}
 
@@ -313,8 +321,8 @@ int main(int argc,char *argv[]) {
 
 		/* Copy in the data. */
 		reserve(strlen(line) + 1);
-		strcpy(msg->data + msg->data_size,line);
-		msg->data_size += strlen(line);
+		strcpy(msg->data.p + msg->data.l,line);
+		msg->data.l += strlen(line);
 
 		/* If they're supplying headers, but we add defaults, check
                    to see if they replace any of the defaults. */
@@ -337,8 +345,8 @@ int main(int argc,char *argv[]) {
 		}
 
 		reserve(3);
-		strcpy(msg->data + msg->data_size,"\r\n");
-		msg->data_size += 2;
+		strcpy(msg->data.p + msg->data.l,"\r\n");
+		msg->data.l += 2;
 	}
 
 	/* Sign the message, unless we shouldn't. */
@@ -367,7 +375,7 @@ int main(int argc,char *argv[]) {
 		/* Retry as necessary; put the message back on the queue
 		   if it went away during the failure. */
 		gale_retry(client);
-		if (!link_queue(client->link))
+		if (link_queue_num(client->link) < 1)
 			link_put(client->link,msg);
 	}
 

@@ -77,11 +77,13 @@ static void init_vars(struct passwd *pwd) {
 	}
 
 	if (!getenv("GALE_SUBS")) {
-		char *cat = id_category(user_id,"user","");
-		tmp = gale_malloc(strlen(cat) + 30);
-		sprintf(tmp,"GALE_SUBS=%s",cat);
-		putenv(tmp);
-		gale_free(cat);
+		struct gale_text cat = id_category(user_id,"user","");
+		char *tmp = gale_text_to_local(cat);
+		char *tmp2 = gale_malloc(strlen(tmp) + 30);
+		sprintf(tmp2,"GALE_SUBS=%s",tmp);
+		putenv(tmp2);
+		gale_free(tmp);
+		free_gale_text(cat);
 	}
 }
 
@@ -212,7 +214,7 @@ void gale_init(const char *s,int argc,char * const *argv) {
 	read_conf(dir_file(dot_gale,"conf"));
 
 	dir = getenv("GALE_SYS_DIR");
-	if (!dir) dir = SYS_DIR;
+	if (!dir) dir = GALE_SYS_DIR;
 	sys_dir = make_dir(dir,0);
 
 	read_conf(dir_file(sys_dir,"conf"));

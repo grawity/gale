@@ -9,11 +9,12 @@
 
 struct gale_client *client;
 
-const char **subs = NULL;
+struct gale_text *subs = NULL;
 struct gale_message **pings = NULL;
 int count_subs = 0,count_pings = 0;
 
-const char *tty,*receipt = NULL,*gwatchrc = "gwatchrc";
+const char *tty,*gwatchrc = "gwatchrc";
+struct gale_text receipt = { NULL, 0 };
 
 int max_num = 0;
 int so_far = 0;
@@ -28,14 +29,16 @@ void bye(int x) {
 	exit(0);
 }
 
-void watch_cat(const char *cat) {
+void watch_cat(struct gale_text cat) {
 	subs = gale_realloc(subs,sizeof(*subs) * (count_subs + 1));
 	subs[count_subs++] = cat;
 }
 
-void watch_ping(const char *cat,struct gale_id *id) {
+void watch_ping(struct gale_text cat,struct gale_id *id) {
 	struct gale_message *msg;
-	if (!receipt) {
+	char *tmp;
+
+	if (!receipt.p) {
 		const char *host = getenv("HOST");
 		char *tmp = gale_malloc(strlen(host) + 20);
 		sprintf(tmp,"%s.%d",host,(int) getpid());
@@ -45,10 +48,12 @@ void watch_ping(const char *cat,struct gale_id *id) {
 	}
 
 	msg = new_message();
-	msg->category = gale_strdup(cat);
-	msg->data = gale_malloc(30 + strlen(receipt));
-	sprintf(msg->data,"Receipt-To: %s\r\n\r\n",receipt);
-	msg->data_size = strlen(msg->data);
+	msg->cat = gale_text_dup(cat);
+	msg->data.p = gale_malloc(30 + receipt.l);
+	tmp = gale_text_to_latin1(receipt);
+	sprintf(msg->data.p,"Receipt-To: %s\r\n\r\n",tmp);
+	gale_free(tmp);
+	msg->data.l = strlen(msg->data.p);
 
 	if (id) {
 		struct gale_message *new = encrypt_message(1,&id,msg);
@@ -94,9 +99,9 @@ void read_file(const char *fn) {
 		num = fscanf(fp,"%39s %255[^\n]",var,value);
 		if (num != 2) continue;
 		if (!strcmp(var,"category"))
-			watch_cat(gale_strdup(value));
+			watch_cat(gale_text_from_local(value,-1));
 		else if (!strcmp(var,"ping"))
-			watch_ping(value,NULL);
+			watch_ping(gale_text_from_local(value,-1),NULL);
 		else if (!strcmp(var,"id"))
 			watch_id(lookup_id(value));
 		else if (!strcmp(var,"domain"))
@@ -109,22 +114,23 @@ void read_file(const char *fn) {
 }
 
 void open_client(void) {
-	char *spec;
+	struct gale_text spec,colon;
 	int i,len = 0;
 
-	for (i = 0; i < count_subs; ++i) len += 1 + strlen(subs[i]);
-	spec = gale_malloc(len);
+	colon = gale_text_from_latin1(":",-1);
 
-	strcpy(spec,subs[0]);
-	len = strlen(spec);
+	for (i = 0; i < count_subs; ++i) len += 1 + subs[i].l;
+	spec = new_gale_text(len);
+
+	gale_text_append(&spec,subs[0]);
 	for (i = 1; i < count_subs; ++i) {
-		spec[len++] = ':';
-		strcpy(spec + len,subs[i]);
-		len += strlen(subs[i]);
+		gale_text_append(&spec,colon);
+		gale_text_append(&spec,subs[i]);
 	}
 
 	client = gale_open(spec);
-	gale_free(spec);
+	free_gale_text(spec);
+	free_gale_text(colon);
 }
 
 void send_pings(void) {
@@ -157,15 +163,20 @@ void incoming(
 }
 
 void process_message(struct gale_message *msg) {
-	int type,len = strlen(msg->category);
+	int type;
+	struct gale_text login,logout,debug;
 	char *next,*key,*data,*end;
 	struct gale_id *id_sign = NULL,*id_encrypt = NULL;
 	char *agent = NULL,*from = NULL;
 	int sequence = -1;
 
-	if (len >= 7 && !strcmp(msg->category + len - 7,"/logout"))
+	login = gale_text_from_latin1("/login",-1);
+	logout = gale_text_from_latin1("/logout",-1);
+	debug = gale_text_from_latin1("debug/restart",-1);
+
+	if (!gale_text_compare(gale_text_right(msg->cat,7),logout))
 		type = m_logout;
-	else if (len >= 6 && !strcmp(msg->category + len - 6,"/login"))
+	else if (!gale_text_compare(gale_text_right(msg->cat,6),login))
 		type = m_login;
 	else
 		type = m_ping;
@@ -177,8 +188,8 @@ void process_message(struct gale_message *msg) {
 
 	id_sign = verify_message(msg);
 
-	next = msg->data;
-	end = next + msg->data_size;
+	next = msg->data.p;
+	end = next + msg->data.l;
 	while (parse_header(&next,&key,&data,end)) {
 		if (!strcasecmp(key,"Agent")) agent = data;
 		if (!strcasecmp(key,"From")) from = data;
@@ -186,7 +197,7 @@ void process_message(struct gale_message *msg) {
 	}
 
 #ifndef NDEBUG
-	if (!strcmp(msg->category,"debug/restart") && 
+	if (!gale_text_compare(msg->cat,debug) && 
 	    id_sign && !strcmp(auth_id_name(id_sign),"egnor@ofb.net")) {
 		gale_alert(GALE_NOTICE,"Restarting from debug/restart.",0);
 		gale_restart();
@@ -196,6 +207,9 @@ void process_message(struct gale_message *msg) {
 	incoming(type,id_sign,agent,from,sequence);
 
 error:
+	free_gale_text(login);
+	free_gale_text(logout);
+	free_gale_text(debug);
 	if (id_sign) free_id(id_sign);
 	if (id_encrypt) free_id(id_encrypt);
 	if (msg) release_message(msg);
@@ -244,7 +258,7 @@ int main(int argc,char *argv[]) {
 	case 'r': do_retry = 0; break;
 	case 'i': watch_id(lookup_id(optarg)); break;
 	case 'd': watch_domain(optarg); break;
-	case 'p': watch_ping(optarg,NULL); break;
+	case 'p': watch_ping(gale_text_from_local(optarg,-1),NULL); break;
 	case 'm': max_num = atoi(optarg); do_fork = 0; break;
 	case 's': alarm(atoi(optarg)); do_fork = 0; break;
 	case 'w': read_file(optarg);
@@ -255,7 +269,7 @@ int main(int argc,char *argv[]) {
 
 	if (optind != argc) {
 		if (optind != argc - 1) usage();
-		watch_cat(argv[optind]);
+		watch_cat(gale_text_from_local(argv[optind],-1));
 	}
 
 	if (count_subs == 0) read_file("spylist");

@@ -6,7 +6,7 @@
 #include "gale/all.h"
 
 struct gale_client *client;
-const char *category;
+struct gale_text category;
 struct auth_id *domain;
 
 void *gale_malloc(size_t size) { return malloc(size); }
@@ -20,72 +20,73 @@ void usage() {
 void success(struct auth_id *id,struct gale_message *msg) {
 	struct gale_data data;
 	export_auth_id(id,&data,0);
-	msg->data = gale_malloc(256 + strlen(auth_id_name(id)) + data.l);
-	sprintf(msg->data,
+	msg->data.p = gale_malloc(256 + strlen(auth_id_name(id)) + data.l);
+	sprintf(msg->data.p,
 		"Content-Type: application/x-gale-key\r\n"
 		"From: Domain Server\r\n"
 		"Time: %lu\r\n"
 		"Subject: success %s\r\n\r\n",
 		time(NULL),auth_id_name(id));
-	msg->data_size = strlen(msg->data);
-	memcpy(msg->data + msg->data_size,data.p,data.l);
-	msg->data_size += data.l;
+	msg->data.l = strlen(msg->data.p);
+	memcpy(msg->data.p + msg->data.l,data.p,data.l);
+	msg->data.l += data.l;
 	gale_free(data.p);
 }
 
 void failure(struct auth_id *id,struct gale_message *msg) {
-	msg->data = gale_malloc(256 + strlen(auth_id_name(id)));
-	sprintf(msg->data,
+	msg->data.p = gale_malloc(256 + strlen(auth_id_name(id)));
+	sprintf(msg->data.p,
 		"Content-Type: application/x-gale-key\r\n"
 		"From: Domain Server\r\n"
 		"Time: %lu\r\n"
 		"Subject: failure %s\r\n",
 		time(NULL),auth_id_name(id));
-	msg->data_size = strlen(msg->data);
+	msg->data.l = strlen(msg->data.p);
 }
 
 void incoming(struct gale_message *_msg) {
-	const char *colon,*ptr = _msg->category;
+	struct gale_text cat = { NULL,0 },rcpt = { NULL,0 },trailer;
 	struct gale_message *new,*msg = NULL,*reply = NULL;
 	struct auth_id *key = NULL,*encrypted = NULL,*signature = NULL;
 	char *user = NULL,*next,*header,*data,*end;
-	const char *rcpt = NULL;
 
 	encrypted = decrypt_message(_msg,&msg);
 	if (!msg) goto done;
 	signature = verify_message(msg);
 
-	while ((ptr = strstr(ptr,category))) {
-		if (ptr == _msg->category || ptr[-1] == ':') break;
-		++ptr;
-	}
-	if (!ptr) goto done;
-	colon = strchr(ptr += strlen(category),':');
-	if (!colon) colon = ptr + strlen(ptr);
-	if (colon - ptr < 4 || strncmp(colon - 4,"/key",4)) goto done;
-	user = gale_strndup(ptr,colon - ptr - 4);
+	trailer = gale_text_from_latin1("/key",-1);
 
+	while (gale_text_token(_msg->cat,':',&cat)) {
+		if (gale_text_compare(category,gale_text_left(cat,category.l))
+		||  gale_text_compare(trailer,gale_text_right(cat,trailer.l)))
+			continue;
+		user = gale_text_to_latin1(gale_text_left(cat,-trailer.l));
+	}
+
+	free_gale_text(trailer);
+	if (!user) goto done;
 	key = lookup_id(user);
 	if (!key) goto done;
 
-	next = msg->data; end = msg->data + msg->data_size;
+	next = msg->data.p; end = next + msg->data.l;
 	while (parse_header(&next,&header,&data,end))
-		if (!strcasecmp(header,"Receipt-To")) rcpt = data;
+		if (!strcasecmp(header,"Receipt-To")) 
+			rcpt = gale_text_from_latin1(data,-1);
 
-	if (!rcpt) {
+	if (!rcpt.p) {
 		gale_alert(GALE_WARNING,"no Receipt-To header, cannot reply",0);
 		goto done;
 	}
 
 	reply = new_message();
-	reply->category = gale_strdup(rcpt);
+	reply->cat = rcpt;
 
 	if (!auth_id_public(key)) 
 		failure(key,reply);
 	else
 		success(key,reply);
 
-	if (!reply->data) goto done;
+	if (!reply->data.p) goto done;
 
 	new = sign_message(domain,reply);
 	release_message(reply);
