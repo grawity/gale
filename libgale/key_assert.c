@@ -85,29 +85,11 @@ const struct gale_key_assertion *gale_key_private(struct gale_key *key) {
 	/* TODO: how do we report this failure without spewing spoo? */
 
 	if (NULL == key 
-     /* ||  NULL == key->public */
 	||  NULL == key->private)
 		return NULL;
 
 	/* We bar untrusted private key assertions at the door. */
 	assert(key->private->trust_count > 0);
-
-#if 0
-	group = key->public->group;
-	while (!gale_group_null(group)) {
-		struct gale_fragment check,frag = gale_group_first(group);
-		group = gale_group_rest(group);
-
-		if (gale_text_compare(G_("rsa."),gale_text_left(frag.name,4)))
-			continue;
-		if (!gale_group_lookup(
-			key->private->group,
-			frag.name,frag.type,&check)
-		||   gale_fragment_compare(frag,check))
-			return NULL;
-	}
-#endif
-
 	return key->private;
 }
 
@@ -180,6 +162,34 @@ static int beats(
 	if (compare < 0) return 1;
 	if (compare > 0) return 0;
 	return beats(get_bundled(challenger),get_bundled(incumbent));
+}
+
+static void check_mismatch(struct gale_key *key) {
+	struct gale_group group;
+	if (NULL == key->private || NULL == key->public) return;
+	
+	group = key->public->group;
+	while (!gale_group_null(group)) {
+		struct gale_fragment check,frag = gale_group_first(group);
+		group = gale_group_rest(group);
+
+		if (gale_text_compare(G_("rsa."),gale_text_left(frag.name,4)))
+			continue;
+		if (!gale_group_lookup(
+			key->private->group,
+			frag.name,frag.type,&check)
+		||   gale_fragment_compare(frag,check)) {
+			gale_beep(stderr);
+			gale_alert(GALE_WARNING,gale_text_concat(6,
+				G_("*** BIG PROBLEM *** the private key \""),
+				key->name,
+				G_("\" "), 
+				key->private->from,
+				G_(" DOES NOT MATCH the public key "),
+				key->public->from),0);
+			return;
+		}
+	}
 }
 
 /** Supply some raw key data to the system. 
@@ -255,6 +265,7 @@ struct gale_key_assertion *gale_key_assert(
 
 		output->key = key;
 		key->private = output;
+		check_mismatch(key);
 		assert(key->private->key == key);
 		return output;
 	}
@@ -309,6 +320,7 @@ struct gale_key_assertion *gale_key_assert(
 			key->public->key = NULL;
 		}
 		key->public = output;
+		check_mismatch(key);
 		assert(key->public->key == key);
 	} else {
 		if (NULL == key->public)
