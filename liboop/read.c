@@ -342,6 +342,7 @@ static void *on_process(oop_source *oop, oop_read *rd, int try_read) {
     want= MIN(dataspace, readahead);
     assert(rd->used < want);
 
+    errno= 0;
     nread= rd->ra->try_read(rd->ra, buf+rd->used, want-rd->used);
     if (errno == EAGAIN) return OOP_CONTINUE;
 
