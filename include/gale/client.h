@@ -4,7 +4,7 @@
 struct gale_client {
 	int socket;
 	struct gale_link *link;
-	char *spec;
+	char *server,*subscr;
 };
 
 struct gale_client *gale_open(const char *spec,int num,int mem);
