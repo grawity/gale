@@ -10,6 +10,8 @@ int do_name_only = 0;
 int do_verbose = 0;
 int do_trust_input = 0;
 int is_found = 0;
+int do_location = 1;
+int do_members = 0;
 
 void print(const struct gale_key_assertion *ass) {
 	struct gale_key *owner = gale_key_owner(ass);
@@ -71,6 +73,31 @@ void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 	return OOP_CONTINUE;
 }
 
+void *on_location(struct gale_text name,struct gale_location *loc,void *user) {
+	oop_source *oop = (oop_source *) user;
+	if (do_members) {
+		const struct gale_map * const members =
+			gale_location_members(loc);
+		gale_print(stdout,0,G_("Members of <"));
+		gale_print(stdout,0,name);
+		if (NULL == members)
+			gale_print(stdout,0,G_(">: *everyone*.\n"));
+		else {
+			struct gale_data key = null_data;
+			gale_print(stdout,0,G_(">:\n"));
+			while (gale_map_walk(members,&key,&key,NULL)) {
+				gale_print(stdout,0,gale_text_from_data(key));
+				gale_print(stdout,0,G_("\n"));
+			}
+		}
+
+		is_found = 1;
+		return OOP_CONTINUE;
+	}
+
+	return on_key(oop,gale_location_key(loc),NULL);
+}
+
 void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 	const struct gale_data * const data = (const struct gale_data *) user;
 	if (NULL == key) return OOP_CONTINUE;
@@ -81,12 +108,14 @@ void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 void usage(void) {
         fprintf(stderr,
                 "%s\n"
-                "usage: gkinfo [-hivx] (id ... | [-t] < keyfile)\n"
+                "usage: gkinfo [-hikvx] (address [address ...] | [-t] < keyfile)\n"
 		"flags: -h          Display this message\n"
 		"       -i          Output key ID only\n"
+		"       -k          Input exact key ID only (not location)\n"
+		"       -m          List all group members\n"
 		"       -t          Trust keyfile contents\n"
 		"       -v          Verbose output\n"
-		"       -x          Disable remote key retrieval\n"
+		"       -x          Disable remote key retrieval; implies -k\n"
                 ,GALE_BANNER);
 	exit(1);
 }
@@ -97,28 +126,40 @@ int main(int argc,char *argv[]) {
 
 	gale_init("gkinfo",argc,argv);
 
-	while ((arg = getopt(argc,argv,"hitvxdD")) != EOF) switch (arg) {
+	while ((arg = getopt(argc,argv,"hikmtvxdD")) != EOF) switch (arg) {
 	case 'i': do_name_only = 1; break;
+	case 'k': do_location = 0; break;
+	case 'm': do_members = 1; break;
 	case 't': do_trust_input = 1; break;
 	case 'v': do_verbose = 1; break;
-	case 'x': flags &= ~search_slow; break;
+	case 'x': flags &= ~search_slow; do_location = 0; break;
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
 	case 'h':
 	case '?': usage();
 	}
 
-	if (do_trust_input && argc > optind) usage();
+	if (do_trust_input && argc > optind)
+		gale_alert(GALE_ERROR,
+			G_("trusted input only meaningful for key file"),0);
+
+	if (do_members && (!do_location || argc == optind))
+		gale_alert(GALE_ERROR,
+			G_("member list only for locations, not keys"),0);
 
 	if (argc > optind) {
 		oop_source_sys * const sys = oop_sys_new(); 
+		oop_source * const oop = oop_sys_source(sys);
 		while (argc != optind) {
-			struct gale_key *handle = gale_key_handle(
-				gale_text_from(gale_global->enc_cmdline,
-					argv[optind++],-1));
-			gale_key_search(oop_sys_source(sys),
-				handle,flags,
-				on_key,NULL);
+			struct gale_text name = gale_text_from(
+				gale_global->enc_cmdline,
+				argv[optind++],-1);
+			if (do_location)
+				gale_find_location(oop,name,on_location,oop);
+			else
+				gale_key_search(oop,
+					gale_key_handle(name),flags,
+					on_key,NULL);
 		}
 		oop_sys_run(sys);
 		oop_sys_delete(sys);
