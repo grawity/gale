@@ -28,9 +28,6 @@
    byte first (like Motorola and SPARC, unlike Intel and VAX).  */
 #undef WORDS_BIGENDIAN
 
-/* The systemwide Gale configuration directory. */
-#undef SYS_DIR
-
 /* The number of bytes in a int.  */
 #undef SIZEOF_INT
 
