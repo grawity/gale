@@ -17,7 +17,7 @@ libgale_la_SOURCES = \
     crypto_gen.c crypto_i.c crypto_misc.c crypto_seal.c \
     crypto_sign.c crypto_sign_raw.c \
     key_assert.c key_generate.c key_graph.c key_handle.c key_i.c \
-    key_search.c key_search_akd.c key_search_dirs.c \
+    key_search.c key_search_akd.c key_search_builtin.c key_search_dirs.c \
     misc_alloc.c misc_charset.c misc_connect.c misc_daemon.c misc_debug.c \
     misc_dir.c misc_envvar.c misc_error.c misc_exec.c misc_file.c \
     misc_fragment.c misc_globals.c misc_kill.c misc_map.c misc_pack.c \

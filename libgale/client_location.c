@@ -106,10 +106,12 @@ static void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 
 	assert(NULL != key);
 
-	if (find->loc->key == key || NULL != gale_key_public(key,find->now)) {
-		if (NULL == find->loc->key) find->loc->key = key;
-		if (find->loc->key != key
-		&&  gale_key_name(key).l < gale_key_name(find->loc->key).l) {
+	if (NULL != gale_key_public(key,find->now)) {
+		if (NULL == find->loc->key) 
+			find->loc->key = key;
+		else 
+		if (gale_key_name(key).l < gale_key_name(find->loc->key).l
+		||  NULL == gale_key_public(find->loc->key,find->now)) {
 			gale_alert(GALE_WARNING,gale_text_concat(5,
 				G_("now using \""),gale_key_name(key),
 				G_("\" instead of \""),
@@ -125,13 +127,7 @@ static void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 
 	if (0 == find->count && NULL != find->func) {
 		const int new_flags = find->flags | search_slow;
-		if (NULL != find->loc->key) {
-			gale_call_location *func = find->func;
-			find->func = NULL;
-			return func(
-				gale_location_name(find->loc),
-				find->loc,find->user);
-		} if (new_flags != find->flags) {
+		if (new_flags != find->flags) {
 			find->flags = new_flags;
 			find_key(oop,find);
 		} else {

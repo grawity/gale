@@ -110,6 +110,7 @@ void gale_init(const char *s,int argc,char * const *argv) {
 
 	set_defaults(pwd);
 
+	key_i_init_builtin();
 	key_i_init_dirs();
 	key_i_init_akd();
 }

@@ -6,7 +6,7 @@ int main(int argc,char *argv[]) {
 	struct gale_time now = gale_time_now();
 	struct gale_key_assertion *ass;
 
-	gale_init("crypto_test",argc,argv);
+	gale_init("key_test",argc,argv);
 
 	key = gale_read_file(G_("/home/egnor/etc/gale/auth/trusted/ROOT"),65536,1,NULL);
 	ass = gale_key_assert(key,1);

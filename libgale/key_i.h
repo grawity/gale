@@ -47,6 +47,7 @@ int key_i_verify(struct gale_data key,struct gale_group signer);
 struct gale_data key_i_create(struct gale_group);
 
 /* Add standard search hooks. */
+void key_i_init_builtin(void);
 void key_i_init_dirs(void);
 void key_i_init_akd(void);
 

@@ -22,9 +22,13 @@ struct gale_server {
 
 	gale_call_connect *on_connect;
 	void *on_connect_data;
+	int on_connect_called;
+	struct gale_text current_host;
+	struct sockaddr_in current_addr;
 
 	gale_call_disconnect *on_disconnect;
 	void *on_disconnect_data;
+	int on_disconnect_called;
 };
 
 static gale_connect_call on_connect;
@@ -65,11 +69,35 @@ static void do_retry(struct gale_server *s,int do_alert) {
 	s->source->on_time(s->source,s->retry_when,on_retry,s);
 }
 
+static void *on_event(oop_source *oop,struct timeval now,void *user) {
+	struct gale_server *s = (struct gale_server *) user;
+
+	if (-1 != link_get_fd(s->link)) {
+		s->on_disconnect_called = 0;
+		if (NULL != s->on_connect && !s->on_connect_called) {
+			s->on_connect_called = 1;
+			return s->on_connect(s,
+				s->current_host,
+				s->current_addr,s->on_connect_data);
+		}
+	} else {
+		s->on_connect_called = 0;
+		if (NULL != s->on_disconnect && !s->on_disconnect_called) {
+			s->on_disconnect_called = 1;
+			return s->on_disconnect(s,s->on_disconnect_data);
+		}
+	}
+
+	return OOP_CONTINUE;
+}
+
 static void *on_connect(int fd,
 	struct gale_text host,struct sockaddr_in addr,
 	int found_local,void *user) 
 {
 	struct gale_server *s = (struct gale_server *) user;
+	s->connect = NULL;
+
 	if (fd < 0)
 		do_retry(s,!found_local);
 	else {
@@ -79,10 +107,11 @@ static void *on_connect(int fd,
 				G_("link to "),s->host,
 				G_(" ok")),0);
 		}
-		s->connect = NULL;
+
+		s->current_host = host;
+		s->current_addr = addr;
 		link_set_fd(s->link,fd);
-		if (NULL != s->on_connect) 
-			return s->on_connect(s,host,addr,s->on_connect_data);
+		s->source->on_time(s->source,OOP_TIME_NOW,on_event,s);
 	}
 
 	return OOP_CONTINUE;
@@ -93,8 +122,7 @@ static void *on_error(struct gale_link *l,int err,void *user) {
 	assert(l == s->link);
 	link_set_fd(l,-1);
 	do_retry(s,1);
-	if (NULL != s->on_disconnect) 
-		return s->on_disconnect(s,s->on_disconnect_data);
+	s->source->on_time(s->source,OOP_TIME_NOW,on_event,s);
 	return OOP_CONTINUE;
 }
 
@@ -137,11 +165,15 @@ void gale_close(struct gale_server *s) {
 void gale_on_connect(struct gale_server *s,gale_call_connect *f,void *d) {
 	s->on_connect = f;
 	s->on_connect_data = d;
+	s->on_connect_called = 0;
+	s->source->on_time(s->source,OOP_TIME_NOW,on_event,s);
 }
 
 void gale_on_disconnect(struct gale_server *s,gale_call_disconnect *f,void *d) {
 	s->on_disconnect = f;
 	s->on_disconnect_data = d;
+	s->on_disconnect_called = 0;
+	s->source->on_time(s->source,OOP_TIME_NOW,on_event,s);
 }
 
 #if 0
