@@ -38,7 +38,7 @@ static void incoming(void) {
 		return;
 	}
 	gale_dprintf(2,"[%d] new connection\n",newfd);
-	setsockopt(newfd,SOL_SOCKET,SO_KEEPALIVE,&one,sizeof(one));
+	setsockopt(newfd,SOL_SOCKET,SO_KEEPALIVE,SUNSUCK &one,sizeof(one));
 	add_connect(newfd);
 }
 
@@ -150,26 +150,35 @@ static void loop(void) {
 	}
 }
 
-static void add_link(char *arg) {
-	char *at = strrchr(arg,'@');
-	struct attach *att = new_attach();
-	if (at) {
-		att->subs = gale_strndup(arg,at - arg);
-		att->server = gale_strdup(at + 1);
-	} else {
-		att->subs = "";
-		att->server = gale_strdup(arg);
-	}
-	att->next = try;
-	try = att;
+static void add_links(void) {
+	char *str,*val;
+
+	str = getenv("GALE_LINKS"); if (!str) return;
+	str = gale_strdup(str);
+	val = strtok(str,";");
+
+	do {
+		char *at = strrchr(val,'@');
+		struct attach *att = new_attach();
+		if (at) {
+			att->subs = gale_strndup(val,at - val);
+			att->server = gale_strdup(at + 1);
+		} else {
+			att->subs = "";
+			att->server = gale_strdup(val);
+		}
+		att->next = try;
+		try = att;
+	} while ((val = strtok(NULL,";")));
+
+	gale_free(str);
 }
 
 static void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: galed [-p port] [-l [cat@]server]\n"
+	"usage: galed [-p port]\n"
 	"flags: -p       Set the port to listen on\n"
-	"       -l       Configure a link to another server\n"
 	,GALE_BANNER);
 	exit(1);
 }
@@ -184,21 +193,22 @@ int main(int argc,char *argv[]) {
 
 	srand48(time(NULL) ^ getpid());
 
-	while ((opt = getopt(argc,argv,"hdDp:l:")) != EOF) switch (opt) {
+	while ((opt = getopt(argc,argv,"hdDp:")) != EOF) switch (opt) {
 	case 'd': ++gale_debug; break;
 	case 'D': gale_debug += 5; break;
-	case 'l': add_link(optarg); break;
 	case 'p': port = atoi(optarg); break;
 	case 'h':
 	case '?': usage();
 	}
+
+	add_links();
 
 	if (optind != argc) usage();
 
 	gale_dprintf(0,"starting gale server\n");
 	openlog(argv[0],LOG_PID,LOG_LOCAL5);
 
-	if (uname(&un)) 
+	if (uname(&un) < 0) 
 		gale_alert(GALE_ERROR,"uname",errno);
 	tmp = gale_malloc(strlen(un.nodename) + 20);
 	sprintf(tmp,"%s:%d",un.nodename,port);
@@ -209,7 +219,8 @@ int main(int argc,char *argv[]) {
 		gale_alert(GALE_ERROR,"socket",errno);
 	sin.sin_addr.s_addr = INADDR_ANY;
 	sin.sin_port = htons(port);
-	if (setsockopt(listener,SOL_SOCKET,SO_REUSEADDR,&one,sizeof(one)))
+	if (setsockopt(listener,SOL_SOCKET,SO_REUSEADDR,
+	               SUNSUCK &one,sizeof(one)))
 		gale_alert(GALE_ERROR,"setsockopt",errno);
 	if (bind(listener,(struct sockaddr *)&sin,sizeof(sin))) 
 		gale_alert(GALE_ERROR,"bind",errno);

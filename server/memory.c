@@ -6,7 +6,7 @@
 #include "gale/server.h"
 #include "server.h"
 
-void *gale_malloc(int size) {
+void *gale_malloc(size_t size) {
 	void *r = malloc(size);
 	if (size && !r) {
 		syslog(LOG_CRIT,"Oof!  Out of memory.  Terminating!");
