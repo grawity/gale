@@ -31,7 +31,7 @@ static void get_random(R_RANDOM_STRUCT *rand) {
 	fd = open("/dev/urandom",O_RDONLY);
 	if (fd < 0) {
 		struct stat buf;
-		fd = open("random",O_RDONLY);
+		fd = open(dir_file(dot_gale,"random"),O_RDONLY);
 		if (fd >= 0 && (fstat(fd,&buf) || (buf.st_mode & 077))) {
 			fprintf(stderr,
 			"auth: The \".gale/random\" file cannot be "
@@ -80,7 +80,7 @@ static void get_random(R_RANDOM_STRUCT *rand) {
 
 	if (R_DigestFinal(&ctx,buf,&len)) rsa_err("R_DigestFinal");
 
-	fd = open("random",O_CREAT | O_TRUNC | O_WRONLY,0600);
+	fd = open(dir_file(dot_gale,"random"),O_CREAT | O_TRUNC | O_WRONLY,0600);
 	if (fd >= 0) {
 		write(fd,buf,len);
 		close(fd);

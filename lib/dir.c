@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <pwd.h>
 
 #include "gale/all.h"
 
@@ -41,8 +42,18 @@ void gale_init(const char *s) {
 
 	dir = getenv("HOME");
 	if (!dir) {
-		gale_warn("init: HOME not defined, using current directory",0);
-		dir = ".";
+		struct passwd *pwd;
+		char *user;
+		if ((user = getenv("LOGNAME")))
+			pwd = getpwnam(user);
+		else
+			pwd = getpwuid(getuid());
+		if (pwd) 
+			dir = pwd->pw_dir;
+		else {
+			gale_warn("init: no home dir, using cwd",0);
+			dir = ".";
+		}
 	}
 	home_dir = make_dir(dir,0777);
 
@@ -80,10 +91,12 @@ struct gale_dir *dup_dir(struct gale_dir *d) {
 }
 
 struct gale_dir *make_dir(const char *s,int mode) {
+	struct stat buf;
 	struct gale_dir *r = gale_malloc(sizeof(struct gale_dir));
 	r->len = strlen(s);
 	strcpy(r->buf = gale_malloc(r->alloc = r->len + 1),s);
-	if (mkdir(r->buf,mode)) gale_warn(r->buf,errno);
+	if ((stat(r->buf,&buf) || S_ISDIR(buf.st_mode)) && mkdir(r->buf,mode))
+		gale_warn(r->buf,errno);
 	return r;
 }
 
@@ -93,8 +106,10 @@ void free_dir(struct gale_dir *d) {
 }
 
 void sub_dir(struct gale_dir *d,const char *s,int mode) {
+	struct stat buf;
 	d->len = strlen(dir_file(d,s));
-	if (mkdir(d->buf,mode)) gale_warn(d->buf,errno);
+	if ((stat(d->buf,&buf) || S_ISDIR(buf.st_mode)) && mkdir(d->buf,mode))
+		gale_warn(d->buf,errno);
 }
 
 void up_dir(struct gale_dir *d) {

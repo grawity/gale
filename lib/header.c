@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "gale/header.h"
+#include "gale/server.h"
 
 static int skip_newline(char **next,char *end) {
 	if (*next == end) return 1;
@@ -11,7 +12,7 @@ static int skip_newline(char **next,char *end) {
 }
 
 static int complain(void) {
-	fprintf(stderr,"gale: invalid header parsed\r\n");
+	gale_warn("gale: invalid header parsed\r\n",0);
 	return 1;
 }
 
