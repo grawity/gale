@@ -12,7 +12,7 @@ INCLUDES = $(GLIB_INCLUDES) $(WWW_INCLUDES)
 
 # versions updated as of 0.7
 liboop_la_LDFLAGS = -version-info 3:0:0 # version:revision:age
-liboop_la_SOURCES = sys.c select.c signal.c alloc.c
+liboop_la_SOURCES = sys.c select.c signal.c alloc.c read.c read-fd.c read-mem.c
 
 liboop_adns_la_LDFLAGS = -version-info 1:0:1
 liboop_adns_la_SOURCES = adns.c

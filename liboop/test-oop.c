@@ -9,11 +9,15 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <ctype.h>
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 #include "oop.h"
+#include "oop-read.h"
 
 #ifdef HAVE_GLIB
 #include <glib.h>
@@ -54,6 +58,11 @@ static void usage(void) {
 #ifdef HAVE_WWW
 "         libwww   some HTTP GET operations\n"
 #endif
+"         read:<delim-spec><nul-mode><shortrec-mode>[<maxrecsz>][,<bufsz>][:<data>]\n"
+"                  <delim-spec>:    n | s<delim> | k<delim>\n"
+"                  <delim>:         =<char> | n | <hex><hex>\n"
+"                  <nul-mode>:      f | d | p\n"
+"                  <shortrec-mode>: f | e | l | s\n"
 	,stderr);
 	exit(1);
 }
@@ -331,6 +340,158 @@ static void add_www(oop_source *source) {
 
 #endif
 
+typedef void on_read_err_func(oop_source*,oop_read*);
+
+static void *on_read(oop_source *source, oop_read *rd,
+		     oop_rd_event event, const char *errmsg, int errnoval,
+		     const char *data, size_t recsz, void *next_v) {
+	on_read_err_func **next= next_v;
+	size_t off;
+	int c;
+
+	printf("read %s %s%s%s%s %s ",
+	       next ? "error" : "ok",
+
+	       event == OOP_RD_OK      ? "OK" :
+	       event == OOP_RD_EOF     ? "EOF" :
+	       event == OOP_RD_PARTREC ? "PARTREC" :
+	       event == OOP_RD_LONG    ? "LONG" :
+	       event == OOP_RD_NUL     ? "NUL" :
+	       event == OOP_RD_SYSTEM  ? "SYSTEM" :
+	       (assert(!"event must be valid"), (char*)0),
+	       
+	       errmsg?" `":"", errmsg?errmsg:"", errmsg?"'":"",
+	       errnoval ? strerror(errnoval) : "Zero");
+
+	if (data) {
+
+		printf("%lu:\"", (unsigned long)recsz);
+
+		for (off=0; off<recsz; off++) {
+			c = (unsigned char)data[off];
+			if (c==' ' || (isprint(c) && !isspace(c))) {
+				putchar(c);
+			} else {
+				switch (c) {
+				case '\n': fputs("\\n",stdout); break;
+				case '\t': fputs("\\t",stdout); break;
+			default:   printf("\\x%02x",c);
+				}
+			}
+		}
+
+		assert(!data[recsz]);
+
+		putchar('"');
+
+	} else {
+		fputs("null",stdout);
+	}
+
+	putchar('\n');
+
+	if (next)
+		(*next)(source,rd);
+
+	return OOP_CONTINUE;
+}
+
+static void *stop_read(oop_source *src,int sig,void *rd_v) {
+	oop_read *rd= rd_v;
+
+	src->cancel_signal(src,SIGQUIT,stop_read,rd);
+	oop_rd_delete_tidy(rd);
+	return OOP_CONTINUE;
+}
+
+static void on_read_immed_err(oop_source *src, oop_read *rd) {
+	puts("read: terminating");
+	stop_read(src,0,rd);
+}
+
+static void on_read_std_err(oop_source *src, oop_read *rd) {
+	static on_read_err_func *const next= on_read_immed_err;
+	int r;
+
+	puts("read: switching to plain immediate mode");
+	r= oop_rd_read(rd,OOP_RD_STYLE_IMMED,0, on_read,0, on_read,(void*)&next);
+	if (r) { perror("oop_rd_read[2]"); exit(1); }
+}
+
+static void read_bad(const char *errmsg) {
+	fprintf(stderr,"invalid modes for read:...: %s\n",errmsg);
+	usage();
+}
+
+static void add_read(oop_source *source, const char *modes) {
+	static on_read_err_func *const next= on_read_std_err;
+
+	oop_readable *ra;
+	oop_read *rd;
+	oop_rd_style style;
+	size_t bufsz, maxrecsz;
+	int r;
+	char delimspec[3];
+	char *ep;
+
+	switch (*modes++) {
+	case 'n': style.delim_mode= OOP_RD_DELIM_NONE;  break;
+	case 's': style.delim_mode= OOP_RD_DELIM_STRIP; break;
+	case 'k': style.delim_mode= OOP_RD_DELIM_KEEP;  break;
+	default: read_bad("invalid delim_mode, must be one of nsk");
+	}
+	if (style.delim_mode != OOP_RD_DELIM_NONE) {
+		switch ((delimspec[0] = *modes++)) {
+		case '=': style.delim= *modes++; break;
+		case 'n': style.delim= '\n'; break;
+		case '\0': read_bad("missing delimiter");
+		default:
+			delimspec[1]= *modes++;
+			delimspec[2]= 0;
+			style.delim= strtoul(delimspec,&ep,16);
+			if (ep != modes) read_bad("invalid delimiter");
+		}
+	}
+
+	switch (*modes++) {
+        case 'f': style.nul_mode= OOP_RD_NUL_FORBID;  break;
+        case 'd': style.nul_mode= OOP_RD_NUL_DISCARD; break;
+        case 'p': style.nul_mode= OOP_RD_NUL_PERMIT;  break;
+	default: read_bad("invalid nul_mode, must be one of fdp");
+	}
+
+	switch (*modes++) {
+        case 'f': style.shortrec_mode= OOP_RD_SHORTREC_FORBID;  break;
+        case 'e': style.shortrec_mode= OOP_RD_SHORTREC_EOF;     break;
+        case 'l': style.shortrec_mode= OOP_RD_SHORTREC_LONG;    break;
+        case 's': style.shortrec_mode= OOP_RD_SHORTREC_SOONEST; break;
+	default: read_bad("invalid shortrec_mode, must be one of fels");
+	}
+
+	maxrecsz= strtoul(modes,&ep,10);
+	if (*ep && *ep != ',' && *ep != ':') read_bad("invalid maxrecsz");
+	modes= *ep==',' ? ep+1 : ep;
+
+	bufsz= strtoul(modes,&ep,10);
+	if (*ep && *ep != ':') read_bad("invalid bufsz");
+
+	if (*ep != ':') {
+		ra= oop_readable_fd(source,0);
+		if (!ra) { perror("oop_readable_fd"); exit(1); }
+	} else {
+		modes= ep+1;
+		ra= oop_readable_mem(source,modes,strlen(modes));
+		if (!ra) { perror("oop_readable_fd"); exit(1); }
+	}		
+
+	rd= oop_rd_new(source,ra,
+		       bufsz ? malloc(bufsz) : 0,
+		       bufsz);
+	r= oop_rd_read(rd,&style,maxrecsz, on_read,0, on_read,(void*)&next);
+	if (r) { perror("oop_rd_read"); exit(1); }
+	source->on_signal(source,SIGQUIT,stop_read,rd);
+}
+
 /* -- core ----------------------------------------------------------------- */
 
 static void *stop_loop_delayed(oop_source *source,struct timeval tv,void *x) {
@@ -428,6 +589,11 @@ static void add_sink(oop_source *src,const char *name) {
 
 	if (!strcmp(name,"libwww")) {
 		add_www(src);
+		return;
+	}
+
+	if (!strncmp(name,"read:",5)) {
+		add_read(src,name+5);
 		return;
 	}
 
