@@ -366,13 +366,16 @@ static void *on_write(oop_source *src,int fd,oop_event event,void *user) {
 		del_address(conn,i);
 		gale_abort_connect(conn);
 
-		fcntl(fd,F_SETFL,0);
-		setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,
-		           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
 #if 0
+		/* We actually want O_NONBLOCK now. */
+		fcntl(fd,F_SETFL,0);
+
+		/* SO_LINGER causes nothing but trouble. */
 		setsockopt(fd,SOL_SOCKET,SO_LINGER,
 		           (SETSOCKOPT_ARG_4_T) &linger,sizeof(linger));
 #endif
+		setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,
+		           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
 
 		return conn->call(fd,name,addr,conn->found_local,conn->data);
 	}

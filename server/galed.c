@@ -51,6 +51,7 @@ static void *on_incoming(oop_source *source,int fd,oop_event ev,void *user) {
 	}
 	gale_dprintf(2,"[%d] new connection from %s\n",
 	             newfd,inet_ntoa(sin.sin_addr));
+	fcntl(newfd,F_SETFL,O_NONBLOCK);
 	setsockopt(newfd,SOL_SOCKET,SO_KEEPALIVE,
 	           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
 
