@@ -9,49 +9,60 @@ getting them in the right places.  The exception is the authentication system,
 which requires a certain amount of finicky setup -- including setuid binaries 
 -- to do its job correctly and securely.
 
-0. Get and install the RSAREF library.  You can get it from ftp.rsa.com, if
-   you live in the US or Canada.  If you don't, well, good luck; you should
-   be able to find it, or a workalike (such as RSAEURO), without too much
-   trouble.  Yay ITAR.
+0. Make sure you have GNU Make version 3.75 or better.  Older versions might
+   work, but I can't swear to it.  You can get it by anonymous FTP from
+   prep.ai.mit.edu in the /pub/gnu directory.  You can't build Gale with a
+   non-GNU 'make' utility, sorry.
 
-   Anyway, once you have it, you can either install it on your system, or
-   just put it in a directory named "rsaref" in the same directory that
-   contains your "gale" directory.  The RSAREF install docs ask you to create
-   an arbitrary subdirectory to perform the build in; the default Gale setup
-   assumes that you make the directory "build" in the "rsaref" directory
-   for this purpose.
+1. Get and install the RSAREF library.  You can get it from ftp.rsa.com, if
+   you live in the US or Canada.  If you don't, you might try using a workalike
+   such as RSAEURO.
+
+   You can either install it in a canonical place on your system as
+   librsaref.a, or build it in-place.  Follow the build directions that 
+   come with the tar file.
 
    In any case, remember where you put it for the next step.
 
-1. Read and follow the directions in the file "defs.template" in this
-   directory.
+2. Prepare to run the provided "configure" script.  The typical "configure" 
+   options (--prefix etc.) apply; run "sh configure --help" for usage 
+   information.  If you want to build the gzgw (gale/Zephyr gateway), you 
+   need to make sure "configure" can find the Zephyr libraries and headers 
+   by using the proper -L and -I flags (if necessary) in the LDFLAGS and 
+   CPPFLAGS environment variables, respectively.
 
-2. Make sure you have GNU Make version 3.75 or better.  Older versions might
-   work, but I can't swear to it.  You can get it by anonymous FTP from
-   prep.ai.mit.edu in the /pub/gnu directory.  Gale will not build with a
-   non-GNU 'make' utility, sorry.
+   If you have installed RSAREF on your system, include the appropriate flags
+   so "configure" can find librsaref.a and the RSAREF headers (rsaref.h etc).
+   If you've left it in a build directory, use the --with-rsaref argument to
+   "configure", specifying the location, e.g. "--with-rsaref=../rsaref/build".
+
+   Once you've figured out the right options and set environment variables
+   as needed, run the script.
 
 3. Run GNU make ("gmake" or "make" or however it's installed) in the top-level
    Gale directory.  With luck, this will build everything without incident.
-   If not, well, now you get to figure out what went wrong and why; enjoy!
+   If not, now you get to figure out what went wrong and why; enjoy!
    Feel free to contact me (egnor@ofb.net) with questions.  Many architectures
    are currently unsupported, but the changes are typically not too painful.
 
 4. Become a user (eg. "root") which has permission to write/create the
-   directories you specified.  Run "make install" from the top-level Gale
-   directory; this should install the binaries, libraries, and header files,
-   and create the directory structure for the authentication system.  Again,
-   if this encounters an error, guess who gets to fix it!
+   install directories (/usr/local/..., unless you specified otherwise).  
+   Make "install" from the top-level Gale directory; this should install 
+   the Gale binaries, libraries, and header files.
 
-5. Edit SYS_DIR/conf to your taste.  Make sure the files on BIN_DIR are
-   accessible on your PATH.
+5. If you don't already have the auth system configuration files set up,
+   make "authinstall" and follow the directions.  This will generate an 
+   initial Gale configuration file and create directories with the appropriate
+   permissions to hold the key cache and such.
+
+   Make sure the installed binaries are on your PATH.
 
 6. You now need to generate and authenticate a key for your domain.  Figure
    out who controls the domain next "up" from you -- if you have the domain
    "foo.bat.bar", you need to have your key signed by whoever controls the
    domain "bat.bar".  I keep the keys for most top-level domains.  If you'd
    like to keep the key for the upper-level domain yourself, you can do that
-   too -- but you need to get _that_ key signed...
+   too -- but then you need to get _that_ key signed...
 
    Generate the "uppermost" key you aim to control with "gkgen":
 
@@ -61,11 +72,12 @@ which requires a certain amount of finicky setup -- including setuid binaries
    generated (probably uuencode'd) to whoever controls the next upper domain.
    They will pipe it to "gksign", and send the output of "gksign" back to you.
 
-   Take the returned, signed key and put it in SYS_DIR/auth/local.  The 
-   filename must be the name of your domain.  Run "gkinfo my.domain" to make
-   sure you can see your new key.  Also find the corresponding private key
-   (look in your .gale/auth/private) and put it in the .gale/auth/private
-   directory for GALE_USER (whatever user gksign runs as).
+   Take the returned, signed key and put it in /usr/local/etc/auth/local
+   (replace "/usr/local/" as appropriate).  The filename must be the name of 
+   your domain.  Run "gkinfo my.domain" to make sure you can see your new key.  
+   Also find the corresponding private key (look in your .gale/auth/private) 
+   and put it in the .gale/auth/private directory for the user you designated
+   as the Gale user in step 5.
 
    Now, if you have any subdomains you want to manage, use "gkgen" to create
    them, from "uppermost" to "lowermost".  Since you have the signing key for

@@ -33,8 +33,15 @@ esac
 
 if test -d "$with_rsaref" ; then
   case "$with_rsaref" in
+    "") ;;
+    /*) with_rsaref="$with_rsaref/rsaref.a" ;;
+    *) with_rsaref="`pwd`/$with_rsaref/rsaref.a" ;;
+  esac
+elif test -f "$with_rsaref" ; then
+  case "$with_rsaref" in
+    "") ;;
     /*) ;;
-    *) with_rsaref="`pwd`/$with_rsaref"
+    *) with_rsaref="`pwd`/$with_rsaref" ;;
   esac
 fi
 
@@ -63,13 +70,19 @@ AC_CHECK_LIB(pq,PQsetdb,[
 AC_CHECK_LIB(zephyr,ZInitialize,[
   LIBS="-lzephyr -lcom_err $LIBS"
   build_list="$build_list gzgw"
+  AC_CHECK_LIB(krb,tf_get_pname)
+  AC_CHECK_LIB(des,des_key_sched)
 ],,-lcom_err)
 
-if test -r "$with_rsaref/rsaref.a" ; then
-  LIBS="$LIBS $with_rsaref/rsaref.a"
+if test -n "$with_rsaref"; then
+  if test -r "$with_rsaref/rsaref.a" ; then
+    LIBS="$LIBS $with_rsaref/rsaref.a"
+  else
+    AC_MSG_ERROR(cannot find library $with_rsaref/rsaref.a)
+  fi
 else
   AC_CHECK_LIB(rsaref,R_RandomInit,[LIBS="$LIBS -lrsaref"],[
-    AC_MSG_ERROR(cannot find RSAREF library, check --with-rsaref=DIR option)
+    AC_MSG_ERROR(cannot find RSAREF library; check --with-rsaref=DIR option)
   ])
 fi
 
@@ -79,11 +92,15 @@ AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(fcntl.h sys/time.h syslog.h unistd.h sys/bitypes.h term.h)
 
-if test -r "$with_rsaref/../source/rsaref.h" ; then
-  CPPFLAGS="$CPPFLAGS -I$with_rsaref/../source"
+if test -n "$with_rsaref" ; then
+  if test -r "$with_rsaref/../source/rsaref.h" ; then
+    CPPFLAGS="$CPPFLAGS -I$with_rsaref/../source"
+  else
+    AC_MSG_ERROR(cannot find header $with_rsaref/../source/rsaref.h)
+  fi
 else
   AC_CHECK_HEADERS(rsaref.h,,[
-    AC_MSG_ERROR(cannot find RSAREF headers, check --with-rsaref=DIR option)
+    AC_MSG_ERROR(cannot find RSAREF headers; check --with-rsaref=DIR option)
   ])
 fi
 

@@ -1,2 +1,0 @@
-ZEPHYR_LIB = -lzephyr -lkrb -ldes
-ZEPHYR_INC = -I/usr/local/include

@@ -103,6 +103,12 @@
 /* Define if you have the cgic library (-lcgic).  */
 #undef HAVE_LIBCGIC
 
+/* Define if you have the des library (-ldes).  */
+#undef HAVE_LIBDES
+
+/* Define if you have the krb library (-lkrb).  */
+#undef HAVE_LIBKRB
+
 /* Define if you have the nsl library (-lnsl).  */
 #undef HAVE_LIBNSL
 

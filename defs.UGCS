@@ -1,1 +1,0 @@
-SUID_DIR = $(HOME)/sbin/$(ARCH)
