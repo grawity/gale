@@ -3,10 +3,14 @@ INC_DIR = $(HOME)/include/gale
 
 ifdef ARCH
 RSAREF_LIB = $(TOP)/../rsaref/build.$(ARCH)/rsaref.a
+DB_LIB = $(TOP)/../db/build.$(ARCH)/libdb.a
+DB_INC = -I$(TOP)/../db/build.$(ARCH)
 BIN_DIR = $(HOME)/bin/$(ARCH)
 LIB_DIR = $(HOME)/lib/$(ARCH)
 else
 RSAREF_LIB = $(TOP)/../rsaref/build/rsaref.a
+DB_LIB = $(TOP)/../db/build.unix/libdb.a
+DB_INC = -I$(TOP)/../db/build.unix
 BIN_DIR = $(HOME)/bin
 LIB_DIR = $(HOME)/lib
 endif

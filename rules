@@ -6,8 +6,8 @@ CFLAGS = -Wall -g
 -include $(TOP)/defs.$(LAB)
 -include $(TOP)/defs.$(ARCH)
 
-CPPFLAGS = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC)
-LDLIBS = -L$(TOP)/lib -lgale $(RSAREF_LIB) $(ZEPHYR_LIB)
+CPPFLAGS = -I$(TOP)/include $(RSAREF_INC) $(ZEPHYR_INC) $(DB_INC)
+LDLIBS = -L$(TOP)/lib -lgale $(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB)
 
 all::
 	@make --no-print-directory subdirs TARGET=all
