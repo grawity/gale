@@ -232,21 +232,27 @@ static void add_name(struct gale_connect *conn,struct gale_text name,int port) {
 	             conn, gale_text_to(gale_global->enc_console,name));
 
 #ifdef HAVE_ADNS
-	if (conn->alloc_resolve == conn->num_resolve) {
-		gale_resize_array(conn->resolving,
-			conn->alloc_resolve = conn->alloc_resolve 
-			? 2*conn->alloc_resolve : 6);
+	if (NULL == conn->adns)
+		conn->adns = oop_adns_new(conn->source,0,NULL);
+
+	if (NULL != conn->adns) {
+		if (conn->alloc_resolve == conn->num_resolve) {
+			gale_resize_array(conn->resolving,
+				conn->alloc_resolve = conn->alloc_resolve 
+				? 2*conn->alloc_resolve : 6);
+		}
+
+		gale_create(res);
+		res->owner = conn;
+		res->name = name;
+		res->port = port;
+		res->query = oop_adns_submit(conn->adns,
+			gale_text_to(NULL,name),
+			adns_r_a,0,on_lookup,res);
+
+		if (NULL != res->query)
+			conn->resolving[conn->num_resolve++] = res;
 	}
-
-	gale_create(res);
-	res->owner = conn;
-	res->name = name;
-	res->port = port;
-	res->query = oop_adns_submit(conn->adns,
-		gale_text_to(NULL,name),
-		adns_r_a,0,on_lookup,res);
-
-	if (NULL != res->query) conn->resolving[conn->num_resolve++] = res;
 #else
 	if (NULL == he) {
 		gale_dprintf(5,"(connect %p) no addresses for \"%s\"\n",
@@ -308,7 +314,7 @@ struct gale_connect *gale_make_connect(
 
 	gale_create(conn);
 	conn->source = src;
-	ADNS_ONLY(conn->adns = oop_adns_new(conn->source,0,NULL);)
+	conn->adns = NULL;
 	conn->avoid_local_port = avoid_local_port;
 	conn->found_local = 0;
 
