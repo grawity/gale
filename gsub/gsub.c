@@ -536,7 +536,9 @@ void check_tty(int x) {
 		sigaction(SIGALRM,NULL,&act);
 		act.sa_handler = check_tty;
 		act.sa_flags &= ~SA_RESETHAND;
+#ifdef SA_RESTART
 		act.sa_flags |= SA_RESTART;
+#endif
 		sigaction(SIGALRM,&act,NULL);
 		alarm(TIMEOUT);
 	}
