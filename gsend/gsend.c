@@ -57,7 +57,7 @@ void headers(void) {
 	gale_add_id(&msg->data,gale_text_from(gale_global->enc_filesys,tty,-1));
 
 	if (do_rrcpt) {
-		frag.name = G_("question/receipt");
+		frag.name = G_("question.receipt");
 		frag.type = frag_text;
 		frag.value.text = gale_location_name(user);
 		gale_group_add(&msg->data,frag);
@@ -221,9 +221,9 @@ static void usage(void) {
 		"%s\n"
 		"usage: gsend [-hap] [-f address] [-t nm=val] address [address ...] [/\"subject\"]\n"
 		"flags: -h          Display this message\n"
-		"       -a          Do not sign message (anonymous)\n"
+		"       -a          Send message anonymously\n"
 		"       -p          Always request a return receipt\n"
-		"       -f address  Sign message with a specific <address>\n"
+		"       -f address  Send message from a specific <address>\n"
 		"       -t nm=val   Include text fragment 'nm' set to 'val'\n"
 		"       /\"subject\"  Set the message subject text\n"
 		"You must specify at least one recipient address.\n"
