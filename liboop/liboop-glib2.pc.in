@@ -6,6 +6,6 @@ includedir=@includedir@
 Name: liboop-glib2
 Description: Event loop management library (GLIB2 support)
 Version: @VERSION@
-Requires: liboop = @VERSION@
+Requires: liboop = @VERSION@ glib-2.0
 Libs: -L${libdir} -loop-glib2
 Cflags: -D_REENTRANT -I${includedir}
