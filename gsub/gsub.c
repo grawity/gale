@@ -137,20 +137,24 @@ void default_gsubrc(void) {
 	}
 
 	/* Format return receipts specially */
-	if (!strcmp(id_category(user_id,"user","receipt"),cat)) {
-		char *from_comment = getenv("HEADER_FROM");
-		fputs("* Received by",stdout);
-		print_id(getenv("GALE_SIGNED"),"unverified");
-		if (from_comment) printf(" (%s)",from_comment);
-		if ((tmp = getenv("HEADER_TIME"))) {
-			time_t when = atoi(tmp);
-			strftime(buf,sizeof(buf)," %m/%d %H:%M",
-			         localtime(&when));
-			fputs(buf,stdout);
+	tmp = cat;
+	while ((tmp = strstr(tmp,"/receipt"))) {
+		tmp += 8;
+		if (!*tmp || *tmp == ':') {
+			char *from_comment = getenv("HEADER_FROM");
+			fputs("* Received by",stdout);
+			print_id(getenv("GALE_SIGNED"),"unverified");
+			if (from_comment) printf(" (%s)",from_comment);
+			if ((tmp = getenv("HEADER_TIME"))) {
+				time_t when = atoi(tmp);
+				strftime(buf,sizeof(buf)," %m/%d %H:%M",
+					 localtime(&when));
+				fputs(buf,stdout);
+			}
+			fputs(nl,stdout);
+			fflush(stdout);
+			return;
 		}
-		fputs(nl,stdout);
-		fflush(stdout);
-		return;
 	}
 
 	/* Print the header: category, time, et cetera */
@@ -308,12 +312,9 @@ void present_message(struct gale_message *_msg) {
 
 		/* Process receipts, if we do. */
 		if (do_ping && !strcasecmp(key,"Receipt-To")) {
-			struct gale_id *sign = id_encrypted;
-
 			/* Generate a receipt. */
-			if (!sign) sign = user_id;
 			if (rcpt) release_message(rcpt);
-			rcpt = slip(data,sign,id_sign);
+			rcpt = slip(data,user_id,id_sign);
 		}
 
 		/* Create a HEADER_... environment entry for this. */
