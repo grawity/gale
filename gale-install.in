@@ -294,7 +294,7 @@ printf "Enter the description: "
 read descr
 
 echo "We will generate the key now.  Have patience."
-gkgen -r "$SYS_DIR/auth/private/$GALE_DOMAIN.gpri" \
+gkgen -r "$GALE/auth/private/$GALE_DOMAIN.gpri" \
       -u "$unsigned" "$GALE_DOMAIN" "$descr" || exit 1
 
 cat << EOM
