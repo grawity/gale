@@ -58,6 +58,8 @@ static struct gale_group response(struct gale_key *key) {
 			G_("\""));
 	}
 
+	if (NULL != domain_location)
+		gale_add_id(&data,gale_location_name(domain_location));
 	gale_group_add(&data,frag);
 	return data;
 }
@@ -142,20 +144,18 @@ static void *on_domain_location(
 	struct gale_text name,
 	struct gale_location *loc,void *x)
 {
-	const struct gale_text domain = gale_var(G_("GALE_DOMAIN"));
-
 	if (NULL == loc
 	|| !gale_key_private(gale_location_key(loc)))
 		gale_alert(GALE_ERROR,gale_text_concat(3,
 			G_("no private key for \""),
-			domain,G_("\"")),0);
+			gale_var(G_("GALE_DOMAIN")),G_("\"")),0);
 
 	gale_alert(GALE_NOTICE,gale_text_concat(3,
 		G_("serving keys for \""),
-		domain,G_("\"")),0);
+		gale_location_name(loc),G_("\"")),0);
 
 	gale_daemon(source);
-	gale_kill(domain,1);
+	gale_kill(gale_location_name(loc),1);
 	gale_detach(source);
 
 	domain_location = loc;
