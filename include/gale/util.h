@@ -37,6 +37,9 @@ void gale_restart(void);
    process instead. */
 pid_t gale_exec(const char *prog,char * const *argv,int *in,int *out,
                 void (*)(char * const *));
+/* Wait for the subprogram to exit and return its return code.  You should call
+   this to avoid zombies. */
+int gale_wait(pid_t pid);
 
 /* Memory management.  Programs have to define the first two themselves, with
    whatever allocation policy they want. */

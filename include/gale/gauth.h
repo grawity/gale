@@ -17,6 +17,9 @@ int auth_id_private(struct auth_id *);
 
 void auth_id_gen(struct auth_id *,const char *comment);
 
+void export_auth_id(struct auth_id *,struct gale_data *data,int private);
+void import_auth_id(struct auth_id **,struct gale_data data,int private);
+
 void auth_sign(struct auth_id *,
                struct gale_data data,struct gale_data *sig);
 void auth_verify(struct auth_id **,

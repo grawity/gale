@@ -71,8 +71,8 @@ static void init_vars(struct passwd *pwd) {
 	if (!getenv("GALE_FROM")) {
 		const char *name = auth_id_comment(user_id);
 		if (!name || !*name) name = strtok(pwd->pw_gecos,",");
-		tmp = gale_malloc(strlen(name) + 30);
-		sprintf(tmp,"GALE_FROM=%s",name);
+		tmp = gale_malloc((name ? strlen(name) : 0) + 30);
+		sprintf(tmp,"GALE_FROM=%s",name ? name : "");
 		putenv(tmp);
 	}
 
@@ -99,7 +99,7 @@ static char *read_line(FILE *fp) {
 		buf[size++] = ch;
 	}
 
-	if (!size) return NULL;
+	if (ch == EOF) return NULL;
 	buf[size++] = '\0';
 	return buf;
 }

@@ -19,17 +19,20 @@ prefix = $(HOME)
 exec_prefix = $(prefix)
 
 # Architecture-independent
-INC_DIR = $(prefix)/include/gale    # public header files
+
+# Public header files.
+INC_DIR = $(prefix)/include/gale
 
 # Note that parts of SYS_DIR are actively updated during the operation of
 # Gale, so it should not be on a read-only partition.  It contains no
-# architecture dependent material.
-SYS_DIR = $(prefix)/etc/gale	    # configuration files, key cache, etc.
+# architecture dependent material.  Gale stores configuration files, the
+# key cache, etc. here.
+SYS_DIR = $(prefix)/etc/gale
 
-# Architecture-dependent
-BIN_DIR = $(exec_prefix)/bin	    # binaries (PATH should include this)
-SUID_DIR = $(BIN_DIR)		    # setuid files, if you have a spot for them
-LIB_DIR = $(exec_prefix)/lib	    # libraries (libgale.a, libgauth.a)
+# Architecture-dependent: binaries, setuid files, and libraries, respectively.
+BIN_DIR = $(exec_prefix)/bin
+SUID_DIR = $(BIN_DIR)
+LIB_DIR = $(exec_prefix)/lib
 
 # -----------------------------------------------------------------------------
 # The Gale authentication system requires the RSAREF library.  You can get
@@ -58,8 +61,8 @@ RSAREF_LIB = $(rsaref)/build/rsaref.a
 # Choose a user who will control Gale authentication.  The key-signing program
 # will run setuid to this user, and they will own the domain private key files.
 # I don't recommend using root; I have attempted to keep security holes out of 
-# the program, but it's generally # good policy to limit setuid-root 
-# executables just in case.
+# the program, but it's generally good policy to limit setuid-root executables 
+# just in case.
 #
 # You can use yourself, particularly for testing purposes, or you can make
 # a special "gale" user.

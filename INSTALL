@@ -1,10 +1,27 @@
 Gale installation directions
 ----------------------------
 
+See http://ofb.net/~egnor/gale/ for more information on Gale.
+You can get the latest distribution from http://ofb.net/~egnor/gale.tar.gz.
+
 For the most part, installing Gale is a matter of building the binaries and
 getting them in the right places.  The exception is the authentication system,
 which requires a certain amount of finicky setup -- including setuid binaries 
 -- to do its job correctly and securely.
+
+0. Get and install the RSAREF library.  You can get it from ftp.rsa.com, if
+   you live in the US or Canada.  If you don't, well, good luck; you should
+   be able to find it, or a workalike (such as RSAEURO), without too much
+   trouble.  Yay ITAR.
+
+   Anyway, once you have it, you can either install it on your system, or
+   just put it in a directory named "rsaref" in the same directory that
+   contains your "gale" directory.  The RSAREF install docs ask you to create
+   an arbitrary subdirectory to perform the build in; the default Gale setup
+   assumes that you make the directory "build" in the "rsaref" directory
+   for this purpose.
+
+   In any case, remember where you put it for the next step.
 
 1. Read and follow the directions in the file "defs.template" in this
    directory.

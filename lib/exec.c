@@ -2,6 +2,9 @@
 
 #include <unistd.h>
 #include <errno.h>
+#include <assert.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 pid_t gale_exec(const char *prog,char * const *argv,int *in,int *out,
                 void (*def)(char * const *)) {
@@ -57,4 +60,12 @@ error:
 	if (in) *in = -1;
 	if (out) *out = -1;
 	return -1;
+}
+
+int gale_wait(pid_t pid) {
+	int status;
+	waitpid(pid,&status,0);
+	if (WIFEXITED(status)) return WEXITSTATUS(status);
+	if (WIFSIGNALED(status)) return -WTERMSIG(status);
+	assert(0);
 }

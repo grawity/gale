@@ -13,13 +13,16 @@ void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { free(ptr); }
 
 struct gale_message *msg;               /* The message we're building. */
-int aflag = 0,alloc = 0;		/* Various flags. */
+int do_sign = 1,do_encrypt = 0;		/* Various flags. */
+int alloc = 0;
 
 /* Whether we have collected any replacements for default headers. */
 int have_from = 0,have_to = 0,have_time = 0,have_type = 0;
 
 const char *pflag = NULL;               /* Return receipt destination. */
-struct gale_id *recipient = NULL;       /* Encryption recipient (if any). */
+struct auth_id **rcpt = NULL;		/* Encryption recipients. */
+struct auth_id *signer;			/* Identity to sign the message. */
+int num_rcpt = 0;			/* Number of recipients. */
 
 /* Reserve space in the message buffer. */
 void reserve(int len) {
@@ -47,18 +50,38 @@ void headers(void) {
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
 
-	/* These are fairly obvious. */
-	if (!aflag && !have_from) {
-		const char *from = getenv("GALE_FROM");
+	/* Most of these are fairly obvious. */
+	if (do_sign && !have_from) {
+		const char *from = NULL;
+		if (signer != user_id) from = auth_id_comment(signer);
+		if (!from || !*from) from = getenv("GALE_FROM");
 		reserve(20 + strlen(from));
 		sprintf(msg->data + msg->data_size,"From: %s\r\n",from);
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
-	if (!have_to && recipient && auth_id_comment(recipient)) {
-		reserve(20 + strlen(auth_id_comment(recipient)));
-		sprintf(msg->data + msg->data_size,
-		        "To: %s\r\n",auth_id_comment(recipient));
-		msg->data_size += strlen(msg->data + msg->data_size);
+	if (!have_to && num_rcpt) {
+		/* Build a comma-separated list of encryption recipients. */
+		int i,size = 30;
+		const char **n = gale_malloc(sizeof(const char *) * num_rcpt);
+		for (i = 0; i < num_rcpt; ++i) {
+			const char *comment = auth_id_comment(rcpt[i]);
+			const char *name = auth_id_name(rcpt[i]);
+			n[i] = (comment && *comment) ? comment : name;
+			size += strlen(n[i]) + 2;
+		}
+		reserve(size);
+
+		strcpy(msg->data + msg->data_size,"To: ");
+		msg->data_size += 4;
+
+		for (i = 0; i < num_rcpt; ++i) {
+			strcpy(msg->data + msg->data_size,i ? ", " : "");
+			strcat(msg->data + msg->data_size,n[i]);
+			msg->data_size += strlen(msg->data + msg->data_size);
+		}
+
+		strcpy(msg->data + msg->data_size,"\r\n");
+		msg->data_size += 2;
 	}
 	if (!have_time) {
 		reserve(20);
@@ -78,12 +101,35 @@ void headers(void) {
 	msg->data[msg->data_size++] = '\n';
 }
 
+/* Add an encryption recipient to the list. */
+
+void add_rcpt(const char *name) {
+	struct auth_id *id = lookup_id(name),**n;
+	do_encrypt = 1;
+
+	if (!id) return;
+	if (!find_id(id)) {
+		char *buf = gale_malloc(strlen(name) + 30);
+		sprintf(buf,"cannot locate key for \"%s\"",name);
+		gale_alert(GALE_WARNING,buf,0);
+		gale_free(buf);
+		return;
+	}
+
+	n = gale_malloc((num_rcpt + 1) * sizeof(struct auth_id *));
+	memcpy(n,rcpt,num_rcpt * sizeof(struct auth_id *));
+	n[num_rcpt++] = id;
+	gale_free(rcpt);
+	rcpt = n;
+}
+
 void usage(void) {
 	struct gale_id *id = lookup_id("username@domain");
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-uU] [-e id] [-p cat] cat\n"
-		"flags: -e id       Send private message to <id>\n"
+		"usage: gsend [-aruU] [-e id [-e id] ...] [-S id] [-p cat] cat\n"
+		"flags: -e id       Send private message to <id> (many ok)\n"
+		"       -S id       Sign message with a specific <id> (one)\n"
 		"       -a          Do not sign message (anonymous)\n"
 		"       -r          Do not retry server connection\n"
 		"       -p cat      Request a return receipt\n"
@@ -100,16 +146,19 @@ int main(int argc,char *argv[]) {
 	struct gale_client *client;          /* The client structure */
 	int arg,uflag = 0,rflag = 0;         /* Command line flags */
 	int ttyin = isatty(0),newline = 1;   /* Input options */
-	char *cp,*tmp,*eflag = NULL;         /* Various temporary strings */
+	char *cp,*tmp,*sign = NULL;          /* Various temporary strings */
 
 	/* Initialize the gale libraries. */
 	gale_init("gsend",argc,argv);
 
 	/* Parse command line options. */
-	while ((arg = getopt(argc,argv,"hae:t:p:ruU")) != EOF) 
+	while ((arg = getopt(argc,argv,"hae:t:p:S:ruU")) != EOF) 
 	switch (arg) {
-	case 'a': aflag = 1; break;          /* Anonymous (no signature) */
-	case 'e': eflag = optarg; break;     /* Encrypt for recipient */
+	case 'a': do_sign = 0; break;        /* Anonymous (no signature) */
+	case 'e': add_rcpt(optarg); break;   /* Encrypt for recipient */
+	case 'S': sign = optarg;             /* Select an ID to sign with */
+	          do_sign = 1; 
+	          break;
 	case 'p': pflag = optarg; break;     /* Request return receipt */
 	case 'r': rflag = 1; break;          /* Don't retry */
 	case 'u': uflag = 1; break;          /* Expect user-supplied headers */
@@ -118,21 +167,42 @@ int main(int argc,char *argv[]) {
 	case '?': usage();
 	}
 
+	if (do_encrypt && !num_rcpt) 
+		gale_alert(GALE_ERROR,"No valid recipients.",0);
+
+	if (do_sign) {
+		if (sign)
+			signer = lookup_id(sign);
+		else
+			signer = user_id;
+		if (!auth_id_private(signer))
+			gale_alert(GALE_ERROR,"No private key to sign with.",0);
+	}
+
 	/* Create a new message object to send. */
 	msg = new_message();
 
-	if (eflag || !aflag) gale_keys();
+	/* Generate keys. */
+	if (do_encrypt || do_sign) gale_keys();
 
-	/* If encrypting, look up the recipient. */
-	if (eflag) {
-		/* Generate our keys, in case we're sending to ourselves.
-		   They should really exist by that point, but hey... */
-		recipient = lookup_id(eflag);
-	}
-
-	if (optind == argc && eflag)         /* Default category... */
-		msg->category = id_category(recipient,"user","");
-	else if (optind != argc - 1)         /* Wrong # arguments */
+	if (optind == argc && do_encrypt) {  /* Default category... */
+		char **n = gale_malloc(sizeof(char *) * num_rcpt);
+		int i,size = 0;
+		for (i = 0; i < num_rcpt; ++i) {
+			n[i] = id_category(rcpt[i],"user","");
+			size += strlen(n[i]) + 1;
+		}
+		msg->category = gale_malloc(size);
+		for (i = 0; i < num_rcpt; ++i) {
+			if (i) {
+				strcat(msg->category,":");
+				strcat(msg->category,n[i]);
+			} else
+				strcpy(msg->category,n[i]);
+		}
+		for (i = 0; i < num_rcpt; ++i) gale_free(n[i]);
+		gale_free(n);
+	} else if (optind != argc - 1)       /* Wrong # arguments */
 		usage();
 	else                                 /* Copy so we can free() later */
 		msg->category = gale_strdup(argv[optind]);
@@ -154,9 +224,22 @@ int main(int argc,char *argv[]) {
 
 	/* If stdin is a TTY, prompt the user. */
 	if (ttyin) {
-		printf("Message for %s in category \"%s\":\n",
-			recipient ? auth_id_name(recipient) : "*everyone*",
-			msg->category);
+		printf("Message for ");
+		if (!do_encrypt)
+			printf("*everyone*");
+		else {
+			int i;
+			for (i = 0; i < num_rcpt; ++i) {
+				if (i > 0) {
+					if (i < num_rcpt - 1) 
+						printf(", ");
+					else 
+						printf(" and ");
+				}
+				printf("%s",auth_id_name(rcpt[i]));
+			}
+		}
+		printf(" in category \"%s\":\n",msg->category);
 		printf("(End your message with EOF or a solitary dot.)\n");
 	}
 
@@ -214,8 +297,8 @@ int main(int argc,char *argv[]) {
 	}
 
 	/* Sign the message, unless we shouldn't. */
-	if (!aflag) {
-		struct gale_message *new = sign_message(user_id,msg);
+	if (do_sign) {
+		struct gale_message *new = sign_message(signer,msg);
 		if (new) {
 			release_message(msg);
 			msg = new;
@@ -223,8 +306,8 @@ int main(int argc,char *argv[]) {
 	}
 
 	/* Ounce is being completely psychotic right now. */
-	if (recipient) {
-		struct gale_message *new = encrypt_message(1,&recipient,msg);
+	if (do_encrypt) {
+		struct gale_message *new = encrypt_message(num_rcpt,rcpt,msg);
 		release_message(msg);
 		msg = new;
 		if (msg == NULL) gale_alert(GALE_ERROR,"encryption failure",0);

@@ -10,18 +10,14 @@
 
 #include "gale/all.h"
 
-#define DEFAULT_CATEGORY "zephyr"
-
-ZSubscription_t default_sub;
-ZSubscription_t *subs = &default_sub;
-int num_subs = 1,sub_alloc = 0;
-
 void *gale_malloc(size_t size) { return malloc(size); }
 void gale_free(void *ptr) { return free(ptr); }
 
+ZSubscription_t sub;
+
 u_short port;
 struct gale_client *client;
-const char *myname,*category = DEFAULT_CATEGORY;
+const char *myname,*category;
 
 char *buf = NULL;
 int buf_len = 0,buf_alloc = 0;
@@ -47,36 +43,35 @@ void append(int len,const char *s) {
 	buf_len += len;
 }
 
-void do_retry(void) {
-	do {
-		gale_retry(client);
-		link_subscribe(client->link,category);
-	} while (gale_send(client));
-}
-
 void to_g(ZNotice_t *notice) {
 	struct gale_message *msg;
 	int len;
 	char *ptr,*end,num[15];
 
-	if (notice->z_opcode && !strcmp(notice->z_opcode,"gale")) return;
+	if (notice->z_opcode && !strcmp(notice->z_opcode,"gale")) {
+		gale_dprintf(2,"message has opcode gale; dropping.\n");
+		return;
+	}
+
+	if (notice->z_recipient && notice->z_recipient[0]) {
+		gale_dprintf(2,"message has recipient \"%s\"; dropping.\n",
+		             notice->z_recipient);
+		return;
+	}
+
+	for (ptr = notice->z_class_inst; *ptr; ++ptr)
+		*ptr = tolower(*ptr);
 
 	msg = new_message();
-	msg->category = gale_malloc(10 + strlen(category) +
-		strlen(notice->z_class) + 
+	msg->category = gale_malloc(10 + 
+		strlen(category) +
 		strlen(notice->z_class_inst));
-	sprintf(msg->category,"%s/%s/%s",category,
-		notice->z_class,notice->z_class_inst);
+	sprintf(msg->category,"%s%s",category,notice->z_class_inst);
 
 	reset();
 	append(-1,"Content-type: text/x-zwgc\r\nTime: ");
 	sprintf(num,"%u",(unsigned int) notice->z_time.tv_sec);
 	append(-1,num);
-	if (notice->z_recipient && notice->z_recipient[0]) {
-		append(7,"\r\nTo: <");
-		append(-1,notice->z_recipient);
-		append(1,">");
-	}
 
 	append(8,"\r\nFrom: ");
 
@@ -129,50 +124,53 @@ void z_to_g(void) {
 	}
 }
 
-void to_z(struct gale_message *msg) {
+void to_z(struct gale_message *_msg) {
 	ZNotice_t notice;
-	char class[32] = "MESSAGE",instance[256] = "(invalid)";
-	char *sig,*key,*data,*next,*end;
+	char instance[256] = "(invalid)";
+	char *key,*data,*next,*end;
+	const char *sig;
+	struct gale_message *msg;
+	struct auth_id *signature,*encryption;
 	int retval,len;
 
-	strncpy(class,subs[0].zsub_class,sizeof(class));
+	encryption = decrypt_message(_msg,&msg);
+	if (!msg) return;
+	signature = verify_message(msg);
 
 	memset(&notice,0,sizeof(notice));
 	notice.z_kind = UNACKED;
 	notice.z_port = 0;
-	notice.z_class = class;
+	notice.z_class = sub.zsub_class;
 	notice.z_class_inst = instance;
 	notice.z_opcode = "gale";
 	notice.z_default_format = "";
-	notice.z_sender = "gale";
+	notice.z_sender = signature ? (char*) auth_id_name(signature) : "gale";
 	notice.z_recipient = "";
 
 	next = msg->category;
 	len = strlen(category);
 	while ((next = strstr(next,category))) {
 		if (next == msg->category || next[-1] == ':') {
-			sscanf(next + len,"/%31[^/:]/%255[^:\n]",
-			       class,instance);
+			const char *colon = strchr(next + len,':');
+			int size = sizeof(instance) - 1;
+			if (colon != NULL && colon - next + len < size)
+				size = colon - next + len;
+			strncpy(instance,next + len,size);
 			break;
 		}
 		next += len;
 	}
 
+	sig = NULL;
 	end = msg->data + msg->data_size;
 	next = msg->data;
 	while (parse_header(&next,&key,&data,end)) {
 		if (!strcasecmp(key,"From"))
 			sig = data;
-		else if (!strcasecmp(key,"Signature")) {
-			data = strchr(data,' ');
-			if (data) {
-				++data;
-				strtok(data," ");
-				notice.z_sender = data;
-			}
-		} else if (!strcasecmp(key,"Encryption")) 
-			return;
 	}
+
+	if (sig == NULL && signature) sig = auth_id_comment(signature);
+	if (sig == NULL) sig = "Gale User";
 
 	reset();
 	append(strlen(sig) + 1,sig); 
@@ -196,6 +194,10 @@ void to_z(struct gale_message *msg) {
 	if ((retval = ZSendNotice(&notice,ZAUTH)) != ZERR_NONE &&
 	    (retval = ZSendNotice(&notice,ZNOAUTH)) != ZERR_NONE)
 		com_err(myname,retval,"while sending notice");
+
+	if (signature) free_auth_id(signature);
+	if (encryption) free_auth_id(encryption);
+	release_message(msg);
 }
 
 void g_to_z(void) {
@@ -211,32 +213,10 @@ void g_to_z(void) {
 void usage(void) {
 	fprintf(stderr,
 	"%s\n"
-	"usage: gzgw [-n] [-c class[:class...]] cat\n"
-	"flags: -c          Specify Zephyr class(es) to watch\n"
-	"defaults: class MESSAGE and category 'zephyr'.\n"
+	"usage: gzgw [class [cat]]\n"
+	"gzgw defaults to class message and category 'zephyr/$GALE_DOMAIN/'.\n"
 	,GALE_BANNER);
 	exit(1);
-}
-
-void add_class(char *s) {
-	ZSubscription_t *tmp = subs;
-	if (subs == &default_sub) num_subs = 0;
-	if (num_subs == sub_alloc) sub_alloc = sub_alloc ? sub_alloc * 2 : 10;
-	subs = gale_malloc(sizeof(*subs) * sub_alloc);
-	memcpy(subs,tmp,num_subs * sizeof(*subs));
-	if (tmp != &default_sub) gale_free(tmp);
-	subs[num_subs].zsub_class = s;
-	subs[num_subs].zsub_classinst = "*";
-	subs[num_subs].zsub_recipient = "*";
-	++num_subs;
-}
-
-void copt(char *s) {
-	s = strtok(s,":");
-	while (s) {
-		add_class(s);
-		s = strtok(NULL,":");
-	}
 }
 
 int main(int argc,char *argv[]) {
@@ -247,35 +227,42 @@ int main(int argc,char *argv[]) {
 
 	openlog(argv[0],LOG_PID,LOG_DAEMON);
 
-	subs[0].zsub_class = "MESSAGE";
-	subs[0].zsub_classinst = "*";
-	subs[0].zsub_recipient = "*";
-
 	myname = argv[0];
 
-	while (EOF != (opt = getopt(argc,argv,"hdDc:"))) switch (opt) {
-	case 'c': copt(optarg); break;
+	while (EOF != (opt = getopt(argc,argv,"hdD"))) switch (opt) {
 	case 'd': ++gale_debug; break;
 	case 'D': gale_debug += 5; break;
 	case 'h':
 	case '?': usage();
 	}
 
-	if (optind < argc - 1) usage();
-	if (optind == argc - 1) category = argv[optind];
+	sub.zsub_classinst = "*";
+	sub.zsub_recipient = "*";
+
+	if (optind < argc) {
+		sub.zsub_class = argv[optind];
+		++optind;
+	} else
+		sub.zsub_class = "message";
+
+	if (optind < argc) {
+		category = argv[optind];
+		++optind;
+	} else {
+		const char *domain = getenv("GALE_DOMAIN");
+		char *tmp = gale_malloc(strlen(domain) + 30);
+		sprintf(tmp,"zephyr/%s/",domain);
+		category = tmp;
+	}
+	if (optind < argc) usage();
 
 	gale_dprintf(2,"subscribing to gale: \"%s\"\n",category);
 	client = gale_open(category);
 
-	link_subscribe(client->link,category);
-
 	gale_dprintf(2,"subscribing to Zephyr\n");
 	if (gale_debug > 3) {
-		int i;
-		for (i = 0; i < num_subs; ++i)
-			gale_dprintf(3,"... triple %s,%s,%s\n",
-			        subs[i].zsub_class,subs[i].zsub_classinst,
-			        subs[i].zsub_recipient);
+		gale_dprintf(3,"... triple %s,%s,%s\n",
+		        sub.zsub_class,sub.zsub_classinst,sub.zsub_recipient);
 	}
 
 	if ((retval = ZInitialize()) != ZERR_NONE) {
@@ -289,7 +276,7 @@ int main(int argc,char *argv[]) {
 		exit(1);
 	}
 
-	retval = ZSubscribeToSansDefaults(subs,num_subs,port);
+	retval = ZSubscribeToSansDefaults(&sub,1,port);
 	if (retval != ZERR_NONE) {
 		com_err(myname,retval,"while subscribing");
 		exit(1);
@@ -301,7 +288,7 @@ int main(int argc,char *argv[]) {
 	gale_cleanup(cleanup);
 
 	for (;;) {
-		while (gale_send(client)) do_retry();
+		while (gale_send(client)) gale_retry(client);
 
 		FD_ZERO(&fds);
 		FD_SET(client->socket,&fds);
@@ -315,7 +302,7 @@ int main(int argc,char *argv[]) {
 		}
 
 		if (FD_ISSET(client->socket,&fds))
-			if (gale_next(client)) do_retry();
+			if (gale_next(client)) gale_retry(client);
 		g_to_z();
 		z_to_g();
 	}

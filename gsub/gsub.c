@@ -35,7 +35,9 @@ void gale_free(void *ptr) { free(ptr); }
 
 /* Generate a trivial little message with the given category.  Used for
    return receipts, login/logout notifications, and such. */
-struct gale_message *slip(const char *cat,struct gale_id *sign) {
+struct gale_message *slip(const char *cat,
+                          struct gale_id *sign,struct auth_id *encrypt)
+{
 	struct gale_message *msg;
 	int len = strlen(agent);
 	static int sequence = 0;
@@ -65,13 +67,21 @@ struct gale_message *slip(const char *cat,struct gale_id *sign) {
 
 	msg->data_size = strlen(msg->data);
 
-	/* Sign the message, if appropriate. */
+	/* Sign and encrypt the message, if appropriate. */
 	if (sign) {
 		struct gale_message *new = sign_message(sign,msg);
 		if (new) {
 			release_message(msg);
 			msg = new;
 		}
+	}
+
+	if (encrypt) {
+		/* For safety's sake, don't leave the old message in place
+		   if encryption fails. */
+		struct gale_message *new = encrypt_message(1,&encrypt,msg);
+		release_message(msg);
+		msg = new;
 	}
 
 	return msg;
@@ -270,7 +280,7 @@ void present_message(struct gale_message *msg) {
 			/* Generate a receipt. */
 			if (!sign) sign = user_id;
 			if (rcpt) release_message(rcpt);
-			rcpt = slip(data,sign);
+			rcpt = slip(data,sign,id_sign);
 		}
 
 		/* Create a HEADER_... environment entry for this. */
@@ -377,14 +387,14 @@ void notify(void) {
 
 	/* Login: send it right away. */
 	tmp = id_category(user_id,"notice","login");
-	msg = slip(tmp,user_id);
+	msg = slip(tmp,user_id,NULL);
 	gale_free(tmp);
 	link_put(client->link,msg);
 	release_message(msg);
 
 	/* Logout: "will" it to happen when we disconnect. */
 	tmp = id_category(user_id,"notice","logout");
-	msg = slip(tmp,user_id);
+	msg = slip(tmp,user_id,NULL);
 	gale_free(tmp);
 	link_will(client->link,msg);
 	release_message(msg);
