@@ -21,7 +21,7 @@ void gale_free(void *ptr) { return free(ptr); }
 
 u_short port;
 struct gale_client *client;
-const char *myname,*category;
+const char *myname,*category = DEFAULT_CATEGORY;
 
 char *buf = NULL;
 int buf_len = 0,buf_alloc = 0;
@@ -237,7 +237,6 @@ void copt(char *s) {
 }
 
 int main(int argc,char *argv[]) {
-	char *category = DEFAULT_CATEGORY;
 	int retval,opt;
 	fd_set fds;
 
