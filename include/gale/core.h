@@ -133,27 +133,4 @@ int lrx_miss(struct gale_link *,struct gale_data *cid);
 int lrx_supply(struct gale_link *,struct gale_data *cid,struct gale_data *data);
 /*@}*/
 
-/** \name Cache Management 
- *  Global file cache management (not used by anything yet).
- *  Many of these functions have "raw" versions which operate on gale_data
- *  instead of the normal versions which operate on gale_group structures.
- *  Where possible, eschew the "raw" version and operate on structured data.  */
-/*@{*/
-
-/** Compute the cache ID for some data. */
-struct gale_data cache_id(struct gale_group);
-/** Raw version of cache_id(). */
-struct gale_data cache_id_raw(struct gale_data);
-
-/** Attempt to find an item in the cache; returns true iff successful. */
-int cache_find(struct gale_data id,struct gale_group *data);
-/** Raw version of cache_find_raw(). */
-int cache_find_raw(struct gale_data id,struct gale_data *data);
-
-/** Store an item in the cache (if possible), optionally returning a file. */
-void cache_store(struct gale_data id,struct gale_group data);
-/** Raw version of cache_store(). */
-void cache_store_raw(struct gale_data id,struct gale_data data);
-/*@}*/
-
 #endif

@@ -248,7 +248,7 @@ static void add_name(struct gale_connect *conn,struct gale_text name,int port) {
 		res->owner = conn;
 		res->name = name;
 		res->port = port;
-		res->query = oop_adns_submit(conn->adns,
+		res->query = oop_adns_submit(conn->adns, NULL,
 			hostname,
 			adns_r_a,0,on_lookup,res);
 

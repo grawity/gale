@@ -19,9 +19,6 @@ extern struct gale_global_data {
 	struct gale_text home_dir;	/* ~ */
 	struct gale_text sys_dir;	/* .../etc/gale */
 
-	struct gale_text user_cache;	/* ~/.gale/cache */
-	struct gale_text system_cache;	/* .../etc/gale/cache */
-
 	/* What to prefix error messages with.  Defaults to the program name. */
 	const char *error_prefix;
 

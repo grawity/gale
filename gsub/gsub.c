@@ -153,10 +153,11 @@ static void send_message(char *body,char *end,int fd) {
 		tmp = memchr(body,'\r',end - body);
 		if (!tmp) tmp = end;
 		while (body != tmp) {
-			int r = write(fd,body,tmp - body);
+			int r;
+			do r = write(fd,body,tmp - body);
+			while (r <= 0 && errno == EINTR);
 			if (r <= 0) {
-				if (errno != EPIPE)
-					gale_alert(GALE_WARNING,G_("write"),errno);
+				gale_alert(GALE_WARNING,G_("write"),errno);
 				return;
 			}
 			body += r;
@@ -164,7 +165,10 @@ static void send_message(char *body,char *end,int fd) {
 
 		/* Translate CRLF to NL. */
 		if (tmp != end) {
-			if (write(fd,"\n",1) != 1) {
+			int r;
+			do r = write(fd,"\n",1);
+			while (r <= 0 && errno == EINTR);
+			if (r != 1) {
 				gale_alert(GALE_WARNING,G_("write"),errno);
 				return;
 			}

@@ -127,9 +127,4 @@ void _gale_globals(void) {
 	G->enc_environ = get_charset(G_("GALE_CHARSET_ENVIRON"),fallback);
 	G->enc_cmdline = get_charset(G_("GALE_CHARSET_CMDLINE"),fallback);
 	G->enc_sys = get_charset(G_("GALE_CHARSET_SYSTEM"),fallback);
-
-	/* Now we initialize lots of directories. */
-
-	G->user_cache = submk_dir(G->dot_gale,G_("cache"),0700);
-	G->system_cache = submk_dir(G->sys_dir,G_("cache"),0777);
 }
