@@ -177,6 +177,8 @@ int main(int argc,char *argv[]) {
 	int one = 1,opt;
 	char *tmp;
 
+	gale_init("server");
+
 	srand48(time(NULL) ^ getpid());
 
 	while ((opt = getopt(argc,argv,"dDp:l:")) != EOF) switch (opt) {
