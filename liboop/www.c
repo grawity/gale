@@ -115,7 +115,7 @@ static int reg(SOCKET sock,HTEventType type,HTEvent *www_event) {
 		oop_type = OOP_WRITE;
 		break;
 	case HTEvent_INDEX(HTEvent_OOB):
-		// XXX: we don't handle this; does anything use it?
+		/* XXX: we don't handle this; does anything use it? */
 		return HT_ERROR;
 	default:
 		assert(0 && "invalid HTEvent type specified");
@@ -158,7 +158,7 @@ static int unreg(SOCKET sock,HTEventType type) {
 		oop_type = OOP_WRITE;
 		break;
 	case HTEvent_INDEX(HTEvent_OOB):
-		// XXX: we don't handle this; does anything use it?
+		/* XXX: we don't handle this; does anything use it? */
 		return HT_ERROR;
 	default:
 		assert(0 && "invalid HTEvent type specified");

@@ -82,6 +82,7 @@ static oop_source_sys *verify_source(oop_source *source) {
 static void sys_on_fd(oop_source *source,int fd,oop_event ev,
                       oop_call_fd *f,void *v) {
 	oop_source_sys *sys = verify_source(source);
+	assert(NULL != f && "callback must be non-NULL");
 	if (fd >= sys->num_files) {
 		int i,j,num_files = 1 + fd;
 		sys_file *files = oop_malloc(num_files * sizeof(sys_file));
@@ -117,6 +118,7 @@ static void sys_on_time(oop_source *source,struct timeval tv,
 	oop_source_sys *sys = verify_source(source);
 	struct sys_time **p = &sys->time_queue;
 	struct sys_time *time = oop_malloc(sizeof(struct sys_time));
+	assert(NULL != f && "callback must be non-NULL");
 	if (NULL == time) return; /* ugh */
 	time->tv = tv;
 	time->f = f;
@@ -185,6 +187,7 @@ static void sys_on_signal(oop_source *source,int sig,
                           oop_call_signal *f,void *v) {
 	oop_source_sys *sys = verify_source(source);
 	struct sys_signal_handler *handler = oop_malloc(sizeof(*handler));
+	assert(NULL != f && "callback must be non-NULL");
 	if (NULL == handler) return; /* ugh */
 
 	assert(sig > 0 && sig < OOP_NUM_SIGNALS && "invalid signal number");
