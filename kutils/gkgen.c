@@ -10,7 +10,7 @@ static void usage(void) {
 		"%s\n"
 		"usage: gkgen [-hnw] [-m id] [-s id] [-t nm=val] [-r file] [-u file] id [/\"name\"]\n"
 		"flags: -h          Display this message\n"
-		"       -n          Create a sterile key (requires one of -a, -m or -s)\n"
+		"       -n          Create a sterile key (requires one of -w, -m or -s)\n"
 		"       -w          Add the world to the membership list\n"
 		"       -m id       Include another id in the membership list (multiple use ok)\n"
 		"       -s id       Create a redirector to another id (implies -n)\n"
