@@ -188,8 +188,10 @@ int main(int argc,char *argv[]) {
 	signer = gale_user();
 
 	/* Parse command line options. */
-	while ((arg = getopt(argc,argv,"hac:C:t:PpS:uU")) != EOF) 
+	while ((arg = getopt(argc,argv,"Ddhac:C:t:PpS:uU")) != EOF) 
 	switch (arg) {
+	case 'd': ++gale_debug; break;
+	case 'D': gale_debug += 5; break;
 	case 'a': signer = NULL; break;		/* Anonymous (no signature) */
 	case 'c': public = 			/* Public message */
 	          gale_text_from_local(optarg,-1);
