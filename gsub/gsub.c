@@ -37,7 +37,7 @@ void default_gsubrc(void) {
 	char *tmp,*tmp2,buf[80];
 	char *nl = isatty(1) ? "\r\n" : "\n";
 
-	printf("[%s]",getenv("CATEGORY"));
+	printf("[%s]",getenv("GALE_CATEGORY"));
 	if ((tmp = getenv("HEADER_TIME"))) {
 		time_t when = atoi(tmp);
 		strftime(buf,sizeof(buf)," %m/%d %H:%M",localtime(&when));
@@ -45,7 +45,7 @@ void default_gsubrc(void) {
 	}
 	if ((tmp = getenv("HEADER_FROM"))) printf(" from %s",tmp);
 	fputs(nl,stdout);
-	tmp = getenv("SIGNED"); tmp2 = getenv("ENCRYPTED");
+	tmp = getenv("GALE_SIGNED"); tmp2 = getenv("GALE_ENCRYPTED");
 	if (tmp || tmp2) {
 		printf("Cryptography: ");
 		if (tmp) printf("signed by <%s>",tmp);
