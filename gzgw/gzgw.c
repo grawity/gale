@@ -50,6 +50,13 @@ void append(int len,const char *s) {
 	buf_len += len;
 }
 
+void do_retry(void) {
+	do {
+		gale_retry(client);
+		link_subscribe(client->link,category);
+	} while (gale_send(client));
+}
+
 void to_g(ZNotice_t *notice) {
 	struct gale_message *msg;
 	int len;
@@ -114,7 +121,6 @@ void to_g(ZNotice_t *notice) {
 	memcpy(msg->data,buf,msg->data_size);
 	link_put(client->link,msg);
 	release_message(msg);
-	gale_send(client);
 }
 
 void z_to_g(void) {
@@ -192,8 +198,6 @@ void to_z(struct gale_message *msg) {
 void g_to_z(void) {
 	struct gale_message *msg;
 
-	if (gale_next(client)) gale_retry(client);
-
 	while ((msg = link_get(client->link))) {
 		to_z(msg);
 		release_message(msg);
@@ -201,8 +205,10 @@ void g_to_z(void) {
 }
 
 void usage(void) {
-	fprintf(stderr,"usage: gzgw [-c class[:class...]] [[cat]@[server]]\n"
-	               "defaults: class MESSAGE and category 'zephyr'.\n");
+	fprintf(stderr,
+	"usage: gzgw [-n] [-c class[:class...]] [[cat]@[server]]\n"
+	"flags: -c       Specify Zephyr class(es) to watch\n"
+	"defaults: class MESSAGE and category 'zephyr'.\n");
 	exit(1);
 }
 
@@ -238,8 +244,10 @@ int main(int argc,char *argv[]) {
 
 	myname = argv[0];
 
-	while (EOF != (opt = getopt(argc,argv,"c:"))) switch (opt) {
+	while (EOF != (opt = getopt(argc,argv,"dDcn:"))) switch (opt) {
 	case 'c': copt(optarg); break;
+	case 'd': ++gale_debug; break;
+	case 'D': gale_debug += 5; break;
 	case '?': usage();
 	}
 
@@ -256,7 +264,6 @@ int main(int argc,char *argv[]) {
 	}
 
 	link_subscribe(client->link,category);
-	while (gale_send(client)) gale_retry(client);
 
 	if ((retval = ZInitialize()) != ZERR_NONE) {
 		com_err(myname,retval,"while initializing");
@@ -275,16 +282,16 @@ int main(int argc,char *argv[]) {
 		exit(1);
 	}
 
-	if (fork()) exit(0);
+	gale_daemon();
 
 	signal(SIGINT,sig);
 	signal(SIGTERM,sig);
 	signal(SIGHUP,sig);
 	atexit(cleanup);
 
-	setsid();
-
 	for (;;) {
+		while (gale_send(client)) do_retry();
+
 		FD_ZERO(&fds);
 		FD_SET(client->socket,&fds);
 		FD_SET(ZGetFD(),&fds);
@@ -296,7 +303,8 @@ int main(int argc,char *argv[]) {
 		}
 
 		if (FD_ISSET(client->socket,&fds))
-			g_to_z();
+			if (gale_next(client)) do_retry();
+		g_to_z();
 		z_to_g();
 	}
 }
