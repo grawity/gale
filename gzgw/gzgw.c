@@ -59,23 +59,14 @@ void to_g(ZNotice_t *notice) {
 	int len;
 	char *ptr,*end,num[15];
 
-	if (!strcmp(notice->z_sender,"gale")) return;
+	if (notice->z_opcode && !strcmp(notice->z_opcode,"gale")) return;
 
 	msg = new_message();
-	if (notice->z_opcode && notice->z_opcode[0]) {
-		msg->category = gale_malloc(10 + strlen(category) +
-			strlen(notice->z_class) + 
-			strlen(notice->z_class_inst) + 
-			strlen(notice->z_opcode));
-		sprintf(msg->category,"%s/%s/%s/%s",category,
-			notice->z_class,notice->z_class_inst,notice->z_opcode);
-	} else {
-		msg->category = gale_malloc(10 + strlen(category) +
-			strlen(notice->z_class) + 
-			strlen(notice->z_class_inst));
-		sprintf(msg->category,"%s/%s/%s",category,
-			notice->z_class,notice->z_class_inst);
-	}
+	msg->category = gale_malloc(10 + strlen(category) +
+		strlen(notice->z_class) + 
+		strlen(notice->z_class_inst));
+	sprintf(msg->category,"%s/%s/%s",category,
+		notice->z_class,notice->z_class_inst);
 
 	reset();
 	append(-1,"Content-type: text/x-zwgc\r\nTime: ");
@@ -98,10 +89,7 @@ void to_g(ZNotice_t *notice) {
 	}
 
 	append(1,"<");
-	if ((end = strchr(notice->z_sender,'@')))
-		append(end - notice->z_sender,notice->z_sender);
-	else
-		append(-1,notice->z_sender);
+	append(-1,notice->z_sender);
 	append(5,">\r\n\r\n");
 
 	if (ptr) {
@@ -143,9 +131,9 @@ void z_to_g(void) {
 
 void to_z(struct gale_message *msg) {
 	ZNotice_t notice;
-	char class[32],instance[256] = "(invalid)",opcode[64] = "";
+	char class[32] = "MESSAGE",instance[256] = "(invalid)";
 	char *sig,*key,*data,*next,*end;
-	int retval;
+	int retval,len;
 
 	strncpy(class,subs[0].zsub_class,sizeof(class));
 
@@ -154,20 +142,34 @@ void to_z(struct gale_message *msg) {
 	notice.z_port = 0;
 	notice.z_class = class;
 	notice.z_class_inst = instance;
-	notice.z_opcode = opcode;
+	notice.z_opcode = "gale";
 	notice.z_default_format = "";
 	notice.z_sender = "gale";
 	notice.z_recipient = "";
 
-	sscanf(msg->category,"%*[^/]/%31[^/]/%255[^/]/%64[^/]",
-	       class,instance,opcode);
+	next = msg->category;
+	len = strlen(category);
+	while ((next = strstr(next,category))) {
+		if (next == msg->category || next[-1] == ':') {
+			sscanf(next + len,"/%31[^/]/%255[^\n]",class,instance);
+			break;
+		}
+		next += len;
+	}
 
 	end = msg->data + msg->data_size;
 	next = msg->data;
 	while (parse_header(&next,&key,&data,end)) {
 		if (!strcasecmp(key,"From"))
 			sig = data;
-		else if (!strcasecmp(key,"Encryption")) 
+		else if (!strcasecmp(key,"Signature")) {
+			data = strchr(data,' ');
+			if (data) {
+				++data;
+				strtok(data," ");
+				notice.z_sender = data;
+			}
+		} else if (!strcasecmp(key,"Encryption")) 
 			return;
 	}
 
@@ -262,7 +264,7 @@ int main(int argc,char *argv[]) {
 	if (optind == argc - 1) category = argv[optind];
 
 	gale_dprintf(2,"subscribing to gale: \"%s\"\n",category);
-	client = gale_open(category,32,262144);
+	client = gale_open(category);
 
 	link_subscribe(client->link,category);
 
