@@ -9,11 +9,14 @@
 #include "oop.h"
 
 #include <assert.h>
-#include <poll.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+
+#ifdef HAVE_POLL_H
+#include <poll.h>
+#endif
 
 static int use_count = 0;
 static oop_source_sys *sys;
@@ -71,10 +74,12 @@ static gint on_poll(GPollFD *array,guint num,gint timeout) {
 	return count;
 }
 
+#ifdef HAVE_POLL_H
 static gint real_poll(GPollFD *array,guint num,gint timeout) {
 	assert(sizeof(GPollFD) == sizeof(struct pollfd));
 	return poll((struct pollfd *) array,num,timeout);
 }
+#endif
 
 oop_source *oop_glib_new() {
 	if (use_count++) return oop_sys_source(sys);
@@ -90,6 +95,7 @@ void *oop_glib_return() {
 	return ret;
 }
 
+#ifdef HAVE_POLL_H
 void oop_glib_delete() {
 	assert(use_count > 0 && "oop_glib_delete() called too much");
 	if (0 != --use_count) return;
@@ -98,3 +104,4 @@ void oop_glib_delete() {
 	oop_sys_delete(sys);
 	g_main_set_poll_func(real_poll);
 }
+#endif

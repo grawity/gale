@@ -148,9 +148,9 @@ if test -f "${srcdir}/liboop/oop.h"; then
   AC_MSG_RESULT(yes)
   CPPFLAGS="-I\${top_srcdir}/liboop $CPPFLAGS"
   AC_CHECK_LIB(adns,adns_init,[
-    GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop-adns.la -ladns"
+   GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop-adns.la -ladns -lresolv"
     AC_DEFINE(HAVE_ADNS)
-  ])
+  ],[:],-lresolv)
   GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop.la"
 else
   AC_MSG_RESULT(no)
@@ -158,9 +158,9 @@ else
     AC_MSG_ERROR(cannot find liboop library, see INSTALL directions)
   ])
   AC_CHECK_LIB(adns,adns_init,[
-    GALE_LIBS="$GALE_LIBS -loop-adns -ladns"
+    GALE_LIBS="$GALE_LIBS -loop-adns -ladns -lresolv"
     AC_DEFINE(HAVE_ADNS)
-  ])
+  ],[:],-lresolv)
   GALE_LIBS="$GALE_LIBS -loop"
 fi
 

@@ -41,7 +41,7 @@ which requires a certain amount of finicky setup -- including setuid binaries
    Get it from http://www.chiark.greenend.org.uk/~ian/adns/.  Make sure you
    know where it installed adns.h and libadns.*.
 
-   ** Make sure to use a version newer than 0.4! **
+   ** Make sure to use at least version 0.5! **
    Versions 0.4 and older have fatal bugs.
 
  * GNU Autoconf

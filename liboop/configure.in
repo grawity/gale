@@ -18,7 +18,7 @@ case "$host" in
     ;;
 esac
 
-AC_CHECK_HEADERS(poll.h)
+AC_CHECK_HEADERS(poll.h sys/select.h)
 
 AC_CHECK_LIB(adns,adns_init,[
   AC_DEFINE(HAVE_ADNS)

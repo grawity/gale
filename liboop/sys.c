@@ -9,11 +9,15 @@
 #include <errno.h>
 #include <assert.h>
 #include <sys/time.h>
-#include <sys/select.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <setjmp.h>
+
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
 
 #define MAGIC 0x9643
 

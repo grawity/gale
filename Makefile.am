@@ -47,8 +47,9 @@ install-data-local:
 	chmod 777 "$(sysconfdir)/gale/auth/cache"
 	$(INSTALL_DATA) "$(srcdir)/kutils/ROOT" "$(sysconfdir)/gale/auth/trusted/ROOT"
 	$(INSTALL_DATA) "$(srcdir)/COPYING" "$(sysconfdir)/gale/COPYING"
+	chmod -R a+rX "$(sysconfdir)/gale"
 	@echo ""
-	@echo "*** run $(bindir)/gale-install to complete installation ***"
+	@echo "*** now run $(bindir)/gale-install ... even for an upgrade ***"
 
 install-exec-local:
 	$(PROG_LDCONFIG) || true
