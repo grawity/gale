@@ -3,10 +3,13 @@
 # Shamelessly ripped off from gtk-config.
 
 usage="\
-Usage: gale-config [-a] [--version] [--prefix] [--exec-prefix] [--incs] [--libs]"
+Usage: gale-config [-a] [--version] [--prefix] [--exec-prefix] [--incs] [--libs]
+This software comes with ABSOLUTELY NO WARRANTY.  You may redistribute
+it under certain conditions.  Run \"gale-config --license\" for information."
 
 prefix="@prefix@"
 exec_prefix="@exec_prefix@"
+sysconfdir="@sysconfdir@"
 version="@VERSION@"
 
 top_builddir="IGNORE"
@@ -68,6 +71,9 @@ while test $# -gt 0; do
     --libs)
       echo "$linkflags"
       ;;
+    --license)
+      more "${sysconfdir}/gale/COPYING"
+      ;;
     *)
       echo "$usage" 1>&2
       exit 1
@@ -75,4 +81,3 @@ while test $# -gt 0; do
   esac
   shift
 done
-

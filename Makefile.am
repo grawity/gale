@@ -35,7 +35,10 @@ release: dist
 	ln -sf $(PACKAGE)-$(VERSION).tar.gz ../gdist/$(PACKAGE).tar.gz ; \
 	ln -sf $(PACKAGE)-$(VERSION).tar.bz2 ../gdist/$(PACKAGE).tar.bz2 ; fi
 
-install-data-local: config
+install-data-local: install-copying config
+
+install-copying:
+	$(INSTALL_DATA) COPYING $(sysconfdir)/gale/COPYING
 
 install-exec-local:
 	$(PROG_LDCONFIG) || true

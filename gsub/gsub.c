@@ -41,7 +41,8 @@ char *tty;                              /* TTY device */
 int sig_received = 0;			/* Signal received */
 
 int do_run_default = 0;			/* Flag to run default_gsubrc */
-int do_stealth = 0;			/* Should we answer Receipt-To's? */
+int do_presence = 0;			/* Should we announce presence? */
+int do_keys = 1;			/* Should we answer key requests? */
 int do_beep = 1;			/* Should we beep? */
 int do_termcap = 0;                     /* Should we highlight headers? */
 int sequence = 0;
@@ -225,7 +226,7 @@ void present_message(struct gale_message *_msg) {
 		group = gale_group_rest(group);
 
 		/* Process receipts, if we do. */
-		if (!do_stealth && frag.type == frag_text
+		if (do_presence && frag.type == frag_text
 		&&  !gale_text_compare(frag.name,G_("question/receipt"))) {
 			/* Generate a receipt. */
 			struct gale_fragment reply;
@@ -237,7 +238,7 @@ void present_message(struct gale_message *_msg) {
 		}
 
 		/* Handle AKD requests for us. */
-		if (!do_stealth && frag.type == frag_text
+		if (!do_keys && frag.type == frag_text
 		&&  !gale_text_compare(frag.name,G_("question/key"))
 		&&  !gale_text_compare(frag.value.text,auth_id_name(user_id)))
 			akd = send_key();
@@ -389,7 +390,8 @@ void usage(void) {
 #endif
 	"[-p state] cat\n"
 	"flags: -h          Display this message\n"
-	"       -a          Run in \"stealth\" mode\n"
+	"       -a          Never announce presence or send receipts\n"
+	"       -A          Always announce presence and send receipts\n"
 	"       -b          Do not beep (normally personal messages beep)\n"
 	"       -e          Do not include default subscriptions\n"
 	"       -k          Do not kill other gsub processes\n"
@@ -494,6 +496,8 @@ int main(int argc,char **argv) {
 		if (tmp) tty = tmp + 1;
 		/* Go into the background; kill other gsub processes. */
 		do_fork = do_kill = 1;
+		/* Announce ourselves. */
+		do_presence = 1;
 	}
 
 	/* Don't line buffer; we'll flush when we need to. */
@@ -508,20 +512,25 @@ int main(int argc,char **argv) {
 	add_subs(&serv,gale_var(G_("GALE_GSUB")));
 
 	/* Parse command line arguments. */
-	while (EOF != (opt = getopt(argc,argv,"habenkKrf:l:p:"))) switch (opt) {
-	case 'a': do_stealth = 1; break;        /* Do not send login/logout */
+	while (EOF != (opt = getopt(argc,argv,"haAbenkKrf:l:p:"))) 
+	switch (opt) {
+	case 'a': do_presence = do_keys = 0; break;
+						/* Stay quiet */
+	case 'A': do_presence = do_keys = 1; break;
+						/* Don't */
 	case 'b': do_beep = 0; break;		/* Do not beep */
 	case 'e': serv.l = 0; break;            /* Do not include defaults */
-	case 'n': do_fork = 0; break;           /* Do not go into background */
+	case 'n': do_fork = 0; break;           /* Do not background */
 	case 'k': do_kill = 0; break;           /* Do not kill other gsubs */
 	case 'K': if (tty) gale_kill(gale_text_from_local(tty,-1),1);
-	          return 0;			/* *only* kill other gsubs */
-	case 'r': do_run_default = 1; break;	/* *only* run default_gsubrc */
+	          return 0;			/* only kill other gsubs */
+	case 'r': do_run_default = 1; break;	/* only run default_gsubrc */
 	case 'f': rcprog = gale_text_from_local(optarg,-1); break;       
 						/* Use a wacky gsubrc */
 	case 'l': rclib = gale_text_from_local(optarg,-1); break;	
 						/* Use a wacky gsubrc.so */
-	case 'p': set_presence(optarg); break;	/* Presence */
+	case 'p': do_presence = 1; set_presence(optarg); 
+	          break;			/* Presence */
 	case 'h':                               /* Usage message */
 	case '?': usage();
 	}
@@ -544,7 +553,7 @@ int main(int argc,char **argv) {
 	load_gsubrc(rclib);
 
 	/* Act as AKD proxy for this particular user. */
-	if (!do_stealth)
+	if (!do_keys)
 		add_subs(&serv,id_category(user_id,G_("auth/query"),G_("")));
 
 #ifndef NDEBUG
@@ -566,7 +575,7 @@ int main(int argc,char **argv) {
 	}
 
 	/* Send a login message, as needed. */
-	if (!do_stealth) {
+	if (do_presence) {
 		struct gale_text announce = gale_var(G_("GALE_ANNOUNCE"));
 		if (!announce.l) announce = presence;
 		notify(1,announce);
@@ -582,7 +591,7 @@ int main(int argc,char **argv) {
 		}
 
 		if (sig_received) {
-			if (!do_stealth) switch (sig_received) {
+			if (do_presence) switch (sig_received) {
 			case SIGHUP: notify(0,G_("out/logout")); break;
 			case SIGTERM: notify(0,G_("out/quit")); break;
 			case SIGINT: notify(0,G_("out/stopped")); break;
@@ -593,7 +602,7 @@ int main(int argc,char **argv) {
 
 		/* Retry the server connection. */
 		gale_retry(client);
-		if (!do_stealth) {
+		if (do_presence) {
 			notify(1,G_("in/reconnected"));
 			notify(0,G_("out/disconnected"));
 		}

@@ -29,8 +29,11 @@ void gale_restore_environ(struct gale_environ *);
 #endif
 
 /* A banner, suitable for usage messages. */
-#define GALE_BANNER \
-	(PACKAGE " version " VERSION ", copyright 1997,1998 Dan Egnor")
+#define GALE_BANNER ( \
+	"Gale version " VERSION ", copyright 1997-1999 Dan Egnor\n" \
+	"This software comes with ABSOLUTELY NO WARRANTY.  You may redistribute\n" \
+	"it under certain conditions.  Run \"gale-config --license\" for information." \
+	)
 
 /* -- management of message (puff) objects --------------------------------- */
 

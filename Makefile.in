@@ -99,8 +99,8 @@ CONFIG_HEADER = ./include/gale/config.h
 CONFIG_CLEAN_FILES =  gale-config
 SCRIPTS =  $(bin_SCRIPTS) $(noinst_SCRIPTS)
 
-DIST_COMMON =  INSTALL Makefile.am Makefile.in acconfig.h aclocal.m4 \
-config.guess config.h.in config.sub configure configure.in \
+DIST_COMMON =  COPYING INSTALL Makefile.am Makefile.in acconfig.h \
+aclocal.m4 config.guess config.h.in config.sub configure configure.in \
 gale-config.in install-sh ltconfig ltmain.sh missing mkinstalldirs \
 stamp-h.in
 
@@ -379,10 +379,13 @@ release: dist
 	ln -sf $(PACKAGE)-$(VERSION).tar.gz ../gdist/$(PACKAGE).tar.gz ; \
 	ln -sf $(PACKAGE)-$(VERSION).tar.bz2 ../gdist/$(PACKAGE).tar.bz2 ; fi
 
-install-data-local: config
+install-data-local: install-copying config
+
+install-copying:
+	$(INSTALL_DATA) COPYING $(sysconfdir)/gale/COPYING
 
 install-exec-local:
-	$(PROG_LDCONFIG)
+	$(PROG_LDCONFIG) || true
 
 config: common.sh config.sh
 	sysconfdir=$(sysconfdir) ; \
