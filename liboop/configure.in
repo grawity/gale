@@ -64,6 +64,7 @@ AC_CHECK_LIB(wwwcore,HTEvent_setRegisterCallback,[
   WWW_INCLUDES="-I/usr/include/w3c-libwww"
 ],,-lwwwutils)
 
+AC_CHECK_LIB(resolv,res_query)
 if test -z "$no_wacky_libs" ; then
   AC_CHECK_LIB(nsl,main)
   AC_CHECK_LIB(socket,socket)
