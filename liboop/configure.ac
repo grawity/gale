@@ -86,16 +86,21 @@ if test xno != x$with_tcl; then
 fi
 
 if test xyes = x$with_libwww; then
-  AC_CHECK_LIB(wwwcore,HTEvent_setRegisterCallback,[
-    LIBOOP_LIBS="liboop-www.la $LIBOOP_LIBS"
-    AC_DEFINE(HAVE_WWW)
-    # This is just a little unpleasant.
-    WWW_LIBS=" \
-    -lwwwapp -lwwwcache -lwwwcore -lwwwdir -lwwwfile -lwwwftp -lwwwgopher \
-    -lwwwhtml -lwwwhttp -lwwwinit -lwwwmime -lwwwmux -lwwwnews -lwwwstream \
-    -lwwwtelnet -lwwwtrans -lwwwutils -lwwwzip -lmd5"
-    WWW_INCLUDES="-I/usr/include/w3c-libwww" # the libwww RPM puts headers here
-  ],,-lwwwutils)
+  save_libs="$LIBS"
+  save_cppflags="$CPPFLAGS"
+  AC_CHECK_PROG(PROG_WWW_CONFIG,libwww-config,libwww-config)
+  if test -n "$PROG_WWW_CONFIG" ; then
+    WWW_INCLUDES="`libwww-config --cflags`"
+    WWW_LIBS="`libwww-config --libs`"
+    LIBS="$save_libs $WWW_LIBS"
+    CPPFLAGS="$save_cppflags $WWW_INCLUDES"
+    AC_CHECK_FUNC(HTEvent_setRegisterCallback,[
+      LIBOOP_LIBS="liboop-www.la $LIBOOP_LIBS"
+      AC_DEFINE(HAVE_WWW)
+    ])
+  fi
+  LIBS="$save_libs"
+  CPPFLAGS="$save_cppflags"
 fi
 
 if test -z "$no_wacky_libs" ; then
