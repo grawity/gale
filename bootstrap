@@ -1,19 +1,10 @@
-#!/bin/sh
+#!/bin/sh -x
 
-run() {
-        printf '>>> %s\n' "$*"
-        "$@"
-}
+cd "`dirname $0`" &&
+	libtoolize --copy --force &&
+	aclocal &&
+        autoheader &&
+	automake --add-missing &&
+	autoconf &&
 
-run cd "`dirname $0`" &&
-	run libtoolize --copy --force &&
-	run aclocal &&
-        run autoheader &&
-	run automake --add-missing &&
-	run autoconf &&
-
-run cd liboop &&
-	run libtoolize --copy --force &&
-	run aclocal &&
-	run automake --add-missing &&
-	run autoconf
+cd liboop && ./bootstrap
