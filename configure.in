@@ -39,16 +39,16 @@ AC_PROG_INSTALL
 AC_PROG_YACC
 PROG_LDCONFIG=:
 
-dnl Add prefix to LDFLAGS and INCLUDES to help find previously installed foo.
+dnl Add prefix to LDFLAGS and CPPFLAGS to help find previously installed foo.
 test NONE != "$exec_prefix" && LDFLAGS="$LDFLAGS -L${exec_prefix}/lib"
 if test NONE != "$prefix" ; then
-  INCLUDES="$INCLUDES -I${prefix}/include"
+  CPPFLAGS="$CPPFLAGS -I${prefix}/include"
   test NONE = "$exec_prefix" && LDFLAGS="$LDFLAGS -L${prefix}/lib"
 fi
 
 dnl People often put stuff in /usr/local.
 if test /usr/local != "$exec_prefix" -a /usr/local != "$prefix" ; then
-  INCLUDES="$INCLUDES -I/usr/local/include"
+  CPPFLAGS="$CPPFLAGS -I/usr/local/include"
   LDFLAGS="$LDFLAGS -L/usr/local/lib"
 fi
 
@@ -146,7 +146,7 @@ AC_CHECK_LIB(gc,GC_malloc,[GALE_LIBS="$GALE_LIBS -lgc"],[
 AC_MSG_CHECKING([for local copy of liboop])
 if test -f "${srcdir}/liboop/oop.h"; then
   AC_MSG_RESULT(yes)
-  INCLUDES="-I\${top_srcdir}/liboop $INCLUDES"
+  CPPFLAGS="-I\${top_srcdir}/liboop $CPPFLAGS"
   build_liboop=true
   if $use_adns; then
     AC_CHECK_LIB(adns,adns_init,[:],[
@@ -178,10 +178,10 @@ GALE_LIBS="$GALE_LIBS $termcap_lib"
 dnl Checks for header files.
 AC_CHECK_HEADERS(sys/bitypes.h sys/select.h curses.h term.h dlfcn.h readline/readline.h getopt.h)
 
-test -d /usr/local/ssl/include && INCLUDES="$INCLUDES -I/usr/local/ssl/include"
+test -d /usr/local/ssl/include && CPPFLAGS="$CPPFLAGS -I/usr/local/ssl/include"
 AC_CHECK_HEADERS(openssl/evp.h,,[AC_MSG_ERROR(cannot find OpenSSL headers)])
 
-test -d /usr/include/gc && INCLUDES="$INCLUDES -I/usr/include/gc"
+test -d /usr/include/gc && CPPFLAGS="$CPPFLAGS -I/usr/include/gc"
 AC_CHECK_HEADERS(gc_backptr.h)
 AC_CHECK_HEADERS(gc.h,,[
   AC_MSG_ERROR(cannot find Boehm GC headers, see INSTALL directions)
@@ -198,11 +198,10 @@ dnl Output.
 
 CFLAGS_NOWARN="$CFLAGS"
 CFLAGS="$warning_flags"
-INCLUDES="-I\${top_srcdir}/include -I\${top_builddir}/include $INCLUDES"
-INCLUDES="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $INCLUDES"
+CPPFLAGS="-I\${top_srcdir}/include -I\${top_builddir}/include $CPPFLAGS"
+CPPFLAGS="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $CPPFLAGS"
 
 AC_SUBST(CFLAGS_NOWARN)
-AC_SUBST(INCLUDES)
 AC_SUBST(ZEPHYR_LIBS)
 AC_SUBST(DL_LIBS)
 AC_SUBST(GALE_LIBS)
