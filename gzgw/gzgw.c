@@ -199,6 +199,7 @@ void g_to_z(void) {
 	struct gale_message *msg;
 
 	while ((msg = link_get(client->link))) {
+		gale_dprintf(2,"received gale message\n");
 		to_z(msg);
 		release_message(msg);
 	}
@@ -244,7 +245,7 @@ int main(int argc,char *argv[]) {
 
 	myname = argv[0];
 
-	while (EOF != (opt = getopt(argc,argv,"dDcn:"))) switch (opt) {
+	while (EOF != (opt = getopt(argc,argv,"dDc:"))) switch (opt) {
 	case 'c': copt(optarg); break;
 	case 'd': ++gale_debug; break;
 	case 'D': gale_debug += 5; break;
@@ -258,12 +259,22 @@ int main(int argc,char *argv[]) {
 		if (argv[optind][0]) category = argv[optind];
 	}
 
+	gale_dprintf(2,"subscribing to gale: \"%s\"\n",category);
 	if (!(client = gale_open(server,32,262144))) {
 		fprintf(stderr,"could not contact gale server\n");
 		exit(1);
 	}
 
 	link_subscribe(client->link,category);
+
+	gale_dprintf(2,"subscribing to Zephyr\n");
+	if (gale_debug > 3) {
+		int i;
+		for (i = 0; i < num_subs; ++i)
+			gale_dprintf(3,"... triple %s,%s,%s\n",
+			        subs[i].zsub_class,subs[i].zsub_classinst,
+			        subs[i].zsub_recipient);
+	}
 
 	if ((retval = ZInitialize()) != ZERR_NONE) {
 		com_err(myname,retval,"while initializing");
@@ -282,6 +293,7 @@ int main(int argc,char *argv[]) {
 		exit(1);
 	}
 
+	gale_dprintf(1,"starting\n");
 	gale_daemon();
 
 	signal(SIGINT,sig);
@@ -296,6 +308,7 @@ int main(int argc,char *argv[]) {
 		FD_SET(client->socket,&fds);
 		FD_SET(ZGetFD(),&fds);
 
+		gale_dprintf(2,"waiting for incoming messages ...\n");
 		retval = select(FD_SETSIZE,HPINT &fds,NULL,NULL,NULL);
 		if (retval < 0) {
 			com_err(myname,retval,"in select()");
