@@ -250,7 +250,8 @@ const struct gale_data *gale_crypto_bundled(struct gale_group signed_group) {
 
 /** Extract the original content from a signed group.
  *  \param signed_group The signed group.
- *  \return The data contained within the signed group.
+ *  \return The data contained within the signed group.  If the group
+ *          was not signed, the original group is returned.
  *  \sa gale_crypto_sign(), gale_crypto_verify()
  *  \warning Successful extraction of data does not indicate authenticity.
  *           You must use gale_crypto_verify() to check the signature. */
