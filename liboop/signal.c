@@ -134,7 +134,9 @@ static void sig_on_signal(oop_source *source,int sig,
 		sigaction(sig,NULL,&act);
 		s->sig[sig].old = act;
 		act.sa_handler = on_signal;
+#ifdef SA_NODEFER
 		act.sa_flags &= ~SA_NODEFER;
+#endif
 		sigaction(sig,&act,NULL);
 	}
 }
