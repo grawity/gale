@@ -4,6 +4,8 @@ SUBDIRS = include
 lib_LIBRARIES = libgc.a
 libgc_a_SOURCES =
 
+DIST_COMMON = Makefile.am Makefile.in
+
 libgc.a:
 	$(MAKE) -f Makefile.gc gc.a srcdir="${srcdir}" CC="${CC}"
 	mv gc.a libgc.a

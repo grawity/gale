@@ -47,7 +47,7 @@ if [ "x$bindir" != "x$sbindir" ]; then
 	run mv "$bindir/gksign.tmp.$$" "$bindir/gksign"
 fi
 
-run cp "$srcdir/auth/ROOT" "$SYS_DIR/auth/trusted"
+run cp "$srcdir/kutils/ROOT" "$SYS_DIR/auth/trusted"
 
 if [ -z "$GALE_DOMAIN" ] ; then
 cat << EOM

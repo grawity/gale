@@ -60,7 +60,6 @@ POST_UNINSTALL = :
 host_alias = @host_alias@
 host_triplet = @host@
 CC = @CC@
-CGIC_LIBS = @CGIC_LIBS@
 DB_LIBS = @DB_LIBS@
 DL_LIBS = @DL_LIBS@
 GALE_LIBS = @GALE_LIBS@

@@ -60,7 +60,6 @@ POST_UNINSTALL = :
 host_alias = @host_alias@
 host_triplet = @host@
 CC = @CC@
-CGIC_LIBS = @CGIC_LIBS@
 DB_LIBS = @DB_LIBS@
 DL_LIBS = @DL_LIBS@
 GALE_LIBS = @GALE_LIBS@
@@ -91,7 +90,7 @@ EXTRA_DIST = common.sh config.sh domain.sh
 @BUILD_GC_FALSE@gc_dir =
 
 SUBDIRS = ${gc_dir} ${rsaref_dir} \
-	lib server gsend gsub gwatch gkeys gdomain \
+	lib server gsend gsub gwatch kutils gdomain \
 	${gzgw_dir} include
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
@@ -109,7 +108,7 @@ DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
 TAR = tar
 GZIP = --best
-DIST_SUBDIRS =  gc rsaref lib server gsend gsub gwatch gkeys gdomain \
+DIST_SUBDIRS =  gc rsaref lib server gsend gsub gwatch kutils gdomain \
 gzgw include
 all: all-recursive all-am
 

@@ -36,6 +36,15 @@
 /* The number of bytes in a short.  */
 #undef SIZEOF_SHORT
 
+/* Define if you have the MD5Final function.  */
+#undef HAVE_MD5FINAL
+
+/* Define if you have the MD5Init function.  */
+#undef HAVE_MD5INIT
+
+/* Define if you have the MD5Update function.  */
+#undef HAVE_MD5UPDATE
+
 /* Define if you have the <curses.h> header file.  */
 #undef HAVE_CURSES_H
 
@@ -54,11 +63,11 @@
 /* Define if you have the <sys/bitypes.h> header file.  */
 #undef HAVE_SYS_BITYPES_H
 
+/* Define if you have the <sys/select.h> header file.  */
+#undef HAVE_SYS_SELECT_H
+
 /* Define if you have the <term.h> header file.  */
 #undef HAVE_TERM_H
-
-/* Define if you have the cgic library (-lcgic).  */
-#undef HAVE_LIBCGIC
 
 /* Define if you have the nsl library (-lnsl).  */
 #undef HAVE_LIBNSL

@@ -26,6 +26,8 @@ esac],[use_socks=false])
 
 no_wacky_libs=""
 
+GALE_LIBS="\${top_builddir}/lib/libgale.la"
+
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
@@ -64,13 +66,6 @@ AC_CHECK_LIB(readline,readline,[
   READLINE_LIBS="-lreadline"
   AC_DEFINE(HAVE_LIBREADLINE)])
 
-save_flags="$CPPFLAGS"
-CPPFLAGS="-Dmain=cgiMain $CPPFLAGS"
-AC_CHECK_LIB(cgic,cgiFormString,[
-  CGIC_LIBS="-lcgic"
-  AC_DEFINE(HAVE_LIBCGIC)])
-CPPFLAGS="$save_flags"
-
 if test x$use_socks = xtrue ; then
 AC_CHECK_LIB(socks,SOCKSinit,[
   LIBS="$LIBS -lsocks"
@@ -99,12 +94,14 @@ if test -f "${srcdir}/gc/alloc.c"; then
     rm -f "gc/Makefile"
   fi
   CPPFLAGS="$CPPFLAGS -I\${top_srcdir}/gc/include"
+  GALE_LIBS="$GALE_LIBS \${top_builddir}/gc/libgc.a"
   build_gc=true
 else
   AC_MSG_RESULT(no)
   AC_CHECK_LIB(gc,GC_malloc,[:],[
     AC_MSG_ERROR(cannot find Boehm GC library, see INSTALL directions)
   ])
+  GALE_LIBS="$GALE_LIBS -lgc"
 fi
 
 
@@ -117,6 +114,7 @@ if test -f "${srcdir}/rsaref/source/rsa.c"; then
     dnl Some operating systems define these functions themselves; they're
     dnl not reliably equivalent.  We demand the real RSAREF!
     CPPFLAGS="-DMD5Init=gMD5Init -DMD5Update=gMD5Update -DMD5Final=gMD5Final $CPPFLAGS"
+    GALE_LIBS="$GALE_LIBS \${top_builddir}/rsaref/source/librsaref.la"
     break
   ])
 else
@@ -124,6 +122,7 @@ else
   AC_CHECK_LIB(rsaref,R_RandomInit,[:],[
     AC_MSG_ERROR(cannot find RSAREF library, see INSTALL directions)
   ])
+  GALE_LIBS="$GALE_LIBS -lrsaref"
 fi
 
 dnl Checks for header files.
@@ -150,9 +149,6 @@ dnl Checks for library functions.
 
 dnl Configurations that would break tests.
 
-GALE_LIBS="\${top_builddir}/lib/libgale.la"
-GALE_LIBS="$GALE_LIBS \${top_builddir}/gc/libgc.a"
-GALE_LIBS="$GALE_LIBS \${top_builddir}/rsaref/source/librsaref.la"
 CPPFLAGS="-I\${top_srcdir}/include -I\${top_builddir}/include $CPPFLAGS"
 CPPFLAGS="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $CPPFLAGS"
 
@@ -160,7 +156,6 @@ AC_SUBST(DB_LIBS)
 AC_SUBST(ZEPHYR_LIBS)
 AC_SUBST(READLINE_LIBS)
 AC_SUBST(DL_LIBS)
-AC_SUBST(CGIC_LIBS)
 AC_SUBST(GALE_LIBS)
 
 AM_CONDITIONAL(BUILD_GZGW,test x$build_gzgw = xtrue)

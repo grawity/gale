@@ -60,10 +60,9 @@ POST_UNINSTALL = :
 host_alias = i686-pc-linux-gnu
 host_triplet = i686-pc-linux-gnu
 CC = gcc
-CGIC_LIBS = -lcgic
 DB_LIBS = 
 DL_LIBS = -ldl
-GALE_LIBS = ${top_builddir}/misc/libgmisc.la ${top_builddir}/auth/libgauth.la ${top_builddir}/lib/libgale.la ${top_builddir}/gc/libgc.a ${top_builddir}/rsaref/source/librsaref.la
+GALE_LIBS = ${top_builddir}/lib/libgale.la ${top_builddir}/gc/libgc.a
 LD = /ofb/apps/egcs-1.0.3a/lib/gcc-lib/i686-pc-linux-gnu/egcs-2.90.29/ld
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LN_S = ln -s
@@ -79,6 +78,8 @@ ZEPHYR_LIBS = -lzephyr -lcom_err
 SUBDIRS = include
 lib_LIBRARIES = libgc.a
 libgc_a_SOURCES =
+
+DIST_COMMON = Makefile.am Makefile.in
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = ../include/gale/config.h
 CONFIG_CLEAN_FILES = 
@@ -92,7 +93,6 @@ LIBS = -ltermcap -lnsl
 libgc_a_LIBADD = 
 libgc_a_OBJECTS = 
 AR = ar
-DIST_COMMON =  README Makefile.am Makefile.in
 
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
