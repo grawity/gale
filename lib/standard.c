@@ -22,7 +22,7 @@ struct gale_fragment *gale_make_id_instance(struct gale_text terminal) {
 		gale_var(G_("HOST")),G_("/"),
 		gale_var(G_("LOGNAME")),G_("/"),
 		terminal,G_("/"),
-		gale_text_number(getpid(),10,0));
+		gale_text_from_number(getpid(),10,0));
 	return f;
 }
 

@@ -12,7 +12,7 @@
 struct gale_client {
 	int socket;                   /* The file descriptor (for select). */
 	struct gale_link *link;       /* The link object (see link.h) */
-	char *server;                 /* Name of server */
+	struct gale_text server;      /* Name of server */
 	struct gale_text subscr;      /* Sub list */
 };
 

@@ -24,39 +24,38 @@ struct gale_connect {
 	int len;
 };
 
-struct gale_connect *make_connect(const char *serv) {
+struct gale_connect *make_connect(struct gale_text serv) {
 	int alloc = 0;
-	const char *end,*cp;
+	struct gale_text spec = null_text;
 	struct gale_connect *conn;
-
-	cp = serv;
 
 	gale_create(conn);
 	conn->len = 0;
 	conn->array = NULL;
 
-	do {
+	while (gale_text_token(serv,',',&spec)) {
+		struct gale_text part = null_text;
 		struct sockaddr_in sin;
-		int i;
 		struct hostent *he;
-		const char *colon = strchr(cp,':');
-		char *name = NULL;
-		end = strchr(cp,',');
-		if (!end) end = cp + strlen(cp);
-		if (!colon || colon > end) colon = end;
-
-		name = gale_strndup(cp,colon - cp);
-		he = gethostbyname(name);
-		if (!he) {
-			char *tmp = gale_malloc(strlen(name) + 128);
-			sprintf(tmp,"can't find host \"%s\"",name);
-			gale_alert(GALE_WARNING,tmp,0);
-			gale_free(tmp);
-		 	goto skip_host;
-		}
+		int i;
 
 		sin.sin_family = AF_INET;
-		sin.sin_port = htons(colon < end ? atoi(colon + 1) : DEF_PORT);
+
+		gale_text_token(spec,':',&part);
+		he = gethostbyname(gale_text_to_latin1(part));
+		if (!he) {
+			gale_alert(GALE_WARNING,gale_text_to_local(
+				gale_text_concat(3,
+					G_("can't find host \""),
+					part,G_("\""))),0);
+			continue;
+		}
+
+		if (gale_text_token(spec,':',&part))
+			sin.sin_port = htons(gale_text_to_number(part));
+		else
+			sin.sin_port = htons(DEF_PORT);
+
 		for (i = 0; he->h_addr_list[i]; ++i) {
 			int fd = -1;
 			sin.sin_addr = * (struct in_addr *) he->h_addr_list[i];
@@ -83,12 +82,7 @@ struct gale_connect *make_connect(const char *serv) {
 		skip_addr:
 			if (fd != -1) close(fd);
 		}
-
-	skip_host:
-		if (name) gale_free(name);
-		cp = end;
-		if (*cp == ',') ++cp;
-	} while (*cp);
+	}
 
 	if (!conn->len) {
 		abort_connect(conn);

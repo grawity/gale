@@ -41,7 +41,6 @@ static void add(struct node *ptr,struct gale_text spec,struct sub *sub) {
 			ptr->size = ptr->size ? ptr->size * 2 : 10;
 			ptr->array = gale_malloc(ptr->size * sizeof(*old));
 			memcpy(ptr->array,old,ptr->num * sizeof(*old));
-			if (old) gale_free(old);
 		}
 		ptr->array[ptr->num++] = *sub;
 		return;
@@ -171,8 +170,6 @@ static void remove(struct node *ptr,struct gale_text spec,struct sub *sub) {
 	ptr->num = prev->num;
 	ptr->size = prev->size;
 	ptr->child = prev->child;
-
-	gale_free(prev);
 }
 
 static void subscr(struct connect *conn,

@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 struct attach {
-	char *server;
+	struct gale_text server;
 	struct gale_text subs;
 	struct attach *next;
 

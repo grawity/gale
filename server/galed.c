@@ -162,30 +162,20 @@ static void loop(void) {
 }
 
 static void add_links(void) {
-	char *str,*val,*at;
+	struct gale_text str,link = null_text,part = null_text;
 	struct attach *att;
 
-	str = getenv("GALE_LINKS"); if (!str) return;
-	str = gale_strdup(str);
+	str = gale_var(G_("GALE_LINKS")); if (!str.l) return;
+	gale_text_token(str,';',&link);
 
-	if ((val = strchr(str,';'))) {
-		*val = '\0';
-		gale_alert(GALE_WARNING,"extra connections in GALE_LINKS ignored",0);
-	}
-
-	at = strrchr(str,'@');
 	att = new_attach();
-	if (at) {
-		att->subs = gale_text_from_local(str,at - str);
-		att->server = gale_strdup(at + 1);
-	} else {
-		att->subs = gale_text_from_local("",-1);
-		att->server = gale_strdup(str);
-	}
+	att->subs = G_("");
+	att->server = link;
 	att->next = try;
 	try = att;
 
-	gale_free(str);
+	if (gale_text_token(str,';',&link))
+		gale_alert(GALE_WARNING,"extra GALE_LINKS ignored",0);
 }
 
 static void usage(void) {

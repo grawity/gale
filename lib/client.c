@@ -80,26 +80,31 @@ void gale_retry(struct gale_client *client) {
 	gale_alert(GALE_NOTICE,"server connection ok",0);
 }
 
+void gale_close(struct gale_client *client) {
+	if (client->socket != -1) close(client->socket);
+	client->socket = -1;
+}
+
+static void client_finalizer(void *obj,void *data) {
+	gale_close((struct gale_client *) obj);
+}
+
 struct gale_client *gale_open(struct gale_text spec) {
 	struct gale_client *client;
 
 	gale_create(client);
-	client->server = gale_strdup(getenv("GALE_SERVER"));
+	client->server = gale_var(G_("GALE_SERVER"));
 	client->subscr = spec;
 	client->socket = -1;
 	client->link = new_link();
 
-	if (!client->server) gale_alert(GALE_ERROR,"$GALE_SERVER not set\n",0);
+	if (!client->server.l) 
+		gale_alert(GALE_ERROR,"$GALE_SERVER not set\n",0);
 
 	do_connect(client);
+	gale_finalizer(client,client_finalizer,NULL);
 
 	return client;
-}
-
-void gale_close(struct gale_client *client) {
-	if (client->socket != -1) close(client->socket);
-	gale_free(client->server);
-	gale_free(client);
 }
 
 int gale_error(struct gale_client *client) {

@@ -3,6 +3,8 @@
 #ifndef GALE_SERVER_H
 #define GALE_SERVER_H
 
+#include "gale/types.h"
+
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -15,7 +17,7 @@ struct gale_connect;
    to all such hosts simultaneously.  (The first one to connect "wins".)
    This call will not block; it just starts the process rolling and creates
    the object. */
-struct gale_connect *make_connect(const char *serv);
+struct gale_connect *make_connect(struct gale_text serv);
 
 /* Call this before calling select().  Pass in a pointer to an fd_set,
    initialized with any other file descriptors you want to check for writing

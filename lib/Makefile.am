@@ -6,4 +6,4 @@ libgale_a_SOURCES = \
 	input.c kill.c libgale.c link.c link_old.c message.c output.c \
 	fragment.c msg_old.c standard.c
 
-noinst_HEADERS = buffer.h link_old.h
+noinst_HEADERS = buffer.h link_old.h msg_old.h
