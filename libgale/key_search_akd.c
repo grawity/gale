@@ -27,10 +27,11 @@ static oop_call_time on_timeout;
 
 static void *on_packed_query(struct gale_packet *packet,void *x) {
 	struct cache *cache = (struct cache *) x;
-	packet->routing = gale_text_concat(6,
+	packet->routing = gale_text_concat(7,
 		packet->routing,G_(":"),
 		G_("@"),cache->domain,
-		G_("/auth/query/"),cache->local);
+		G_("/auth/query/"),
+		gale_text_replace(cache->local,G_(":"),G_("..")),G_("/"));
 
 	link_put(cache->link,packet);
 	return OOP_CONTINUE;
@@ -198,7 +199,8 @@ static void *on_key_location(
 	assert(NULL != loc && 0 != r.l); /* _gale is built in! */
 	cache->key_routing = gale_text_concat(6,r,G_(":"),
 		G_("@"),cache->domain,
-		G_("/auth/key/"),cache->local);
+		G_("/auth/key/"),
+		gale_text_replace(cache->local,G_(":"),G_("..")));
 	link_subscribe(cache->link,cache->key_routing);
 	return OOP_CONTINUE;
 }
@@ -258,7 +260,8 @@ static void on_search(struct gale_time now,oop_source *oop,
 	old = gale_key_public(key,now);
 	if (NULL != old) {
 		struct gale_data random = gale_crypto_random(sizeof(unsigned));
-		unsigned variant = (* (unsigned *) random.p) % refresh_interval;
+		const unsigned variant = refresh_interval +
+			(* (unsigned *) random.p) % refresh_interval;
 
 		cache->last_refresh = gale_key_time(old);
 		if (0 < gale_time_compare(cache->last_refresh,
