@@ -147,7 +147,7 @@ struct gale_fragment **unpack_old_message(struct gale_data msgdata) {
 
 struct gale_data pack_old_message(struct gale_fragment **frags) {
 	struct gale_fragment **ptr;
-	struct gale_data data,body;
+	struct gale_data data,temp,body;
 
 	data.l = 2;
 
@@ -157,26 +157,26 @@ struct gale_data pack_old_message(struct gale_fragment **frags) {
 
 		switch (frag->type) {
 		case frag_data:
+		    temp = frag->value.data;
 		    if (!gale_text_compare(frag->name,
 		                           G_("security/encryption"))) {
-			data.l = frag->value.data.l + 16;
+			data.l = temp.l + 16;
 			data.p = gale_malloc_atomic(data.l);
 			strcpy(data.p,"Encryption: g2\r\n");
-			memcpy(data.p + 16,frag->value.data.p,data.l - 16);
+			memcpy(data.p + 16,temp.p,data.l - 16);
 			return data;
 		    } else 
 		    if (!gale_text_compare(frag->name,
 		                           G_("security/signature"))
-		    &&  gale_unpack_u32(&frag->value.data,&len)
-		    &&  len < frag->value.data.l) {
+		    &&  gale_unpack_u32(&temp,&len)
+		    &&  len < temp.l) {
 			size_t tlen = armor_len(len);
-			data.l = 16 + tlen + frag->value.data.l - len;
+			data.l = 16 + tlen + temp.l - len;
 		        data.p = gale_malloc_atomic(data.l);
 		        strcpy(data.p,"Signature: g2/");
-			armor(frag->value.data.p,len,data.p + 14);
+			armor(temp.p,len,data.p + 14);
 			strcpy(data.p + 14 + tlen,"\r\n");
-			memcpy(data.p + 16 + tlen,frag->value.data.p,
-			       data.l - 16 - tlen);
+			memcpy(data.p + 16 + tlen,temp.p + len,temp.l - len);
 			return data;
 		    } else
 		    if (!gale_text_compare(frag->name,G_("answer/key")))

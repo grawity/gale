@@ -80,7 +80,7 @@ int _gale_find_id(struct auth_id *id) {
 	disable_gale_akd();
 
 	tmp = gale_malloc(80 + name.l);
-	sprintf(tmp,"requesting key \"%s\" from domain server",
+	sprintf(tmp,"requesting key \"%s\"",
 	        gale_text_to_local(name));
 	gale_alert(GALE_NOTICE,tmp,0);
 	gale_free(tmp);

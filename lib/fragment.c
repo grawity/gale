@@ -14,7 +14,7 @@
 #define message_type 0
 
 static int use_old_format(void) {
-	return 0;
+	return time(NULL) < 899449200;
 }
 
 struct gale_fragment **unpack_message(struct gale_data msgdata) {

@@ -61,6 +61,7 @@ void parse_text(struct gale_text arg) {
 /* Add default fragments to the message, if not already specified. */
 void headers(void) {
 	struct gale_fragment *frag;
+	char *tty;
 
 	/* Most of these are fairly obvious. */
 	if (signer && !have_from) {
@@ -89,7 +90,9 @@ void headers(void) {
 	}
 
 	add_fragment(gale_make_id_class());
-	add_fragment(gale_make_id_instance(gale_text_from_local(ttyname(0),-1)));
+	tty = ttyname(0);
+	if (tty && strchr(tty,'/')) tty = strrchr(tty,'/') + 1;
+	add_fragment(gale_make_id_instance(gale_text_from_local(tty,-1)));
 	add_fragment(gale_make_id_time());
 
 	if (do_rrcpt) {
@@ -254,15 +257,13 @@ int main(int argc,char *argv[]) {
 	/* A silly little check for a common mistake. */
 	if (ttyin && getpwnam(gale_text_to_local(msg->cat)))
 		gale_alert(GALE_WARNING,"*** DANGER! ***\a "
-		                        "Category is a username!  "
-		                        "Did you want that?",0);
+		                        "Category is a username!",0);
 	if (ttyin) {
 		char *at,*cat = gale_text_to_latin1(msg->cat);
 		for (at = cat; (at = strchr(at,'@')); ) {
 			if (at != cat && at[-1] != ':')
 				gale_alert(GALE_WARNING,"*** DANGER! ***\a "
-					"Category contains '@'!  "
-					"Did you want that?",0);
+					"Category contains '@'!",0);
 			++at;
 		}
 		gale_free(cat);
