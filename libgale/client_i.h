@@ -14,4 +14,7 @@ struct gale_location {
 
 struct gale_location *client_i_get(struct gale_text name);
 
+struct gale_text client_i_encode(const struct gale_location *);
+struct gale_text client_i_decode(struct gale_text routing);
+
 #endif

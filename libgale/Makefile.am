@@ -12,7 +12,7 @@ noinst_HEADERS = crypto_i.h key_i.h io.h
 libgale_la_SOURCES = \
     core_init.c core_link.c core_signals.c \
     io_input.c io_output.c \
-    client_alias.c client_default.c client_i.c client_location.c \
+    client_alias.c client_code.c client_default.c client_i.c client_location.c \
     client_pack.c client_queue.c client_server.c client_standard.c \
     client_unpack.c \
     crypto_gen.c crypto_i.c crypto_misc.c crypto_seal.c \

@@ -5,12 +5,12 @@ static struct gale_map **key_map = NULL;
 
 static struct gale_text signer(struct gale_text name) {
 	int dot,at;
-	for (at = 0; at < name.l && '@' != name.p[at]; ++at) ;
-	if (at < name.l) {
-		for (dot = at; dot > 0 && '.' != name.p[dot-1]; --dot) ;
-		if (0 == dot) return gale_text_right(name,-at - 1);
+	for (at = name.l - 1; at >= 0 && '@' != name.p[at]; --at) ;
+	if (at >= 0) {
+		for (dot = at - 1; dot >= 0 && '.' != name.p[dot]; --dot) ;
+		if (dot < 0) return gale_text_right(name,-at - 1);
 		return gale_text_concat(2,
-			gale_text_left(name,dot - 1),
+			gale_text_left(name,dot),
 			gale_text_right(name,-at));
 	}
 

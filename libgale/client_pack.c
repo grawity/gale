@@ -6,22 +6,6 @@
 
 #include <assert.h>
 
-static struct gale_text routing(const struct gale_location *loc) {
-	int i;
-	struct gale_text_accumulator ret = null_accumulator;
-	for (i = loc->at_part; i < loc->part_count; ++i)
-		gale_text_accumulate(&ret,loc->parts[i]);
-	gale_text_accumulate(&ret,G_("/user/"));
-	for (i = 0; i < loc->at_part; i += 2) {
-		gale_text_accumulate(&ret,gale_text_replace(gale_text_replace(
-			loc->parts[i],
-			G_(":"),G_("..")),
-			G_("/"),G_(".|")));
-		gale_text_accumulate(&ret,G_("/"));
-	}
-	return gale_text_collect(&ret);
-}
-
 /** Pack a Gale message into a raw "packet".
  *  Packing may require location lookups, so this function starts
  *  the process in the background, using liboop to invoke a callback
@@ -117,7 +101,7 @@ struct gale_text gale_pack_subscriptions(
 	struct gale_text_accumulator accum = null_accumulator;
 	while (NULL != list && NULL != *list) {
 		const int pos = (NULL == positive) || *positive++;
-		const struct gale_text cat = routing(*list++);
+		const struct gale_text cat = client_i_encode(*list++);
 		if (0 == cat.l) continue;
 
 		if (!gale_text_accumulator_empty(&accum))
