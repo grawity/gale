@@ -30,8 +30,14 @@ static void do_connect(struct gale_client *client) {
 		select(FD_SETSIZE,NULL,(SELECT_ARG_2_T) &fds,NULL,NULL);
 		client->socket = select_connect(&fds,conn);
 	} while (!client->socket);
-	if (client->socket > 0 && client->subscr.p)
-		link_subscribe(client->link,client->subscr);
+
+	if (client->socket > 0 && gale_text_compare(G_("-"),client->subscr)) {
+		struct gale_text spec = client->subscr;
+		if (!gale_text_compare(G_("-:"),gale_text_left(spec,2)))
+			spec = gale_text_right(spec,-2);
+		link_subscribe(client->link,spec);
+	}
+
 	while (client->socket > 0 && link_version(client->link) < 0) {
 		fd_set rfd,wfd;
 		FD_ZERO(&rfd);
@@ -84,6 +90,10 @@ static void client_finalizer(void *obj,void *data) {
 
 struct gale_client *gale_open(struct gale_text spec) {
 	struct gale_client *client;
+
+	if (!spec.p)
+		gale_alert(GALE_WARNING,
+		           "gale_open(null_text) subscribe to *everything*!",0);
 
 	gale_create(client);
 	client->server = gale_var(G_("GALE_SERVER"));

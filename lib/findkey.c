@@ -13,9 +13,6 @@
 #define MAX_SIZE 65536
 #define RETRY_TIME 1200
 
-auth_hook *hook_find_public = NULL;
-auth_hook *hook_find_private = NULL;
-
 static int open_pub(struct auth_id *id,int fd,int flag,struct inode *inode) {
 	int status = 0;
 	struct gale_data key = null_data;
@@ -84,7 +81,7 @@ int _ga_find_pub(struct auth_id *id) {
 	pid_t pid;
 	int fd,status;
 
-	if (hook_find_public && hook_find_public(id)) return 1;
+	if (gale_global->find_public && gale_global->find_public(id)) return 1;
 
 	argv[1] = gale_text_to_local(id->name);
 	pid = gale_exec("gkfind",argv,NULL,&fd,nop);
@@ -149,7 +146,8 @@ int auth_id_private(struct auth_id *id) {
 	||  open_priv(id,get(gale_global->sys_private,id->name,NULL)))
 		return 1;
 
-	if (hook_find_private && hook_find_private(id)) return 1;
+	if (gale_global->find_private && gale_global->find_private(id)) 
+		return 1;
 
 	argv[1] = gale_text_to_local(id->name);
 	pid = gale_exec("gkfetch",argv,NULL,&fd,nop);

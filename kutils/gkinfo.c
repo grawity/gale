@@ -96,6 +96,8 @@ int main(int argc,char *argv[]) {
 	struct auth_id *id;
 	int arg;
 
+	gale_init("gkinfo",argc,argv);
+
 	while ((arg = getopt(argc,argv,"ixdD")) != EOF) switch (arg) {
 	case 'i': iflag = 1; break;
 	case 'x': disable_gale_akd(); break;
@@ -104,8 +106,6 @@ int main(int argc,char *argv[]) {
 	case 'h':
 	case '?': usage();
 	}
-
-	gale_init("gkinfo",argc,argv);
 
 	if (optind + 1 == argc) {
 		int found = 0;

@@ -258,7 +258,7 @@ int main(int argc,char *argv[]) {
 	}
 
 	/* Open a connection to the server; don't subscribe to anything. */
-	client = gale_open(null_text);
+	client = gale_open(G_("-"));
 
 	/* Retry as long as necessary to get the connection open. */
 	while (gale_error(client)) gale_retry(client);

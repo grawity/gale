@@ -1,11 +1,20 @@
-Protocol:
+-- initial handshake and basic protocol ---------------------------------------
+
 +--+--+--+--+- / +--+--+--+--+--+--+--+--+--+--+--+-||-+ \
 |proto vers.| (  |  opcode   |  length   | data ... || |  ) *
 +--+--+--+--+- \ +--+--+--+--+--+--+--+--+--+--+--+-||-+ /
-  (only 0)                               |<- length  ->|
+  (0 or 1)                               |<- length  ->|
 
-Opcode 0x00000000: puff
-Opcode 0x00000001: will
+*** Notes ***
+
+Both ends should immediately transmit a version code.  Thereafter, both ends
+should use the minimum of the transmitted and received values as the protocol
+version to use.
+
+-- opcodes supported in version 0 and above -----------------------------------
+
+Opcode 0x00000000: puff (transmit a message)
+Opcode 0x00000001: will (register a message to transmit upon disconnection)
 +--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+-
 | cat. len. | message category ... || | msg. typ. | 
 +--+--+--+--+--+--+--+--+--+--+--+-||-+--+--+--+--+-
@@ -16,10 +25,88 @@ Opcode 0x00000001: will
  \ +--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+ /
                            |<------ length ------>|
 
-Opcode 0x00000002: gimme
-+--+--+--+--+--+--+--+-||-+
-| message category ... || |
-+--+--+--+--+--+--+--+-||-+
+Opcode 0x00000002: gimme (subscribe to puffs)
++--+--+--+--+--+--+--+--+-||-+
+| category expression ... || |
++--+--+--+--+--+--+--+--+-||-+
+
+*** Informal description ***
+
+Clients connect to servers.  If they wish to receive puffs, they send "gimme"
+with the category expression describing their interests; the servers then send 
+"puff" for each message they receive matching the expression.  Clients transmit
+messages by sending "puff" to their servers.  
+
+If clients want to make sure their death is noted, they send "will".
+
+"Will" or "gimme" are idempotent, not cumulative; they replace the existing
+will message or subscription with the new one.  The empty, default subscription
+may be represented by "-".
+
+-- opcodes supported in version 1 and above -----------------------------------
+
+Opcode 0x00000003: publish (provide resources)
++--+--+--+--+--+--+--+--+-||-+
+| category expression ... || |
++--+--+--+--+--+--+--+--+-||-+
+
+Opcode 0x00000004: watch (list and update IDs for a resource)
+Opcode 0x00000005: forget (stop watching a resource)
+Opcode 0x00000006: complete (all known IDs retrieved for a resource)
++--+--+--+--+--||-+
+| category ... || |
++--+--+--+--+--||-+
+
+Opcode 0x00000007: assert (associate an ID with a resource)
+Opcode 0x00000008: retract (remove an ID-resource association)
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--||-+
+| ID (MD5 hash of resource data)                | category ... || |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--||-+
+
+Opcode 0x00000009: fetch (retrieve the data corresponding to an ID)
+Opcode 0x0000000A: miss (cannot find the data corresponding to an ID)
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+| ID                                            |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+
+Opcode 0x0000000B: supply (return the data corresponding to an ID)
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+
+| ID                                            | data ... || |
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-||-+
+
+*** Notes ***
+
+1. "Watch" must eventually be answered by "complete" with the same category.
+
+2. "Fetch" must eventually be answered by "supply" or "miss" with the same ID.
+
+3. "Watch", "forget", "assert" and "retract" are idempotent, not cumulative.
+   Note (1) still applies to redundant "watch" operations, however.
+
+One "complete" may satisfy more than one "watch", and similarly one "supply" or
+"miss" may satisfy more than one "fetch".
+
+*** Informal description ***
+
+A client wishing to retrieve resources sends "watch" to its server.  The server
+responds with "assert"s describing each ID associated with the resource (and
+possibly "retract"s, if some of them go away before it finishes).  When an
+"assert" has been transmitted for every known ID on the resource, the server
+sends "complete" for that resource category.  As the list of IDs for the
+resource changes, the server will transmit "assert" or "retract", until the
+client sends "forget" for the category.
+
+When the client wishes to retrieve the actual body corresponding to an ID, it
+sends "fetch" to the server.  The server normally responds with "supply".  If
+the resource was retracted in the meantime, the server may respond with "miss"
+after sending the relevant "retract".
+
+If a client wishes to publish resources, it sends "publish" describing the set
+of categories it might have resources for.  The server will then send "watch",
+"forget", and "fetch" to the client as it needs to; the client should respond
+as described for the server above.
+
+-- conventionally used message fragments --------------------------------------
 
 security/signature	data	Signed
 security/encrypted	data	Encrypted
@@ -30,9 +117,9 @@ message/sender		text	From
 message/recipient	text	To
 message/body		text	(body)
 
-id/time			time	Time
-id/instance		text	Agent (1/2)
-id/class		text	Agent (1/2)
+id/class		text	The type of agent sending the message
+id/instance		text	Identification of the specific agent
+id/time			time	Timestamp when the message was sent
 
 question/receipt	text	Receipt-To
 question/key		text	Request-Key
@@ -42,9 +129,9 @@ answer/key		data	--
 notice/presence		text	--
 --				Content-Type
 
-All text is Unicode.
+All text is UCS-2.
 
--------------------------------------------------------------------------------
+-- conventionally used categories ---------------------------------------------
 
 @domain/auth/query/username/ -- new request
 @domain/auth/key/username/ -- reply
