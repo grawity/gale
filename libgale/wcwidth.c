@@ -6,6 +6,9 @@
  * Markus Kuhn -- 2000-02-08 -- public domain
  */
 
+#ifdef __FreeBSD__ /* peterh@sapros.com */
+#include <rune.h>
+#endif
 #include <wchar.h>
 
 /* These functions define the column width of an ISO 10646 character

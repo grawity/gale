@@ -3,7 +3,6 @@
 #include <openssl/rand.h>
 #include <openssl/err.h>
 
-#include <sys/vfs.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
