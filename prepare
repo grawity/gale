@@ -5,5 +5,12 @@ if [ ! -x prepare ]; then
 	exit 1
 fi
 
-               aclocal && autoheader && libtoolize && automake -a && autoconf
-( cd liboop && aclocal && autoheader && libtoolize && automake -a && autoconf )
+if [ -d /usr/ug/share/aclocal ]; then
+	ac="--acdir=/usr/ug/share/aclocal"
+else
+	ac=""
+fi
+
+( cd liboop && 
+  aclocal $ac&& autoheader && libtoolize --automake && automake -a && autoconf )
+  aclocal $ac&& autoheader && libtoolize --automake && automake -a && autoconf
