@@ -38,14 +38,14 @@ void headers(void) {
 		msg->data_size += strlen(msg->data + msg->data_size);
 	}
 	if (!have_from && (pwd = getpwuid(getuid()))) {
-		strtok(pwd->pw_gecos,",");
-		reserve(20 + strlen(pwd->pw_name) + strlen(pwd->pw_gecos));
-		if (pwd->pw_gecos[0])
-			sprintf(msg->data + msg->data_size,"From: %s (%s)\r\n",
-				id,pwd->pw_gecos);
-		else
-			sprintf(msg->data + msg->data_size,"From: %s\r\n",id);
-		msg->data_size += strlen(msg->data + msg->data_size);
+		char *name;
+		name = strtok(pwd->pw_gecos,",");
+		if (!*name) name = pwd->pw_name;
+		if (*name) {
+			reserve(20 + strlen(name));
+			sprintf(msg->data + msg->data_size,"From: %s\r\n",name);
+			msg->data_size += strlen(msg->data + msg->data_size);
+		}
 	}
 	if (!have_time) {
 		reserve(20);

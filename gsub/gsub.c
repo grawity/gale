@@ -38,12 +38,12 @@ void default_gsubrc(void) {
 	char *nl = isatty(1) ? "\r\n" : "\n";
 
 	printf("[%s]",getenv("CATEGORY"));
-	if ((tmp = getenv("GALE_TIME"))) {
+	if ((tmp = getenv("HEADER_TIME"))) {
 		time_t when = atoi(tmp);
 		strftime(buf,sizeof(buf)," %m/%d %H:%M",localtime(&when));
 		fputs(buf,stdout);
 	}
-	if ((tmp = getenv("GALE_FROM"))) printf(" from %s",tmp);
+	if ((tmp = getenv("HEADER_FROM"))) printf(" from %s",tmp);
 	fputs(nl,stdout);
 	tmp = getenv("SIGNED"); tmp2 = getenv("ENCRYPTED");
 	if (tmp || tmp2) {
@@ -105,8 +105,8 @@ void present_message(struct gale_message *msg) {
 	memcpy(envp,environ,envp_global * sizeof(*envp));
 	envp_len = envp_global;
 
-	next = gale_malloc(strlen(msg->category) + 10);
-	sprintf(next,"CATEGORY=%s",msg->category);
+	next = gale_malloc(strlen(msg->category) + 15);
+	sprintf(next,"GALE_CATEGORY=%s",msg->category);
 	envp[envp_len++] = next;
 
 	next = msg->data;
@@ -122,8 +122,8 @@ void present_message(struct gale_message *msg) {
 					decrypt,&end);
 				if (!id) goto error;
 				next = decrypt;
-				tmp = gale_malloc(strlen(id) + 11);
-				sprintf(tmp,"ENCRYPTED=%s",id);
+				tmp = gale_malloc(strlen(id) + 16);
+				sprintf(tmp,"GALE_ENCRYPTED=%s",id);
 				gale_free(id);
 				envp[envp_len++] = tmp;
 				continue;
@@ -132,8 +132,8 @@ void present_message(struct gale_message *msg) {
 			if (!strcasecmp(key,"Signature")) {
 				id = verify_signature(data,next,end);
 				if (id) {
-					tmp = gale_malloc(strlen(id)+8);
-					sprintf(tmp,"SIGNED=%s",id);
+					tmp = gale_malloc(strlen(id)+13);
+					sprintf(tmp,"GALE_SIGNED=%s",id);
 					gale_free(id);
 					envp[envp_len++] = tmp;
 				}
@@ -144,8 +144,8 @@ void present_message(struct gale_message *msg) {
 
 		for (tmp = key; *tmp; ++tmp)
 			*tmp = isalnum(*tmp) ? toupper(*tmp) : '_';
-		tmp = gale_malloc(strlen(key) + strlen(data) + 7);
-		sprintf(tmp,"GALE_%s=%s",key,data);
+		tmp = gale_malloc(strlen(key) + strlen(data) + 9);
+		sprintf(tmp,"HEADER_%s=%s",key,data);
 
 		if (envp_len == envp_alloc - 1) {
 			char **tmp = envp;

@@ -87,7 +87,7 @@ void to_g(ZNotice_t *notice) {
 	sprintf(num,"%u",(unsigned int) notice->z_time.tv_sec);
 	append(-1,num);
 	if (notice->z_recipient && notice->z_recipient[0]) {
-		append(9,"\r\nTo: <Z:");
+		append(7,"\r\nTo: <");
 		append(-1,notice->z_recipient);
 		append(1,">");
 	}
@@ -102,8 +102,11 @@ void to_g(ZNotice_t *notice) {
 		}
 	}
 
-	append(3,"<Z:");
-	append(-1,notice->z_sender);
+	append(1,"<");
+	if ((end = strchr(notice->z_sender,'@')))
+		append(end - notice->z_sender,notice->z_sender);
+	else
+		append(-1,notice->z_sender);
 	append(5,">\r\n\r\n");
 
 	if (ptr) {
@@ -255,7 +258,6 @@ int main(int argc,char *argv[]) {
 	}
 
 	if (optind < argc - 1) usage();
-
 	if (optind == argc - 1) spec = argv[optind];
 
 	if ((category = strrchr(spec,'@')))
