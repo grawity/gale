@@ -64,10 +64,9 @@ static void *finish(struct unpack *ctx) {
 				G_("\"")),0);
 			ctx->message->from[0] = NULL;
 		}
-
-		ctx->message->data = gale_crypto_original(ctx->message->data);
 	}
 
+	ctx->message->data = gale_crypto_original(ctx->message->data);
 	return ctx->func(ctx->message,ctx->user);
 }
 
