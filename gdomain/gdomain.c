@@ -145,9 +145,9 @@ static void *on_domain_location(
 	const struct gale_text domain = gale_var(G_("GALE_DOMAIN"));
 
 	if (NULL == loc
-	||  gale_key_private(gale_location_key(loc)))
+	|| !gale_key_private(gale_location_key(loc)))
 		gale_alert(GALE_ERROR,gale_text_concat(3,
-			G_("no private key for\""),
+			G_("no private key for \""),
 			domain,G_("\"")),0);
 
 	gale_alert(GALE_NOTICE,gale_text_concat(3,
