@@ -164,6 +164,7 @@ static void add_address(
 	addr->state = sock_connecting;
 	addr->sock = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
 	if (addr->sock < 0) return;
+	fcntl(addr->sock, F_SETFD, FD_CLOEXEC);
 
 	if (conn->avoid_local_port == ntohs(sin.sin_port)
 	&&  is_local(addr->sock,&sin.sin_addr))
