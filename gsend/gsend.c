@@ -16,24 +16,16 @@ int lookup_count = 1;			/* Outstanding lookup requests. */
 int do_rrcpt = 0,do_identify = 1;       /* Various flags. */
 int from_count = 0,to_count = 0;
 
-/* Print a comma-separated list of names. */
-static void comma_list(struct gale_location **list) {
+/* Print a list of names. */
+static void print_list(struct gale_location **list) {
 	int i;
-
-	if (NULL == list || NULL == list[0]) {
-		gale_print(stdout,0,G_("(nobody)"));
-		return;
-	}
-
-	for (i = 0; NULL != list[i]; ++i) {
-		gale_print(stdout,0,G_("<"));
-		gale_print(stdout,gale_print_bold,gale_location_name(list[i]));
-		if (NULL == list[i + 1])
-			gale_print(stdout,0,G_(">"));
-		else if (NULL == list[i + 2])
-			gale_print(stdout,0,G_("> and "));
-		else
-			gale_print(stdout,0,G_(">, "));
+	for (i = 0; NULL != list && NULL != list[i]; ++i) {
+		int at;
+		struct gale_text name = gale_location_name(list[i]);
+		gale_print(stdout,0,G_(" "));
+		for (at = 0; at < name.l && '@' != name.p[at]; ++at) ;
+		gale_print(stdout,gale_print_bold,gale_text_left(name,at));
+		gale_print(stdout,0,gale_text_right(name,-at));
 	}
 }
 
@@ -94,8 +86,8 @@ static void *on_pack(struct gale_packet *pack,void *user) {
 /* Get ready to send the message */
 static void prepare_message() {
 	struct gale_text_accumulator body;
-	struct gale_fragment frag;
 	struct gale_text line;
+	struct gale_fragment frag;
 	const int ttyin = isatty(0);	  		/* Input options */
 	const int from_specified = (0 != from_count);
 
@@ -114,23 +106,41 @@ static void prepare_message() {
 
 	/* If stdin is a TTY, prompt the user. */
 	if (ttyin) {
-		gale_print(stdout,0,G_("To "));
-		comma_list(msg->to);
+		struct gale_group tail;
 
-		if (from_specified) {
-			gale_print(stdout,0,G_(" from "));
-			comma_list(msg->from);
+		if (from_specified || !do_identify) {
+			gale_print(stdout,0,G_("From:"));
+			if (NULL == msg->from || NULL == msg->from[0]) {
+				gale_print(stdout,0,G_(" *"));
+				gale_print(stdout,gale_print_bold,G_("anonymous"));
+				gale_print(stdout,0,G_("*"));
+			} else
+				print_list(msg->from);
+			gale_print(stdout,0,G_("\n"));
 		}
 
-		if (gale_group_lookup(msg->data,
-			G_("message/subject"),frag_text,&frag))
-		{
-			gale_print(stdout,0,G_(" re \""));
-			gale_print(stdout,gale_print_bold,frag.value.text);
-			gale_print(stdout,0,G_("\""));
+		gale_print(stdout,0,G_("To:"));
+		print_list(msg->to);
+		gale_print(stdout,0,G_("\n"));
+
+		tail = gale_group_find(
+			msg->data,
+			G_("message.keyword"),frag_text);
+
+		if (!gale_group_null(tail)) {
+			gale_print(stdout,0,G_("Keywords:"));
+			do {
+				const struct gale_fragment frag = 
+					gale_group_first(tail);
+				gale_print(stdout,0,G_(" /"));
+				gale_print(stdout,gale_print_bold,frag.value.text);
+				tail = gale_group_find(
+					gale_group_rest(tail),
+					G_("message.keyword"),frag_text);
+			} while (!gale_group_null(tail));
+			gale_print(stdout,0,G_("\n"));
 		}
 
-		gale_print(stdout,0,G_(":\n"));
 		gale_print(stdout,0,G_("(End your message with EOF or a solitary dot.)\n"));
 	}
 
@@ -189,16 +199,22 @@ static void find_location(struct gale_text name,struct gale_location **ptr) {
 static void usage(void) {
 	fprintf(stderr,
 		"%s\n"
-		"usage: gsend [-hap] [-f address] [-t nm=val] address [address ...] [/\"subject\"]\n"
+		"usage: gsend [-hap] [-f address] [-t nm=val] address [address ...] [/keyword]\n"
 		"flags: -h          Display this message\n"
 		"       -a          Send message anonymously\n"
 		"       -p          Always request a return receipt\n"
-		"       -f address  Send message from a specific <address>\n"
-		"       -t nm=val   Include text fragment 'nm' set to 'val'\n"
-		"       /\"subject\"  Set the message subject text\n"
+		"       -f address  Send message from a specific <address> (multiple ok)\n"
+		"       -t nm=val   Include text fragment 'nm' set to 'val' (multiple ok)\n"
+		"       /keyword    Add a message keyword (multiple ok)\n"
 		"You must specify at least one recipient address.\n"
 		,GALE_BANNER);
 	exit(1);
+}
+
+static void append(struct gale_fragment frag) {
+	struct gale_group group = gale_group_empty();
+	gale_group_add(&group,frag);
+	gale_group_append(&msg->data,group);
 }
 
 int main(int argc,char *argv[]) {
@@ -246,7 +262,7 @@ int main(int argc,char *argv[]) {
 		frag.value.text = frag.name;
 		if (!gale_text_token(str,'=',&frag.value.text))
 			frag.value.text = null_text;
-		gale_group_add(&msg->data,frag);
+		append(frag);
 		break;
 
 	case 'h':
@@ -265,10 +281,10 @@ int main(int argc,char *argv[]) {
 		if ('/' != argv[arg][0])
 			find_location(a,&msg->to[to_count++]);
 		else {
-			frag.name = G_("message/subject");
+			frag.name = G_("message.keyword");
 			frag.type = frag_text;
 			frag.value.text = gale_text_right(a,-1);
-			gale_group_add(&msg->data,frag);
+			append(frag);
 		}
 	}
 
