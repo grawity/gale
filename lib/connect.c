@@ -122,7 +122,7 @@ static void delete(struct gale_connect *conn,int i) {
 static void *on_write(oop_source *src,int fd,oop_event event,void *user)
 {
 	struct sockaddr *sa;
-	int i,one = 1;
+	int i;
 
 	struct gale_connect *conn = (struct gale_connect *) user;
 	for (i = 0; fd != conn->array[i].sock; ++i) assert(i < conn->len);
@@ -141,11 +141,15 @@ static void *on_write(oop_source *src,int fd,oop_event event,void *user)
 			return conn->call(-1,conn->call_data);
 		}
 	} else {
+		int one = 1;
+		struct linger linger = { 1, 5000 }; /* 5 seconds */
 		delete(conn,i);
 		gale_abort_connect(conn);
 		fcntl(fd,F_SETFL,0);
 		setsockopt(fd,SOL_SOCKET,SO_KEEPALIVE,
 		           (SETSOCKOPT_ARG_4_T) &one,sizeof(one));
+		setsockopt(fd,SOL_SOCKET,SO_LINGER,
+		           (SETSOCKOPT_ARG_4_T) &linger,sizeof(linger));
 		return conn->call(fd,conn->call_data);
 	}
 

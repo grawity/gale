@@ -660,6 +660,7 @@ static void *on_process(oop_source *source,struct timeval tv,void *user) {
 	}
 
 	if (OOP_CONTINUE == ret 
+	&&  l->in_version > -1
 	&&  0 == link_queue_num(l) && NULL != l->on_empty) {
 		ret = l->on_empty(l,l->on_empty_data);
 		l->source->on_time(l->source,OOP_TIME_NOW,on_process,l);
@@ -723,6 +724,7 @@ static void *on_write(oop_source *source,int fd,oop_event event,void *user) {
 	}
 
 	if (OOP_CONTINUE == ret
+	&&  l->in_version > -1
 	&&  0 == link_queue_num(l) && NULL != l->on_empty)
 		ret = l->on_empty(l,l->on_empty_data);
 

@@ -159,6 +159,7 @@ void *on_empty(struct gale_link *link,void *user) {
 int main(int argc,char *argv[]) {
 	struct oop_source_sys *sys;		/* Event loop */
 	struct gale_link *link;			/* The physical connection */
+	struct gale_server *server;		/* The logical link */
 	int arg;				/* Command line flags */
 	int ttyin = isatty(0);	  		/* Input options */
 	char *line = NULL;			/* The current input line */
@@ -276,7 +277,7 @@ int main(int argc,char *argv[]) {
 	/* Open a connection to the server; don't subscribe to anything. */
 	sys = oop_sys_new();
 	link = new_link(oop_sys_source(sys));
-	gale_open(oop_sys_source(sys),link,G_("-"),null_text);
+	server = gale_open(oop_sys_source(sys),link,G_("-"),null_text);
 
 	/* If stdin is a TTY, prompt the user. */
 	if (ttyin) {
@@ -345,5 +346,6 @@ int main(int argc,char *argv[]) {
 	if (ttyin)
 		printf("Message transmitted.\n");   /* Ta-daa! */
 
+	gale_close(server);
 	return 0;
 }
