@@ -102,7 +102,7 @@ void _gale_globals(void) {
 	if (0 != G->dot_gale.l) 
 		make_dir(G->dot_gale,0700);
 	else
-		G->dot_gale = sub_dir(G->home_dir,G_(".gale"),0700);
+		G->dot_gale = submk_dir(G->home_dir,G_(".gale"),0700);
 
 	conf = gale_var(G_("GALE_CONF"));
 	if (0 != conf.l) read_conf(dir_file(G->dot_gale,conf));
@@ -130,6 +130,6 @@ void _gale_globals(void) {
 
 	/* Now we initialize lots of directories. */
 
-	G->user_cache = sub_dir(G->dot_gale,G_("cache"),0700);
-	G->system_cache = sub_dir(G->sys_dir,G_("cache"),0777);
+	G->user_cache = submk_dir(G->dot_gale,G_("cache"),0700);
+	G->system_cache = submk_dir(G->sys_dir,G_("cache"),0777);
 }

@@ -171,17 +171,17 @@ static void add_dir(struct gale_text dir,enum dir_type type) {
 void key_i_init_dirs(void) {
 	struct gale_text dot_auth,sys_auth;
 
-	dot_auth = sub_dir(gale_global->dot_gale,G_("auth"),0700);
-	sys_auth = sub_dir(gale_global->sys_dir,G_("auth"),0777);
+	dot_auth = submk_dir(gale_global->dot_gale,G_("auth"),0700);
+	sys_auth = submk_dir(gale_global->sys_dir,G_("auth"),0777);
 
-	add_dir(sub_dir(dot_auth,G_("private"),0700),private_dir);
-	add_dir(sub_dir(sys_auth,G_("private"),0700),trusted_dir);
+	add_dir(submk_dir(dot_auth,G_("private"),0700),private_dir);
+	add_dir(submk_dir(sys_auth,G_("private"),0700),trusted_dir);
 
-	add_dir(sub_dir(dot_auth,G_("trusted"),0777),trusted_dir);
-	add_dir(sub_dir(sys_auth,G_("trusted"),0777),trusted_dir);
+	add_dir(sub_dir(dot_auth,G_("trusted")),trusted_dir);
+	add_dir(sub_dir(sys_auth,G_("trusted")),trusted_dir);
 
-	add_dir(sub_dir(dot_auth,G_("local"),0777),public_dir);
-	add_dir(sub_dir(sys_auth,G_("local"),0777),public_dir);
+	add_dir(sub_dir(dot_auth,G_("local")),public_dir);
+	add_dir(sub_dir(sys_auth,G_("local")),public_dir);
 
-	add_dir(sub_dir(sys_auth,G_("cache"),0777),cache_dir);
+	add_dir(submk_dir(sys_auth,G_("cache"),0777),cache_dir);
 }

@@ -94,12 +94,27 @@ void make_dir(struct gale_text path,int mode) {
 }
 
 /** Find a subdirectory.
+ *  Look for subdirectory \a sub of parent directory \a path.
+ *  Return null if it doesn't already exist.
+ *  \param path Parent directory to search.
+ *  \param sub Subdirectory to find.
+ *  \return The full name of the subdirectory. */
+struct gale_text sub_dir(struct gale_text path,struct gale_text sub) {
+	struct stat buf;
+	struct gale_text ret = dir_file(path,sub);
+	if ((stat(gale_text_to(gale_global->enc_filesys,ret),&buf) 
+	|| !S_ISDIR(buf.st_mode)))
+		return null_text;;
+	return ret;
+}
+
+/** Find a subdirectory.
  *  Look for subdirectory \a sub of parent directory \a path, and create the
  *  subdirectory if it does not already exist.  
  *  \param path Parent directory to search.
  *  \param sub Subdirectory to find or create.
  *  \return The full name of the subdirectory. */
-struct gale_text sub_dir(struct gale_text path,struct gale_text sub,int mode) {
+struct gale_text submk_dir(struct gale_text path,struct gale_text sub,int mode) {
 	struct stat buf;
 	struct gale_text ret = dir_file(path,sub);
 	if ((stat(gale_text_to(gale_global->enc_filesys,ret),&buf) 
