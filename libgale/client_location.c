@@ -190,6 +190,15 @@ struct gale_key *gale_location_key(struct gale_location *loc) {
 	return loc->key;
 }
 
+/** Get the membership list of a location.
+ *  \param loc Location to examine.
+ *  \return A const ::gale_map associating the names of member locations
+ *          with the corresponding location objects, or NULL if the location
+ *          is public. */
+const struct gale_map *gale_location_members(struct gale_location *loc) {
+	return loc->members_null ? NULL : loc->members;
+}
+
 /** Determine if we can receive messages sent to a location.
  *  Effectively, this is true if we hold the private key for a location
  *  (or the location is public).
