@@ -19,7 +19,20 @@ static void *on_key(oop_source *oop,struct gale_key *key,void *x) {
 
 static void *on_location(struct gale_text n,struct gale_location *l,void *x) {
 	struct deffind *find = (struct deffind *) x;
-	if (NULL != l) return find->func(n,l,find->user);
+	if (NULL != l) {
+		if (NULL == gale_key_private(gale_location_key(l))) {
+			gale_alert(GALE_WARNING,gale_text_concat(3,
+				G_("no private key for \""), 
+				gale_location_name(l), G_("\"")),0);
+			gale_alert(GALE_NOTICE,
+				G_("found a public key; not generating new keys"),0);
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
+				G_("to make new public and private keys, run: gkgen \""),
+				gale_location_name(l),G_("\"")),0);
+		}
+
+		return find->func(n,l,find->user);
+	}
 
 	gale_key_generate(find->oop,
 		gale_key_handle(n),gale_crypto_generate(n),
