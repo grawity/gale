@@ -32,10 +32,10 @@ struct oop_adapter_signal {
 	int num_events;
 };
 
-struct oop_adapter_signal *sig_owner[OOP_NUM_SIGNALS];
+static struct oop_adapter_signal *sig_owner[OOP_NUM_SIGNALS];
 
 static oop_adapter_signal *verify_source(oop_source *source) {
-	oop_adapter_signal *s = (oop_adapter_signal *) source;
+	oop_adapter_signal * const s = (oop_adapter_signal *) source;
 	assert(MAGIC == s->magic);
 	return s;
 }
@@ -52,8 +52,8 @@ static void unblock(sigset_t old) {
 }
 
 static void do_pipe(struct oop_adapter_signal *s) {
-	sigset_t old = block();
-	char ch = '\0';
+	const sigset_t old = block();
+	const char ch = '\0';
 	if (0 == s->pipeflag) {
 		s->pipeflag = 1;
 		write(s->pipefd[1],&ch,1);
@@ -62,7 +62,7 @@ static void do_pipe(struct oop_adapter_signal *s) {
 }
 
 static void on_signal(int sig) {
-	oop_adapter_signal *s = sig_owner[sig];
+	oop_adapter_signal * const s = sig_owner[sig];
 	struct sigaction act;
 	assert(NULL != s);
 
@@ -77,7 +77,7 @@ static void on_signal(int sig) {
 }
 
 static void *on_pipe(oop_source *source,int fd,oop_event event,void *user) {
-	oop_adapter_signal *s = verify_source((oop_source *) user);
+	oop_adapter_signal * const s = verify_source((oop_source *) user);
 	sigset_t save;
 	int i;
 	char ch;
@@ -97,8 +97,7 @@ static void *on_pipe(oop_source *source,int fd,oop_event event,void *user) {
 			s->sig[i].ptr = s->sig[i].list;
 		}
 		if (NULL != s->sig[i].ptr) {
-			struct sig_handler *h;
-			h = s->sig[i].ptr;
+			struct sig_handler * const h = s->sig[i].ptr;
 			s->sig[i].ptr = h->next;
 			do_pipe(s); /* come back */
 			return h->f(&s->oop,i,h->v);
@@ -110,31 +109,31 @@ static void *on_pipe(oop_source *source,int fd,oop_event event,void *user) {
 
 static void sig_on_fd(oop_source *source,int fd,oop_event ev,
                       oop_call_fd *call,void *data) {
-	oop_adapter_signal *s = verify_source(source);
+	oop_adapter_signal * const s = verify_source(source);
 	s->source->on_fd(s->source,fd,ev,call,data);
 }
 
 static void sig_cancel_fd(oop_source *source,int fd,oop_event ev) {
-	oop_adapter_signal *s = verify_source(source);
+	oop_adapter_signal * const s = verify_source(source);
 	s->source->cancel_fd(s->source,fd,ev);
 }
 
 static void sig_on_time(oop_source *source,struct timeval when,
                         oop_call_time *call,void *data) {
-	oop_adapter_signal *s = verify_source(source);
+	oop_adapter_signal * const s = verify_source(source);
 	s->source->on_time(s->source,when,call,data);
 }
 
 static void sig_cancel_time(oop_source *source,struct timeval when,
                             oop_call_time *call,void *data) {
-	oop_adapter_signal *s = verify_source(source);
+	oop_adapter_signal * const s = verify_source(source);
 	s->source->cancel_time(s->source,when,call,data);
 }
 
 static void sig_on_signal(oop_source *source,int sig,
                           oop_call_signal *f,void *v) {
-	oop_adapter_signal *s = verify_source(source);
-	struct sig_handler *handler = oop_malloc(sizeof(*handler));
+	oop_adapter_signal * const s = verify_source(source);
+	struct sig_handler * const handler = oop_malloc(sizeof(*handler));
 	if (NULL == handler) return; /* ugh */
 
 	assert(sig > 0 && sig < OOP_NUM_SIGNALS && "invalid signal number");
@@ -162,8 +161,8 @@ static void sig_on_signal(oop_source *source,int sig,
 
 static void sig_cancel_signal(oop_source *source,int sig,
                               oop_call_signal *f,void *v) {
-	oop_adapter_signal *s = verify_source(source);
-	struct sig_handler *p,**pp = &s->sig[sig].list;
+	oop_adapter_signal * const s = verify_source(source);
+	struct sig_handler **pp = &s->sig[sig].list;
 
 	assert(sig > 0 && sig < OOP_NUM_SIGNALS && "invalid signal number");
 
@@ -171,7 +170,7 @@ static void sig_cancel_signal(oop_source *source,int sig,
 		pp = &(*pp)->next;
 
 	if (NULL != *pp) {
-		p = *pp;
+		struct sig_handler * const p = *pp;
 
 		if (NULL == p->next && &s->sig[sig].list == pp) {
 			sigaction(sig,&s->sig[sig].old,NULL);
@@ -188,7 +187,7 @@ static void sig_cancel_signal(oop_source *source,int sig,
 
 oop_adapter_signal *oop_signal_new(oop_source *source) {
 	int i;
-	oop_adapter_signal *s = oop_malloc(sizeof(*s));
+	oop_adapter_signal * const s = oop_malloc(sizeof(*s));
 	if (NULL == s) return NULL;
 	assert(NULL != source);
 	if (pipe(s->pipefd)) {
