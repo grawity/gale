@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,11 +45,14 @@ struct gale_text routing;
 char *tty;                              /* TTY device */
 
 struct gale_location *user_location = NULL;
-struct gale_location *key_query_location = NULL,*key_answer_location = NULL;
+struct gale_location *notice_location = NULL;
+struct gale_location *key_location = NULL;
+
 #ifndef NDEBUG
 struct gale_location *restart_from_location,*restart_to_location;
 #endif
-int lookup_count = 0;
+
+int lookup_count = 1;
 
 struct sub { 
 	struct gale_location *loc; 
@@ -74,12 +78,10 @@ static void *on_put(struct gale_packet *packet,void *user) {
 	return OOP_CONTINUE;
 }
 
-/*
 static void *on_will(struct gale_packet *packet,void *user) {
 	link_will(conn,packet);
 	return OOP_CONTINUE;
 }
-*/
 
 /* Generate a trivial little message with the given category.  Used for
    return receipts, login/logout notifications, and such. */
@@ -114,13 +116,19 @@ static void slip(
 	gale_group_add(&msg->data,frag);
 
 	gale_add_id(&msg->data,gale_text_from(gale_global->enc_filesys,tty,-1));
-	if (NULL != extra) gale_group_add(&msg->data,*extra);
+	if (NULL != extra) gale_group_replace(&msg->data,*extra);
 	gale_pack_message(source,msg,func,user);
 }
 
 /* Register login/logout notices with the server. */
 static void notify(int in,struct gale_text presence) {
-	/* TODO */
+	if (NULL != notice_location) {
+		struct gale_fragment frag;
+		frag.name = G_("notice/presence");
+		frag.type = frag_text;
+		frag.value.text = presence;
+		slip(notice_location,&frag,in ? on_put : on_will,NULL);
+	}
 }
 
 /* Halt the main event loop when we finish sending our notices. */
@@ -274,19 +282,20 @@ static void *on_message(struct gale_message *msg,void *data) {
 
 		/* Handle AKD requests for us. */
 		if (do_keys 
-		&&  NULL != key_answer_location
+		&&  NULL != key_location
 		&&  NULL != user_location
 		&&  frag.type == frag_text
-		&& !gale_text_compare(frag.name,G_("question/key"))
+		&& !gale_text_compare(frag.name,G_("question.key"))
 		&& !gale_text_compare(frag.value.text,
 		                      gale_location_name(user_location))) {
 			struct gale_fragment frag;
-			frag.name = G_("answer/key");
+			frag.name = G_("answer.key");
 			frag.type = frag_data;
 			frag.value.data = gale_key_raw(gale_key_public(
 				gale_location_key(user_location),
 				gale_time_now()));
-			slip(key_answer_location,&frag,on_put,NULL);
+			slip(key_location,&frag,on_put,NULL);
+			goto done;
 		}
 
 		/* Save the message body for later. */
@@ -453,21 +462,13 @@ static void add_sub(int positive,struct gale_location *loc) {
 	subs = sub;
 }
 
-static gale_call_location on_lookup,on_location;
-
-static void do_lookup(struct gale_text name,struct gale_location **loc) {
-	gale_find_location(source,name,on_lookup,loc);
-	++lookup_count;
-}
-
-static void do_location(struct gale_text sub) {
-	int positive = 1;
-	if (!gale_text_compare(G_("-"),gale_text_left(sub,1))) {
-		positive = 0;
-		sub = gale_text_right(sub,-1);
-	}
-	gale_find_location(source,sub,on_location,(void *) positive);
-	++lookup_count;
+static void *on_reconnect(
+	struct gale_server *server,
+	struct gale_text host,struct sockaddr_in addr,void *d) 
+{
+	assert(0 != routing.l);
+	link_subscribe(conn,routing);
+	return OOP_CONTINUE;
 }
 
 static void *on_complete() {
@@ -478,7 +479,7 @@ static void *on_complete() {
 	if (0 != --lookup_count) return OOP_CONTINUE;
 
 	if (do_default) add_sub(1,user_location);
-	if (do_keys) add_sub(1,key_query_location);
+	/* if (do_keys) add_sub(1,key_query_location); */
 #ifndef NDEBUG
 	add_sub(1,restart_to_location);
 #endif
@@ -509,7 +510,6 @@ static void *on_complete() {
 	}
 	list[count] = NULL;
 	routing = gale_pack_subscriptions(list,positive);
-	link_subscribe(conn,routing);
 
 	/* Send a login message, as needed. */
 	if (do_presence) {
@@ -520,27 +520,36 @@ static void *on_complete() {
 	}
 
 	link_on_message(conn,on_packet,NULL);
+	gale_on_connect(server,on_reconnect,NULL);
 	gale_on_disconnect(server,on_disconnect,NULL);
 	return OOP_CONTINUE;
 }
 
-static void *on_lookup(struct gale_text n,struct gale_location *loc,void *x) {
-	struct gale_location **target = (struct gale_location **) x;
-	*target = loc;
-
-	if (target == &user_location) {
-		/* TODO lookup key_{query,answer}_location */
-	}
-
-	return on_complete();
-}
-
-static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
-	if (NULL == loc) 
+static void *on_subscr_loc(struct gale_text n,struct gale_location *l,void *x) {
+	if (NULL == l) 
 		gale_alert(GALE_WARNING,gale_text_concat(3,
 			G_("could not find \""),n,G_("\"")),0);
 	else
-		add_sub((int) x,loc);
+		add_sub((int) x,l);
+	return on_complete();
+}
+
+static void *on_static_loc(struct gale_text n,struct gale_location *l,void *x) {
+	struct gale_location **target = (struct gale_location **) x;
+	*target = l;
+	if (target == &user_location) {
+		lookup_count += 3;
+		gale_find_exact_location(source,gale_text_concat(2,
+			G_("_notice."),gale_location_name(l)),
+			on_static_loc,&notice_location);
+		gale_find_exact_location(source,gale_text_concat(2,
+			G_("_gale.key."),gale_location_name(l)),
+			on_static_loc,&key_location);
+		gale_find_exact_location(source,gale_text_concat(2,
+			G_("_gale.query."),gale_location_name(l)),
+			on_subscr_loc,(void *) 1);
+	}
+
 	return on_complete();
 }
 
@@ -551,7 +560,6 @@ static void *on_connected(
 	gale_alert(GALE_NOTICE,gale_text_concat(2,
 		G_("connected to "),
 		gale_connect_text(host,addr)),0);
-	if (0 < routing.l) link_subscribe(conn,routing);
 	return on_complete();
 }
 
@@ -560,6 +568,7 @@ int main(int argc,char **argv) {
 	/* Various flags. */
 	int opt;
 	struct gale_text rclib = null_text;
+	struct gale_text subs = null_text;
 
 	/* Initialize the gale libraries. */
 	gale_init("gsub",argc,argv);
@@ -617,27 +626,41 @@ int main(int argc,char **argv) {
 		return 0;
 	}
 
-	if (do_default) {
-		struct gale_text env = gale_var(G_("GALE_CHEESEBALL"));
-		if (0 != env.l) {
-			struct gale_text sub = null_text;
-			while (gale_text_token(env,',',&sub)) do_location(sub);
-			do_default = 0;
+	if (do_default) subs = gale_var(G_("GALE_CHEESEBALL"));
+
+	while (argc != optind)
+		subs = gale_text_concat(3,subs,
+			(subs.l ? G_(",") : null_text),
+			gale_text_from(
+				gale_global->enc_cmdline,
+				argv[optind++],-1));
+
+	if (0 != subs.l) {
+		struct gale_text sub = null_text;
+		while (gale_text_token(subs,',',&sub)) {
+			int positive = 1;
+			if (!gale_text_compare(G_("-"),gale_text_left(sub,1))) {
+				positive = 0;
+				sub = gale_text_right(sub,-1);
+			}
+
+			++lookup_count;
+			gale_find_location(source,sub,
+				on_subscr_loc,(void *) positive);
 		}
+		do_default = 0;
 	}
 
-	/* One argument, at most (subscriptions) */
-	while (argc != optind)
-		do_location(gale_text_from(
-			gale_global->enc_cmdline,
-			argv[optind++],-1));
-
-	do_lookup(G_("egnor@ofb.net"),&restart_from_location);
 #ifndef NDEBUG
-	do_lookup(G_("debug.restart@gale.org"),&restart_to_location);
+	lookup_count += 2;
+	gale_find_location(source,G_("egnor@ofb.net"),
+		on_static_loc,&restart_from_location);
+	gale_find_location(source,G_("debug.restart@gale.org"),
+		on_static_loc,&restart_to_location);
 #endif
-	gale_find_default_location(source,on_lookup,&user_location);
+
 	++lookup_count;
+	gale_find_default_location(source,on_static_loc,&user_location);
 
 	/* Look for a gsubrc.so */
 	load_gsubrc(rclib);
@@ -647,7 +670,6 @@ int main(int argc,char **argv) {
 	routing = null_text;
 	server = gale_make_server(source,conn,null_text,0);
 	gale_on_connect(server,on_connected,NULL);
-	++lookup_count;
 
 	while (!do_stop) oop_sys_run(sys);
 	return 0;
