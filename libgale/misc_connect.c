@@ -150,7 +150,11 @@ static void add_address(
 	/* Are we a sucker? */
 	if (0 != conn->avoid_local_port && conn->found_local
 	&&  ntohl(sin.sin_addr.s_addr) 
-	>=  ntohl(conn->least_local.s_addr)) return;
+	>=  ntohl(conn->least_local.s_addr)) {
+		gale_dprintf(5,"(connect) ignoring sucker address %s\n",
+		             inet_ntoa(sin.sin_addr));
+		return;
+	}
 
 	gale_dprintf(5,"(connect) connecting to %s:%d\n",
 	             inet_ntoa(sin.sin_addr),ntohs(sin.sin_port));
@@ -163,25 +167,27 @@ static void add_address(
 	if (addr->sock < 0) return;
 
 	if (conn->avoid_local_port == ntohs(sin.sin_port)
-	&& is_local(addr->sock,&sin.sin_addr))
+	&&  is_local(addr->sock,&sin.sin_addr))
 	{
 		gale_dprintf(5,"(connect) address %s is local, skipping\n",
 		             inet_ntoa(sin.sin_addr));
 
 		if (!conn->found_local
-		||  sin.sin_addr.s_addr < conn->least_local.s_addr) {
+		||  ntohl(sin.sin_addr.s_addr) 
+		  < ntohl(conn->least_local.s_addr)) {
 			int i = 0;
 			conn->found_local = 1;
 			conn->least_local = sin.sin_addr;
 
 			/* Terminate other suckers. */
 			while (i < conn->num_address)
-			      if (ntohl(conn->addresses[i]->sin.sin_addr.s_addr)
-				>= ntohl(sin.sin_addr.s_addr)) {
-					close(conn->addresses[i]->sock);
-					del_address(conn,i);
-				} else
-					++i;
+			    if (ntohl(conn->addresses[i]->sin.sin_addr.s_addr)
+			    >=  ntohl(sin.sin_addr.s_addr)) {
+				gale_dprintf(5,"(connect) killing sucker address %s\n", inet_ntoa(conn->addresses[i]->sin.sin_addr));
+				close(conn->addresses[i]->sock);
+				del_address(conn,i);
+			    } else
+				++i;
 		}
 
 		close(addr->sock);
