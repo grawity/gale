@@ -697,7 +697,7 @@ fi
 
 PACKAGE=gale
 
-VERSION=0.20
+VERSION=0.19a
 
 if test "`cd $srcdir && pwd`" != "`pwd`" && test -f $srcdir/config.status; then
   { echo "configure: error: source directory already configured; run "make distclean" there first" 1>&2; exit 1; }
