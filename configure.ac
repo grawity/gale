@@ -100,20 +100,22 @@ AC_CHECK_LIB(crypto,EVP_OpenInit,[GALE_LIBS="$GALE_LIBS -lcrypto"],[
 ])
 
 dnl Make sure 'iconv' supports multibyte UTF-8 conversion.
+iconv_lib=""
+AC_CHECK_LIB(iconv,iconv,[iconv_lib="-liconv"])
 AC_MSG_CHECKING([for working iconv])
 save_libs="$LIBS"
 save_flags="$CFLAGS"
-LIBS="$LIBS -liconv"
+LIBS="$LIBS $iconv_lib"
 CFLAGS="$error_flags $save_flags -DICONV_CONST="
 AC_TRY_RUN([#include "${srcdir}/iconvtest.c"],[
-  save_libs="$LIBS"
+  GALE_LIBS="$GALE_LIBS $iconv_lib"
   AC_MSG_RESULT([yes, no const])
   AC_DEFINE(HAVE_ICONV, 1, [iconv(3) is available and functional.])
   AC_DEFINE(ICONV_CONST, [], [The second argument to iconv(3) is const.])
 ],[
   CFLAGS="$warning_flags $save_flags -DICONV_CONST=const"
   AC_TRY_RUN([#include "${srcdir}/iconvtest.c"],[
-    save_libs="$LIBS"
+    GALE_LIBS="$GALE_LIBS $iconv_lib"
     AC_MSG_RESULT([yes, const])
     AC_DEFINE(HAVE_ICONV, 1, [iconv(3) is available and functional.])
     AC_DEFINE(ICONV_CONST, const, [The second argument to iconv(3) is const.])
