@@ -96,13 +96,14 @@ static void prepare_message() {
 	struct gale_text_accumulator body;
 	struct gale_fragment frag;
 	struct gale_text line;
-	int ttyin = isatty(0);	  		/* Input options */
+	const int ttyin = isatty(0);	  		/* Input options */
+	const int from_specified = (0 != from_count);
 
-	if (do_identify) {
-		if (NULL == user) gale_alert(GALE_ERROR,G_("Who are you?"),0);
-
+	if (!from_specified && do_identify) {
 		/* Sign with our key by default. */
+		if (NULL == user) gale_alert(GALE_ERROR,G_("Who are you?"),0);
 		msg->from[from_count++] = user;
+		collapse(msg->from,from_count);
 	}
 
 	collapse(msg->from,from_count);
@@ -115,6 +116,12 @@ static void prepare_message() {
 	if (ttyin) {
 		gale_print(stdout,0,G_("To "));
 		comma_list(msg->to);
+
+		if (from_specified) {
+			gale_print(stdout,0,G_(" from "));
+			comma_list(msg->from);
+		}
+
 		if (gale_group_lookup(msg->data,
 			G_("message/subject"),frag_text,&frag))
 		{
@@ -122,7 +129,7 @@ static void prepare_message() {
 			gale_print(stdout,gale_print_bold,frag.value.text);
 			gale_print(stdout,0,G_("\""));
 		}
-		
+
 		gale_print(stdout,0,G_(":\n"));
 		gale_print(stdout,0,G_("(End your message with EOF or a solitary dot.)\n"));
 	}
