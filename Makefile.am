@@ -2,7 +2,7 @@
 
 AUTOMAKE_OPTIONS = foreign 1.2
 bin_SCRIPTS = gale-config gale-install
-EXTRA_DIST = gale.spec iconvtest.c acconfig.h autogen.sh Doxyfile
+EXTRA_DIST = gale.spec iconvtest.c acconfig.h bootstrap Doxyfile
 
 if BUILD_GC
 gc_dir = gc
