@@ -56,7 +56,7 @@ subdirs:
 
 $(BIN_DIR)/%: % mkdir/$(BIN_DIR)
 	@echo $* '->' $(BIN_DIR)
-	@mv $@ $@.tmp.$$$$
+	@[ ! -x $@ ] || mv $@ $@.tmp.$$$$
 	@cp $* $(BIN_DIR)/$*
 
 $(LIB_DIR)/%.a: %.a mkdir/$(LIB_DIR)

@@ -1,3 +1,4 @@
+clean up include files
 error reporting in glcgi
 command-line interface to logs (log server)
 summary log view in CGI, links, URL detection, menus, other spiffiness
