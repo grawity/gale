@@ -14,7 +14,6 @@ void crypto_i_seed(void) {
 	struct {
 		int fd;
 		struct stat st;
-		struct statfs stfs;
 		struct timeval tv[2];
 		pid_t pid,pgrp;
 		unsigned char stuff[16];
@@ -26,7 +25,6 @@ void crypto_i_seed(void) {
 	r.pid = getpid();
 	r.pgrp = getpgrp();
 	stat("/",&r.st);
-	statfs("/",&r.stfs);
 	r.fd = open("/dev/random",O_RDONLY);
 	if (-1 != r.fd) {
 		read(r.fd,r.stuff,sizeof(r.stuff));

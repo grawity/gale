@@ -8,7 +8,7 @@ cd $srcdir
 for I in . liboop; do
     (   cd $I
 	libtoolize --copy --force
-	aclocal $ACLOCAL_FLAGS
+	aclocal
 	if [ $I = . ]; then autoheader; fi
 	automake --add-missing
 	if [ $I = . ]; then autoheader; fi
