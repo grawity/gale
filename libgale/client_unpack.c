@@ -132,9 +132,19 @@ static void *on_target_key(oop_source *oop,struct gale_key *key,void *x) {
 		return on_unsealed(oop,OOP_TIME_NOW,ctx);
 	}
 
-	if (0 != --ctx->target_count) return OOP_CONTINUE;
-	gale_alert(GALE_WARNING,G_("couldn't decrypt message"),0); // TODO
-	return on_unsealed(oop,OOP_TIME_NOW,ctx);
+	if (0 == --ctx->target_count) {
+		const struct gale_text *target;
+                struct gale_text err = null_text;
+                for (target = gale_crypto_target(ctx->message->data);
+		     NULL != target && 0 != target->l; ++target)
+                        err = gale_text_concat(3,err,
+                                (0 == err.l ? G_(" to ") : G_(", ")),*target);
+	        gale_alert(GALE_WARNING,gale_text_concat(2,
+                            G_("can't decrypt message"),err),0);
+	        return on_unsealed(oop,OOP_TIME_NOW,ctx);
+        }
+
+        return OOP_CONTINUE;
 }
 
 /** Unpack a Gale message from a raw "packet".
