@@ -237,7 +237,7 @@ static void *on_status(int status,void *x) {
 		gale_alert(GALE_WARNING,gale_text_concat(2,
 			G_("gsubrc died with signal "),
 			gale_text_from_number(WTERMSIG(status),10,0)),0);
-	else if (do_verbose && WIFEXITED(status) && WEXITSTATUS(status) > 0)
+	else if (WIFEXITED(status) && WEXITSTATUS(status) > 0)
 		gale_alert(GALE_NOTICE,gale_text_concat(2,
 			G_("gsubrc returned error "),
 			gale_text_from_number(WEXITSTATUS(status),10,0)),0);
