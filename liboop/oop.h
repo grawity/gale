@@ -56,6 +56,7 @@ struct oop_source {
 /* For recommended use by oop components. */
 
 extern void *(*oop_malloc)(size_t);
+extern void *(*oop_realloc)(void *,size_t);
 extern void (*oop_free)(void *);
 
 /* ------------------------------------------------------------------------- */
