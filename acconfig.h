@@ -32,6 +32,9 @@
 /** The ADNS resolver library is available. */
 #undef HAVE_ADNS
 
+/** The second argument to iconv(3) is 'const char **' */
+#undef ICONV_CONST
+
 /** This is a BSD-based operating system. */
 #undef OS_BSD
 

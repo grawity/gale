@@ -50,6 +50,9 @@ if test NONE != "$prefix" ; then
   test NONE = "$exec_prefix" && LDFLAGS="$LDFLAGS -L${prefix}/lib"
 fi
 
+dnl Add special GCC warnings, but don't enable them yet.
+test yes = "$GCC" && warning_flags="-Wall -Wno-comment -Werror $CFLAGS"
+
 dnl System type checks.
 case "$host" in
   *-linux-*)
@@ -87,13 +90,25 @@ dnl Make sure 'iconv' supports multibyte UTF-8 conversion.
 libs_without_iconv="$LIBS"
 AC_CHECK_LIB(iconv,iconv)
 AC_MSG_CHECKING([for working iconv])
+save_flags="$CFLAGS"
+CFLAGS="$warning_flags $save_flags -DICONV_CONST="
 AC_TRY_RUN([#include "iconvtest.c"],[
-  AC_MSG_RESULT(yes)
+  AC_MSG_RESULT([yes, no const])
   AC_DEFINE(HAVE_ICONV)
+  AC_DEFINE(ICONV_CONST,[])
 ],[
-  AC_MSG_RESULT(no)
-  LIBS="$libs_without_iconv"
+  CFLAGS="$warning_flags $save_flags -DICONV_CONST=const"
+  AC_TRY_RUN([#include "iconvtest.c"],[
+    AC_MSG_RESULT([yes, const])
+    AC_DEFINE(HAVE_ICONV)
+    AC_DEFINE(ICONV_CONST,const)
+  ],[
+    AC_MSG_RESULT(no)
+    LIBS="$libs_without_iconv"
+  ],
+  [AC_MSG_RESULT([unknown, assuming no])])
 ],[AC_MSG_RESULT([unknown, assuming no])])
+CFLAGS="$save_flags"
 
 AC_CHECK_LIB(dl,dlopen,[
   DL_LIBS="-ldl"
@@ -229,7 +244,7 @@ dnl Checks for library functions.
 dnl Output.
 
 CFLAGS_NOWARN="$CFLAGS"
-test yes = "$GCC" && CFLAGS="-Wall -Wno-comment -Werror $CFLAGS"
+CFLAGS="$warning_flags $CFLAGS_NOWARN"
 INCLUDES="-I\${top_srcdir}/include -I\${top_builddir}/include $INCLUDES"
 INCLUDES="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $INCLUDES"
 

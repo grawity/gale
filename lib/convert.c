@@ -100,7 +100,7 @@ static void from_ucs(wch *ch) {
 struct gale_text gale_text_from(struct gale_encoding *e,const char *p,int l) {
 #ifdef HAVE_ICONV
 	wch *buf;
-	const char *inbuf;
+	ICONV_CONST char *inbuf;
 	char *outbuf;
 	size_t inbytes,outbytes,ret;
 	struct gale_text out;
@@ -156,7 +156,7 @@ char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
 	wch *copy;
 	char *buf;
 	size_t alloc;
-	const char *inbuf;
+	ICONV_CONST char *inbuf;
 	char *outbuf;
 	size_t inbytes,outbytes;
 	struct gale_encoding *save = gale_global->enc_console;

@@ -13,7 +13,7 @@ int main() {
     const char *encoding = (4 == sizeof(wchar_t)) ? "UCS-4" : "UCS-2";
     iconv_t from = iconv_open(encoding,"UTF-8");
     iconv_t to = iconv_open("UTF-8",encoding);
-    const char *inbuf = (char *) wch;
+    ICONV_CONST char *inbuf = (char *) wch;
     size_t inbytes = sizeof(wch);
     char *outbuf = (char *) utf;
     size_t outbytes = sizeof(utf);

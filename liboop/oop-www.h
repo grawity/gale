@@ -19,10 +19,10 @@ void oop_www_register(oop_source *);
 
 /* Release any resources associated with the event manager, and
    unregister it with libwww.  This will leave libwww with no event manager. */
-void oop_www_cancel();
+void oop_www_cancel(void);
 
 /* Use libwww's memory management for liboop.
    ** If you use this, you must do so before any other liboop function! ** */
-void oop_www_memory();
+void oop_www_memory(void);
 
 #endif
