@@ -7,5 +7,6 @@ librsaref_la_SOURCES = \
 include_HEADERS = rsaref.h global.h md2.h md5.h des.h
 noinst_HEADERS = digit.h nn.h prime.h r_random.h rsa.h
 
+CFLAGS = $(CFLAGS_NOWARN)
 INCLUDES = "-DPROTOTYPES=1"
 DISTFILES = $(DIST_COMMON) $(TEXINFOS) $(EXTRA_DIST)
