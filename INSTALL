@@ -9,7 +9,7 @@ getting them in the right places.  The exception is the authentication system,
 which requires a certain amount of finicky setup -- including setuid binaries 
 -- to do its job correctly and securely.
 
-0. Make sure you have GNU Make version 3.75 or better.  Older versions might
+0. Make sure you have GNU Make version 3.67 or better.  Older versions might
    work, but I can't swear to it.  You can get it by anonymous FTP from
    prep.ai.mit.edu in the /pub/gnu directory.  You can't build Gale with a
    non-GNU 'make' utility, sorry.

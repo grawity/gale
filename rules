@@ -1,4 +1,4 @@
--include $(TOP)/defs
+include $(TOP)/defs
 
 export SYS_DIR BIN_DIR SUID_DIR GALE_USER GALE_DOMAIN GALE_VERSION
 

@@ -13,7 +13,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
-#include <signal.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/types.h>
@@ -526,24 +525,6 @@ void add_subs(char **subs,const char *add) {
 	} else *subs = gale_strdup(add);
 }
 
-/* timeout */
-
-void check_tty(int x) {
-	(void) x;
-	if (tty) {
-		struct sigaction act;
-		if (!isatty(1)) exit(1);
-		sigaction(SIGALRM,NULL,&act);
-		act.sa_handler = check_tty;
-		act.sa_flags &= ~SA_RESETHAND;
-#ifdef SA_RESTART
-		act.sa_flags |= SA_RESTART;
-#endif
-		sigaction(SIGALRM,&act,NULL);
-		alarm(TIMEOUT);
-	}
-}
-
 /* main */
 
 int main(int argc,char **argv) {
@@ -569,8 +550,6 @@ int main(int argc,char **argv) {
 		if (tmp) tty = tmp + 1;
 		/* Go into the background; kill other gsub processes. */
 		do_fork = do_kill = 1;
-		/* Prepare to poll for tty death. */
-		check_tty(0);
 	}
 
 	/* Default subscriptions. */
@@ -627,15 +606,34 @@ int main(int argc,char **argv) {
 	/* Send a login message, as needed. */
 	if (do_notify) notify();
 	do {
-		/* Get messages and process them. */
-		while (!gale_send(client) && !gale_next(client)) {
+		int r = 0;
+
+		while (r >= 0 && !gale_send(client)) {
+			fd_set fds;
+			struct timeval timeout;
 			struct gale_message *msg;
-			check_tty(0);
-			if ((msg = link_get(client->link))) {
+
+			FD_ZERO(&fds);
+			FD_SET(client->socket,&fds);
+			timeout.tv_sec = TIMEOUT;
+			timeout.tv_usec = 0;
+
+			r = select(FD_SETSIZE,(SELECT_ARG_2_T) &fds,NULL,NULL,
+			           &timeout);
+
+			/* Make sure the tty still exists. */
+			if (tty && !isatty(1)) exit(1);
+
+			if (r < 0) 
+				gale_alert(GALE_WARNING,"select",errno);
+			else if (r > 0 && gale_next(client))
+				r = -1;
+			else while ((msg = link_get(client->link))) {
 				present_message(msg);
 				release_message(msg);
 			}
-		}
+		} while (r >= 0);
+
 		/* Retry the server connection, unless we shouldn't. */
 		if (do_retry) {
 			gale_retry(client);

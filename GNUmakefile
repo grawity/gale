@@ -6,7 +6,7 @@ tar: squeaky
 	cd .. ; find gale -name CVS | \
 	tar -X - -X gale/rsaref/exclude -cvzf - gale \
 	> gdist/gale-$(GALE_VERSION).tar.gz ; \
-	gzip -dc gale.tar.gz | bzip2 -9 \
+	gzip -dc gdist/gale-$(GALE_VERSION).tar.gz | bzip2 -9 \
 	> gdist/gale-$(GALE_VERSION).tar.bz2
 
 squeaky: clean

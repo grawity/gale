@@ -112,6 +112,8 @@ char *get_line(int tty)
 	int alloc,len;
 	char *line;
 
+	(void) tty;
+
 #ifdef HAVE_READLINE
 	if (tty) {
 		static int init = 1;
