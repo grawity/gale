@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <utime.h>
 
 struct gale_file_state {
 	dev_t device;
@@ -282,4 +283,44 @@ int gale_file_changed(const struct gale_file_state *since) {
 		return NULL == since;
 	else
 		return compare(&buf,since);
+}
+
+/** Return a file's timestamp.
+ *  \param state State information previously collected by
+ *         gale_read_file() or gale_write_file().
+ *  \return The last observed modification time of the file. */ 
+struct gale_time gale_get_file_time(const struct gale_file_state *which) {
+	const struct timeval tv = { which->file_time, 0 };
+	struct gale_time output;
+	gale_time_from(&output,&tv);
+	return output;
+}
+
+/** Set a file's timestamp.
+ *  \param state State information previously collected by
+ *         gale_read_file() or gale_write_file().
+ *  \param time Updated timestamp. */
+void gale_set_file_time(struct gale_file_state *which,struct gale_time time) {
+	const char *name;
+	struct utimbuf ut;
+
+	if (NULL == which) return;
+
+	{
+		struct timeval tv;
+		gale_time_to(&tv,time);
+		ut.actime = ut.modtime = tv.tv_sec;
+	}
+
+	name = gale_text_to(gale_global->enc_filesys,which->name);
+
+	{
+		/* Race condition; but we can't do much with the Unix API. */
+		struct stat buf;
+		if (stat(name,&buf) || compare(&buf,which)) return;
+		if (!utime(name,&ut) && !stat(name,&buf)) {
+			which->file_time = buf.st_mtime;
+			which->inode_time = buf.st_ctime;
+		}
+	}
 }
