@@ -22,7 +22,7 @@ qgrep() {
 }
 
 testkey() {
-	gkinfo -x "$1" 2>/dev/null | qgrep "^Public key: <$1>"
+	gkinfo -kx "$1" 2>/dev/null | qgrep "^Public key: <$1>"
 }
 
 testkey_stdin() {
