@@ -44,7 +44,7 @@ char *id_category(struct gale_id *id,const char *pfx,const char *sfx) {
    0: no success
   -1: no key exists
 */
-static int process(struct auth_id *id,struct gale_message *_msg) {
+static int process(struct auth_id *id,struct auth_id *domain,struct gale_message *_msg) {
 	struct gale_message *msg;
 	struct auth_id *encrypted,*signature;
 	int status = 0;
@@ -57,12 +57,7 @@ static int process(struct auth_id *id,struct gale_message *_msg) {
 		assert(auth_id_public(id));
 		status = 1;
 	} else {
-		const char *name = auth_id_name(id);
-		const char *signer = auth_id_name(signature);
-		int name_len = strlen(name),signer_len = strlen(signer);
-		if (signer_len < name_len 
-		&&  name[name_len - signer_len - 1] == '@'
-		&&  !strcmp(name + name_len - signer_len,signer)) {
+		if (domain && signature == domain) {
 			char *next,*key,*data,*end;
 			next = msg->data;
 			end = next + msg->data_size;
@@ -76,11 +71,9 @@ static int process(struct auth_id *id,struct gale_message *_msg) {
 			if (status == 0) {
 				struct gale_data blob;
 				struct auth_id *found;
-				blob.l = dearmor_len(end - data);
-				blob.p = gale_malloc(blob.l);
-				dearmor(data,end - data,blob.p);
+				blob.l = end - next;
+				blob.p = next;
 				import_auth_id(&found,blob,0);
-				gale_free(blob.p);
 				status = (found == id) ? 1 : -1;
 				if (found) free_auth_id(found);
 			}
@@ -95,13 +88,18 @@ static int process(struct auth_id *id,struct gale_message *_msg) {
 
 int find_id(struct auth_id *id) {
 	struct gale_client *client;
-	struct gale_message *msg;
+	struct gale_message *msg,*_msg;
 	char *tmp,*tmp2,*category;
 	const char *name = auth_id_name(id);
+	struct auth_id *domain = NULL;
 	time_t timeout;
 	int status = 0;
 
 	if (auth_id_public(id)) return 1;
+	tmp = strchr(name,'@');
+	if (!tmp) return 0;
+	init_auth_id(&domain,tmp + 1);
+	if (!domain) return 0;
 	
 	tmp = gale_malloc(80 + strlen(name));
 	sprintf(tmp,"requesting key \"%s\" from domain server",name);
@@ -129,6 +127,20 @@ int find_id(struct auth_id *id) {
 	        "Time: %lu\r\n",
 	        category,timeout);
 	msg->data_size = strlen(msg->data);
+
+	_msg = sign_message(user_id,msg);
+	if (_msg) {
+		release_message(msg);
+		msg = _msg;
+	}
+
+	if (auth_id_public(domain)) {
+		_msg = encrypt_message(1,&domain,msg);
+		if (_msg) {
+			release_message(msg);
+			msg = _msg;
+		}
+	}
 
 	timeout += TIMEOUT;
 	link_put(client->link,msg);
@@ -161,11 +173,12 @@ int find_id(struct auth_id *id) {
 		}
 
 		while (!status && (reply = link_get(client->link))) {
-			status = process(id,reply);
+			status = process(id,domain,reply);
 			release_message(reply);
 		}
 	}
 
+	if (domain) free_auth_id(domain);
 	release_message(msg);
 	gale_free(category);
 	gale_close(client);

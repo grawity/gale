@@ -189,6 +189,14 @@ struct gale_id *decrypt_message(struct gale_message *in,
 		}
 	}
 
+	if (!*out) {
+		char *tmp = gale_malloc(strlen(in->category) + 80);
+		sprintf(tmp,"cannot decrypt message on category \"%s\"",
+		        in->category);
+		gale_alert(GALE_WARNING,tmp,0);
+		gale_free(tmp);
+	}
+
 	if (*out) addref_message(*out);
 	return id;
 }

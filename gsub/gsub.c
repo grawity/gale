@@ -215,13 +215,13 @@ void send_message(char *body,char *end,int fd) {
 
 /* Take the message passed as an argument and show it to the user, running
    their gsubrc if present, using the default formatter otherwise. */
-void present_message(struct gale_message *msg) {
+void present_message(struct gale_message *_msg) {
 	int pfd[2];             /* Pipe file descriptors. */
 
 	/* Lots of crap.  Discussed below, where they're used. */
 	char *next,**envp = NULL,*key,*data,*end,*tmp;
 	struct gale_id *id_encrypted = NULL,*id_sign = NULL;
-	struct gale_message *rcpt = NULL;
+	struct gale_message *rcpt = NULL,*msg = NULL;
 	int envp_global,envp_alloc,envp_len,status;
 	pid_t pid;
 
@@ -236,13 +236,14 @@ void present_message(struct gale_message *msg) {
 	envp_len = envp_global;
 
 	/* GALE_CATEGORY: the message category */
-	next = gale_malloc(strlen(msg->category) + 15);
-	sprintf(next,"GALE_CATEGORY=%s",msg->category);
+	next = gale_malloc(strlen(_msg->category) + 15);
+	sprintf(next,"GALE_CATEGORY=%s",_msg->category);
 	envp[envp_len++] = next;
 
 	/* Decrypt, if necessary. */
-	id_encrypted = decrypt_message(msg,&msg);
+	id_encrypted = decrypt_message(_msg,&msg);
 	if (!msg) goto error;
+
 	if (id_encrypted) {
 		tmp = gale_malloc(strlen(auth_id_name(id_encrypted)) + 16);
 		sprintf(tmp,"GALE_ENCRYPTED=%s",auth_id_name(id_encrypted));
