@@ -172,6 +172,7 @@ int main(int argc,char *argv[]) {
 	} else {
 		struct gale_key_assertion *ass;
 		struct gale_data key;
+                struct gale_key *owner;
 
 		if (isatty(0)) usage();
 		key = gale_read_from(0,0);
@@ -181,16 +182,16 @@ int main(int argc,char *argv[]) {
 		ass = gale_key_assert(key,
                         G_("read from stdin"),
                         gale_time_forever(),1);
-		if (do_trust_input) 
+                owner = gale_key_owner(ass);
+		if (do_trust_input || ass == gale_key_private(owner))
 			print(ass);
 		else {
 			oop_source_sys * const sys = oop_sys_new();
-			struct gale_key * parent = gale_key_owner(ass);
-			if (NULL == parent)
+                        struct gale_key * const parent = gale_key_parent(owner);
+			if (NULL == owner)
 				gale_alert(GALE_ERROR,
 				           G_("could not decode key"),0);
 
-			parent = gale_key_parent(parent);
 			if (NULL == parent)
 				gale_alert(GALE_ERROR,G_("key is ROOT"),0);
 
