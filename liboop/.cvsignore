@@ -9,3 +9,4 @@ ltmain.sh
 missing
 config.guess
 config.sub
+*.pc

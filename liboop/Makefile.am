@@ -10,6 +10,9 @@ AUTOMAKE_OPTIONS = foreign 1.7
 lib_LTLIBRARIES = liboop.la @LIBOOP_LIBS@
 EXTRA_LTLIBRARIES = liboop-adns.la liboop-glib2.la liboop-glib.la liboop-tcl.la liboop-www.la liboop-rl.la
 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = liboop.pc liboop-glib2.pc
+
 # versions updated as of 1.0
 liboop_la_LDFLAGS = -version-info 4:1:0 # version:revision:age
 liboop_la_SOURCES = sys.c select.c signal.c alloc.c read.c read-fd.c read-mem.c
