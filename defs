@@ -2,19 +2,28 @@ INC_DIR = $(HOME)/include/gale
 SYS_DIR = $(HOME)/etc/gale
 
 RSAREF = $(TOP)/../rsaref
+ifneq ($(wildcard $(RSAREF)),)
 RSAREF_INC = -I$(RSAREF)/source
 RSAREF_LIB = $(RSAREF_BUILD)/rsaref.a
+endif
 
 DB = $(TOP)/../db
+ifneq ($(wildcard $(DB)),)
 DB_LIB = $(DB_BUILD)/libdb.a
 DB_INC = -I$(DB_BUILD)
+endif
 
-CGIC_INC = -I$(TOP)/../cgic
-CGIC_LIB = $(TOP)/../cgic/libcgic.a
+CGIC = $(TOP)/../cgic
+ifneq ($(wildcard $(CGIC)),)
+CGIC_INC = -I$(CGIC)
+CGIC_LIB = $(CGIC)/libcgic.a
+endif
 
 LTXML = $(TOP)/../ltxml
+ifneq ($(wildcard $(LTXML)),)
 LTXML_INC = -I$(LTXML)/include -I$(LTXML_BUILD)/include
 LTXML_LIB = $(LTXML_BUILD)/src/nsl/libltnsl.a $(LTXML_BUILD)/src/std/libltstd.a
+endif
 
 ifdef ARCH
 
