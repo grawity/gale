@@ -220,11 +220,13 @@ static void last_address(struct gale_connect *conn) {
 }
 
 static void add_name(struct gale_connect *conn,struct gale_text name,int port) {
+	const char *hostname = gale_text_to(NULL, name);
+	struct sockaddr_in sin;
+
 #ifdef HAVE_ADNS
 	struct resolution *res;
 #else
 	struct hostent *he = gethostbyname(gale_text_to(NULL,name));
-	struct sockaddr_in sin;
 	int i;
 #endif
 
@@ -247,16 +249,23 @@ static void add_name(struct gale_connect *conn,struct gale_text name,int port) {
 		res->name = name;
 		res->port = port;
 		res->query = oop_adns_submit(conn->adns,
-			gale_text_to(NULL,name),
+			hostname,
 			adns_r_a,0,on_lookup,res);
 
 		if (NULL != res->query)
 			conn->resolving[conn->num_resolve++] = res;
 	}
+
+	memset(&sin,0,sizeof(sin));
+	if (inet_aton(hostname, &sin.sin_addr)) {
+		sin.sin_family = AF_INET;
+		sin.sin_port = htons(port);
+		add_address(conn,name,sin);
+	}
 #else
 	if (NULL == he) {
 		gale_dprintf(5,"(connect %p) no addresses for \"%s\"\n",
-		             conn, gale_text_to(0, name));
+		             conn, hostname);
 		return;
 	}
 
