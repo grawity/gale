@@ -7,6 +7,9 @@
 #include "gale/core.h"
 #include "oop.h"
 
+/** \name Compatibility stuff (ignore). */
+/*@{*/
+
 struct old_gale_message {
 	struct gale_text cat;
 	struct gale_group data;
@@ -15,6 +18,8 @@ struct old_gale_message {
 struct old_gale_message *gale_make_message(void);
 struct old_gale_message *gale_receive(struct gale_packet *pack);
 struct gale_packet *gale_transmit(struct old_gale_message *pack);
+
+/*@}*/
 
 /** \name Connection Management */
 /*@{*/
