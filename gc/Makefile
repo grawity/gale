@@ -75,7 +75,7 @@ PACKAGE = gale
 PROG_LDCONFIG = /sbin/ldconfig
 RANLIB = ranlib
 READLINE_LIBS = -lreadline
-VERSION = 0.91
+VERSION = 0.91b
 YACC = bison -y
 ZEPHYR_LIBS = 
 
