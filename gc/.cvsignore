@@ -1,5 +1,0 @@
-if_mach
-if_not_there
-threadlibs
-base_lib
-Makefile.gc
