@@ -21,12 +21,10 @@
 #include "subscr.h"
 #include "server.h"
 #include "directed.h"
-#include "report.h"
 
 #include "oop.h"
 
 int server_port;
-struct report *server_report; 
 
 static void *on_error_message(oop_source *src,struct gale_message *msg,void *user) {
 	subscr_transmit(src,msg,NULL);
@@ -54,24 +52,6 @@ static void *on_incoming(oop_source *source,int fd,oop_event ev,void *user) {
 	link = new_link(source);
 	link_set_fd(link,newfd);
 	conn = new_connect(source,link,G_("-"));
-
-	return OOP_CONTINUE;
-}
-
-static void *on_report(oop_source *source,int sig,void *d) {
-	struct report *rep = (struct report *) d;
-	struct gale_text fn = dir_file(gale_global->dot_gale,
-		gale_text_concat(2,
-			G_("report.galed."),
-			gale_text_from_number(getpid(),10,0)));
-
-	FILE *fp = fopen(gale_text_to_local(fn),"w");
-	if (NULL == fp)
-		gale_alert(GALE_WARNING,gale_text_to_local(fn),errno);
-	else {
-		fputs(gale_text_to_local(report_run(rep)),fp);
-		fclose(fp);
-	}
 
 	return OOP_CONTINUE;
 }
@@ -166,8 +146,6 @@ int main(int argc,char *argv[]) {
 	gale_init("galed",argc,argv);
 	source = oop_sys_source(sys = oop_sys_new());
 	gale_init_signals(source);
-	server_report = make_report();
-	source->on_signal(source,SIGUSR2,on_report,server_report);
 
 	srand48(time(NULL) ^ getpid());
 

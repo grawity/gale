@@ -37,6 +37,9 @@ extern struct gale_global_data {
 	/* What to prefix error messages with.  Defaults to the program name. */
 	const char *error_prefix;
 
+	/* Default report generator (written with SIGUSR2). */
+	struct gale_report *report;
+
 	/* Debugging level for dprintf().  Starts at zero. */
 	int debug_level;
 

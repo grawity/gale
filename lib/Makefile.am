@@ -12,7 +12,7 @@ libgale_la_SOURCES = \
 	standard.c cache.c \
 	crypt.c customs.c file.c gen.c \
 	keyid.c findkey.c privkey.c pubkey.c random.c sign.c \
-	dir.c error.c errpuff.c exec.c alloc.c server.c text.c time.c \
+	dir.c error.c errpuff.c exec.c alloc.c server.c text.c time.c report.c\
 	pack.c term.c \
 	fragment.c var.c weaktree.c
 

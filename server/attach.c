@@ -1,9 +1,7 @@
 #include "attach.h"
 #include "server.h"
-#include "report.h"
 
-#include "gale/client.h"
-#include "gale/misc.h"
+#include "gale/all.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -26,7 +24,7 @@ static struct gale_text attach_report(void *d) {
 	return gale_text_concat(9,
 		G_("["),
 		gale_text_from_number((unsigned int) att->link,16,8),
-		G_("] attach: to "),
+		G_("] attach: name="),
 		att->name,
 		G_(", pull ["),
 		att->in_subs,
@@ -79,7 +77,7 @@ struct attach *new_attach(
 	att->out_subs = out;
 	/* This overrides the default on_error ... */
 	att->server = gale_open(source,link,in,server,server_port);
-	report_add(server_report,attach_report,att);
+	gale_report_add(gale_global->report,attach_report,att);
 	gale_on_connect(att->server,on_connect,att);
 	gale_on_disconnect(att->server,on_disconnect,att);
 	if (NULL != func) connect_filter(att->connect,func,data);
@@ -87,7 +85,7 @@ struct attach *new_attach(
 }
 
 void close_attach(struct attach *att) {
-	report_remove(server_report,attach_report,att);
+	gale_report_remove(gale_global->report,attach_report,att);
 	gale_close(att->server);
 	close_connect(att->connect);
 }

@@ -29,6 +29,18 @@ struct gale_server {
 
 static gale_connect_call on_connect;
 
+static struct gale_text server_report(void *user) {
+	struct gale_server *s = (struct gale_server *) user;
+	return gale_text_concat(7,
+		G_("["),
+		gale_text_from_number((unsigned int) s->link,16,8),
+		G_("] server: name="),
+		s->host,
+		G_(", pull ["),
+		s->sub,
+		G_("]\n"));
+}
+
 static void *on_retry(oop_source *source,struct timeval tv,void *user) {
 	struct gale_server *s = (struct gale_server *) user;
 	s->connect = gale_make_connect(
@@ -118,10 +130,13 @@ struct gale_server *gale_open(
 	s->connect = gale_make_connect(
 		s->source,s->host,s->avoid_local_port,
 		on_connect,s);
+
+	gale_report_add(gale_global->report,server_report,s);
 	return s;
 }
 
 void gale_close(struct gale_server *s) {
+	gale_report_remove(gale_global->report,server_report,s);
 	link_on_error(s->link,NULL,NULL);
 	delete_link(s->link);
 	s->source->cancel_time(s->source,s->retry_when,on_retry,s);

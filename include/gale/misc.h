@@ -274,6 +274,15 @@ struct gale_message *gale_error_message(struct gale_text body);
 
 /* -- debugging support ---------------------------------------------------- */
 
+/* Report generation, generally triggered by a signal.  See global.h. */
+struct gale_report;
+typedef struct gale_text gale_report_call(void *);
+
+struct gale_report *gale_make_report(struct gale_report *outer);
+void gale_report_add(struct gale_report *,gale_report_call *,void *);
+void gale_report_remove(struct gale_report *,gale_report_call *,void *);
+struct gale_text gale_report_run(struct gale_report *);
+
 /* Debugging printf.  Will only output if gale_debug > level. */
 void gale_dprintf(int level,const char *fmt,...);
 void gale_diprintf(int level,int indent,const char *fmt,...);

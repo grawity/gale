@@ -101,7 +101,27 @@ static void *on_restart(oop_source *source,int sig,void *user) {
 	return OOP_HALT;
 }
 
-static void *on_pipe(oop_source *source,int sig,void *user) {
+static void *on_report(oop_source *source,int sig,void *user) {
+	struct gale_text fn = dir_file(gale_global->dot_gale,
+		gale_text_concat(4,
+			G_("report."),
+			gale_text_from_local(gale_global->error_prefix,-1),
+			G_("."),
+			gale_text_from_number(getpid(),10,0)));
+
+	FILE *fp = fopen(gale_text_to_local(fn),"w");
+	if (NULL == fp) 
+		gale_alert(GALE_WARNING,gale_text_to_local(fn),errno);
+	else {
+		fputs(gale_text_to_local(
+			gale_report_run(gale_global->report)),fp);
+		fclose(fp);
+	}
+
+	return OOP_CONTINUE;
+}
+
+static void *on_cont(oop_source *source,int sig,void *user) {
 	return OOP_CONTINUE;
 }
 
@@ -111,7 +131,8 @@ static void *on_term(oop_source *source,int sig,void *user) {
 
 void gale_init_signals(oop_source *source) {
 	source->on_signal(source,SIGUSR1,on_restart,NULL);
-	source->on_signal(source,SIGPIPE,on_pipe,NULL);
+	source->on_signal(source,SIGUSR2,on_report,NULL);
+	source->on_signal(source,SIGPIPE,on_cont,NULL);
 	source->on_signal(source,SIGINT,on_term,NULL);
 	source->on_signal(source,SIGQUIT,on_term,NULL);
 	source->on_signal(source,SIGHUP,on_term,NULL);
@@ -147,6 +168,7 @@ void gale_init(const char *s,int argc,char * const *argv) {
 
 	_gale_globals(pwd);
 	gale_global->error_prefix = s;
+	gale_global->report = gale_make_report(NULL);
 
 	/* Install AKD handler. */
 
