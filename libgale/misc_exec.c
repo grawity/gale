@@ -97,10 +97,13 @@ void gale_exec(oop_source *oop,struct gale_text prog,
 			close(outp[1]);
 		}
 
-		execvp(gale_text_to(gale_global->enc_filesys,prog),argv);
+		if (prog.l > 0) {
+			execvp(gale_text_to(gale_global->enc_filesys,prog),argv);
+			gale_alert(GALE_WARNING,prog,errno);
+		}
+
 		if (NULL != fallback)
 			_exit(fallback(count,args,user));
-		gale_alert(GALE_WARNING,prog,errno);
 		_exit(-1);
 	}
 
