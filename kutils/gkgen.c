@@ -143,7 +143,7 @@ int main(int argc,char *argv[]) {
 	if (NULL == gale_key_parent(key))
 		gale_alert(GALE_WARNING,G_("making ROOT key!!!"),0);
 	else if (NULL == gale_key_parent(gale_key_parent(key)))
-		gale_alert(GALE_WARNING,G_("makeing top-level domain key!"),0);
+		gale_alert(GALE_WARNING,G_("making top-level domain key!"),0);
 
 	if (do_generate) {
 		struct gale_group k = gale_crypto_generate(gale_key_name(key));
