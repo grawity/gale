@@ -69,6 +69,10 @@ int do_chat = 0;			/* Report goings-on? */
 int do_verbose = 0;			/* Report everything? */
 int sequence = 0;
 
+/* Queue used to serialize message formatting. */
+struct queue { struct gale_message *msg; struct queue *next; } *queue = NULL;
+int is_queueing = 0;
+
 /* Send a message once it's all packed. */
 static void *on_put(struct gale_packet *packet,void *user) {
 	link_put(conn,packet);
@@ -207,6 +211,28 @@ static int on_gsubrc(int count,const struct gale_text *args,void *user) {
 	return 0;
 }
 
+static void *show_message(struct gale_message *);
+
+static void *next_message(void) {
+	struct gale_message *msg;
+
+	assert(is_queueing);
+	if (NULL == queue) {
+		is_queueing = 0;
+		return OOP_CONTINUE;
+	}
+
+	if (queue->next == queue) {
+		msg = queue->msg;
+		queue = NULL;
+		return show_message(msg);
+	}
+
+	msg = queue->next->msg;
+	queue->next = queue->next->next;
+	return show_message(msg);
+}
+
 static void *on_status(int status,void *x) {
 	if (WIFSIGNALED(status))
 		gale_alert(GALE_WARNING,gale_text_concat(2,
@@ -216,12 +242,12 @@ static void *on_status(int status,void *x) {
 		gale_alert(GALE_NOTICE,gale_text_concat(2,
 			G_("gsubrc returned error "),
 			gale_text_from_number(WEXITSTATUS(status),10,0)),0);
-	return OOP_CONTINUE;
+	return next_message();
 }
 
 /* Take the message passed as an argument and show it to the user, running
    their gsubrc if present, using the default formatter otherwise. */
-static void *on_message(struct gale_message *msg,void *data) {
+static void *show_message(struct gale_message *msg) {
 	/* Lots of crap.  Discussed below, where they're used. */
 	struct gale_environ *save = gale_save_environ();
 	struct gale_group group;
@@ -238,9 +264,9 @@ static void *on_message(struct gale_message *msg,void *data) {
 	   sender syndrome". */
 	if (NULL != msg->to && restart_to_location == msg->to[0]
 	&&  NULL != msg->from && restart_from_location == msg->from[0]) {
-		gale_alert(GALE_NOTICE,G_("restarting from debug/restart."),0);
+		gale_alert(GALE_NOTICE,G_("restarting from debug.restart."),0);
 		notify(0,G_("restarting"));
-		gale_set(G_("GALE_ANNOUNCE"),G_("in/restarted"));
+		gale_set(G_("GALE_ANNOUNCE"),G_("in.restarted"));
 		gale_restart();
 	}
 #endif
@@ -362,18 +388,38 @@ static void *on_message(struct gale_message *msg,void *data) {
 	/* Use the extended loaded gsubrc, if present. */
 	if (dl_gsubrc2) {
 		status = dl_gsubrc2(environ,szbody,strlen(szbody));
-		goto done;
-	}
-
-	/* Create the gsubrc process. */
-	{
+		gale_restore_environ(save);
+		return next_message();
+	} else {
 		struct gale_text rc = null_text;
 		int pfd;
 
-		if (NULL == dl_gsubrc) rc = dir_search(rcprog,1,
-			gale_global->dot_gale,
-			gale_global->sys_dir,
-			null_text);
+		/* Create the gsubrc process. */
+		if (NULL == dl_gsubrc) {
+			static int first = 1;
+			static struct gale_text notice;
+
+			if (0 != rcprog.l) 
+				rc = rcprog;
+			else 
+				rc = dir_search(G_("gsubrc"),1,
+					gale_global->dot_gale,
+					gale_global->sys_dir,
+					null_text);
+
+			if (do_verbose 
+			&& (first || gale_text_compare(notice,rc))) {
+				if (0 == rc.l)
+					gale_alert(GALE_NOTICE,
+						G_("using built-in gsubrc"),0);
+				else
+					gale_alert(GALE_NOTICE,gale_text_concat(
+						3,G_("running gsubrc \""),
+						rc,G_("\"")),0);
+				notice = rc;
+				first = 0;
+			}
+		}
 
 		gale_exec(source,rc,1,&rc,&pfd,NULL,on_gsubrc,on_status,NULL);
 
@@ -382,11 +428,33 @@ static void *on_message(struct gale_message *msg,void *data) {
 			send_message(szbody,szbody + strlen(szbody),pfd);
 			close(pfd);
 		}
+
+		gale_restore_environ(save);
+		return OOP_CONTINUE;
+	}
+}
+
+static void *on_message(struct gale_message *msg,void *x) {
+	struct queue *entry;
+	gale_create(entry);
+	entry->msg = msg;
+
+	if (NULL == queue)
+		entry->next = entry;
+	else {
+		entry->next = queue->next;
+		queue->next = entry;
+	}
+	queue = entry;
+
+	if (is_queueing) {
+		if (do_verbose) gale_alert(GALE_NOTICE,
+			G_("queueing message for later display"),0);
+		return OOP_CONTINUE;
 	}
 
-done:
-	gale_restore_environ(save);
-	return OOP_CONTINUE;
+	is_queueing = 1;
+	return next_message();
 }
 
 static void *on_packet(
@@ -453,7 +521,7 @@ static void load_gsubrc(struct gale_text name) {
 	}
 
 	dl_gsubrc2 = (gsubrc2_t *) dlsym(lib,"gsubrc2");
-	if (!dl_gsubrc2) {
+	if (NULL == dl_gsubrc2) {
 		dl_gsubrc = (gsubrc_t *) dlsym(lib,"gsubrc");
 		if (!dl_gsubrc) {
 			while ((err = dlerror())) gale_alert(GALE_WARNING,
@@ -461,6 +529,15 @@ static void load_gsubrc(struct gale_text name) {
 			dlclose(lib);
 			return;
 		}
+	}
+
+	if (do_verbose) {
+		if (NULL != dl_gsubrc2)
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
+				G_("using gsubrc2() in \""),name,G_("\"")),0);
+		else if (NULL != dl_gsubrc)
+			gale_alert(GALE_NOTICE,gale_text_concat(3,
+				G_("using gsubrc() in \""),name,G_("\"")),0);
 	}
 
 #else
@@ -638,9 +715,6 @@ int main(int argc,char **argv) {
 	gale_init("gsub",argc,argv);
 	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
 
-	/* Default values. */
-	rcprog = G_("gsubrc");
-
 	/* If we're actually on a TTY, we do things a bit differently. */
 	if ((tty = ttyname(1))) {
 		/* Truncate the tty name for convenience. */
@@ -708,13 +782,13 @@ int main(int argc,char **argv) {
 	case 'f': /* Use a wacky gsubrc */
 		rcprog = str;	                
 		if (do_chat) gale_alert(GALE_NOTICE,gale_text_concat(3,
-			G_("using gsubrc \""),rcprog,G_("\"")),0);
+			G_("will use gsubrc \""),rcprog,G_("\"")),0);
 		break;
 
 	case 'l': /* Use a wacky gsubrc.so */
 		rclib = str;
 		if (do_chat) gale_alert(GALE_NOTICE,gale_text_concat(3,
-			G_("using module \""),rclib,G_("\"")),0);
+			G_("will load module \""),rclib,G_("\"")),0);
 		break;
 
 	case 'p': /* Presence */
@@ -738,22 +812,14 @@ int main(int argc,char **argv) {
 	} }
 
 	if (do_run_default) {
-		if (do_verbose) gale_alert(GALE_NOTICE,G_("running gsubrc"),0);
+		if (do_verbose) 
+			gale_alert(GALE_NOTICE,G_("running built-in gsubrc"),0);
 		default_gsubrc();
 		return 0;
 	}
 
-	if (do_verbose) {
-		if (!do_presence)
-			gale_alert(GALE_NOTICE,G_("presence is disabled"),0);
-
-		if (rclib.l > 0)
-			gale_alert(GALE_NOTICE,gale_text_concat(3,
-				G_("using module \""),rclib,G_("\"")),0);
-		else if (rcprog.l > 0)
-			gale_alert(GALE_NOTICE,gale_text_concat(3,
-				G_("using gsubrc \""),rcprog,G_("\"")),0);
-	}
+	if (do_verbose && !do_presence)
+		gale_alert(GALE_NOTICE,G_("presence is disabled"),0);
 
 	subs = null_text;
 	if (do_default) subs = gale_var(G_("GALE_SUBSCRIBE"));
