@@ -59,10 +59,6 @@ struct gale_text gale_read_line(FILE *fp);
 
 /** \name Process Management */
 /*@{*/
-/** Restart the running program.
- *  Re-exec() this program with the same argc and argv it was originally
-    started with.  This function is called automatically on SIGUSR1. */
-void gale_restart(void);
 
 void gale_exec(oop_source *,struct gale_text prog,
 	int count,const struct gale_text *,
@@ -70,6 +66,11 @@ void gale_exec(oop_source *,struct gale_text prog,
 	int (*)(int count,const struct gale_text *,void *user),
 	void *(*)(int status,void *user),
 	void *user);
+
+/** Restart the running program.
+ *  Re-exec() this program with the same argc and argv it was originally
+    started with.  This function is called automatically on SIGUSR1. */
+void gale_restart(void);
 
 /** There can be only one.
  *  If do_kill is nonzero, look for other processes of the same type with
