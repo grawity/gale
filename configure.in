@@ -151,8 +151,6 @@ dnl Checks for library functions.
 dnl Configurations that would break tests.
 
 GALE_LIBS="\${top_builddir}/lib/libgale.la"
-GALE_LIBS="\${top_builddir}/auth/libgauth.la $GALE_LIBS"
-GALE_LIBS="\${top_builddir}/misc/libgmisc.la $GALE_LIBS"
 GALE_LIBS="$GALE_LIBS \${top_builddir}/gc/libgc.a"
 GALE_LIBS="$GALE_LIBS \${top_builddir}/rsaref/source/librsaref.la"
 CPPFLAGS="-I\${top_srcdir}/include -I\${top_builddir}/include $CPPFLAGS"
@@ -180,7 +178,7 @@ AC_OUTPUT(
 	gsub/Makefile
 	gzgw/Makefile
 	gsend/Makefile
-	gkeys/Makefile
+	kutils/Makefile
 	gwatch/Makefile
 	server/Makefile
 	gdomain/Makefile

@@ -2718,8 +2718,6 @@ trap 'rm -fr `echo "gale-config
 	rsaref/Makefile
 	rsaref/source/Makefile
 	lib/Makefile 
-	auth/Makefile 
-	misc/Makefile
 	gsub/Makefile
 	gzgw/Makefile
 	gsend/Makefile
@@ -2843,8 +2841,6 @@ CONFIG_FILES=\${CONFIG_FILES-"gale-config
 	rsaref/Makefile
 	rsaref/source/Makefile
 	lib/Makefile 
-	auth/Makefile 
-	misc/Makefile
 	gsub/Makefile
 	gzgw/Makefile
 	gsend/Makefile

@@ -24,7 +24,7 @@ gc_dir =
 endif
 
 SUBDIRS = ${gc_dir} ${rsaref_dir} \
-	misc lib auth server gsend gsub gwatch gkeys gdomain \
+	lib server gsend gsub gwatch kutils gdomain \
 	${gzgw_dir} include
 
 release: dist
