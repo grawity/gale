@@ -1,9 +1,10 @@
-fix Travis' header problems
+get rid of multiple-@ syndrome
 return receipts
 multiple signatures
 multiple encryption
 documentation (HTML)
 user notification
+markup language
 
 limits on category (line as a whole?) (message size during collection?)
-verification of tree structure, removal of loop check
+verification of tree structure
