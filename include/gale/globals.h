@@ -5,7 +5,6 @@
 
 #include "gale/types.h"
 #include "gale/misc.h"
-#include "gale/auth.h"
 
 /* Internal structures. */
 struct gale_cleanup;
