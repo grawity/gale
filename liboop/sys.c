@@ -197,7 +197,7 @@ static void sys_on_signal(oop_source *source,int sig,
 		sigaction(sig,NULL,&act);
 		sys->sig[sig].old = act;
 		act.sa_handler = sys_signal_handler;
-		act.sa_flags &= ~SA_NOMASK;
+		act.sa_flags &= ~SA_NODEFER;
 		sigaction(sig,&act,NULL);
 	}
 }
