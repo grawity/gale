@@ -49,6 +49,7 @@ if [ -f "$CONF" ]; then
 	while read var value <&3 ; do
 		case "$var" in
 		"") continue ;;
+		"#") continue ;;
 		"#*") continue ;;
 		esac
 		eval "CONF_$var=\"$value\""
