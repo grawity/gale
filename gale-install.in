@@ -1,12 +1,12 @@
 #!/bin/sh
 # @configure_input@
 
-prefix="@prefix@"
-exec_prefix="@exec_prefix@"
-sysconfdir="@sysconfdir@"
-sbindir="@sbindir@"
-bindir="@bindir@"
-srcdir="@srcdir@"
+[ -z "$prefix" ] && prefix="@prefix@"
+[ -z "$exec_prefix" ] && exec_prefix="@exec_prefix@"
+sysconfdir="${DESTDIR}@sysconfdir@"
+sbindir="${DESTDIR}@sbindir@"
+bindir="${DESTDIR}@bindir@"
+srcdir="${DESTDIR}@srcdir@"
 
 copy() {
 	echo "$*"
@@ -170,25 +170,30 @@ EOM
 # -----------------------------------------------------------------------------
 # make gksign setuid
 
+gksign="$sbindir/gksign"
+readlink="`which readlink 2>/dev/null`"
+[ -x "$readlink" ] && gksignlink="`"$readlink" "$gksign" 2>/dev/null`"
+[ -f "$gksignlink" ] && gksign="$gksignlink"
+
 echo ""
-if copy chown "$GALE_USER" "$sbindir/gksign" ; then
+if copy chown "$GALE_USER" "$gksign" ; then
 	:
 else
-	echo "*** We need to chown $GALE_USER '$sbindir/gksign'."
+	echo "*** We need to chown $GALE_USER '$gksign'."
 	echo "    Please run this script as a user that can do so,"
 	echo "    or do so yourself and re-run this script."
 	exit 1
 fi
-run chmod 4755 "$sbindir/gksign"
+run chmod 4755 "$gksign"
 
 # -----------------------------------------------------------------------------
 # create a domain, if necessary
 
 echo ""
-if test -u "$sbindir/gksign" || copy chmod u+s "$sbindir/gksign" ; then
+if test -u "$gksign" || copy chmod u+s "$gksign" ; then
 	:
 else
-	echo "*** We need to chmod u+s '$sbindir/gksign'."
+	echo "*** We need to chmod u+s '$gksign'."
 	echo "    Please run this script as a user that can do so,"
 	echo "    or do so yourself and re-run this script."
 	exit 1
