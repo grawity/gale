@@ -179,15 +179,17 @@ static void *on_query_location(
 
 static void usage() {
 	fprintf(stderr,"%s\n"
-	"usage: gdomain [-h] [domain]\n"
-	"flags: -h          Display this message\n",GALE_BANNER);
+	"usage: gdomain [-hK] [domain]\n"
+	"flags: -h          Display this message\n"
+	"       -K          Kill other gdomain processes and terminate\n",
+	GALE_BANNER);
 	exit(1);
 }
 
 int main(int argc,char *argv[]) {
 	oop_source_sys *sys;
 	struct gale_server *server;
-	int arg;
+	int do_kill = 0,arg;
 
 	gale_init("gdomain",argc,argv);
 	gale_init_signals(source = oop_sys_source(sys = oop_sys_new()));
@@ -197,7 +199,7 @@ int main(int argc,char *argv[]) {
 	switch (arg) {
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
-	case 'K': gale_kill(gale_var(G_("GALE_DOMAIN")),1); return 0;
+	case 'K': do_kill = 1; break;
 	case 'h':
 	case '?': usage();
 	}
@@ -210,6 +212,11 @@ int main(int argc,char *argv[]) {
 	}
 
 	if (optind != argc) usage();
+
+	if (do_kill) {
+		gale_kill(gale_var(G_("GALE_DOMAIN")),1);
+                return 0;
+	}
 
 	line = new_link(source);
 	link_on_message(line,on_request,NULL);
