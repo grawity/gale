@@ -60,3 +60,9 @@ Body type 0x00000000: plain text
 (Others: subdivide?  MIME typing?)
 
 All text is Unicode.
+
+-------------------------------------------------------------------------------
+
+@domain/dom/username/key -- old request
+@domain/auth/query/username/ -- new request
+@domain/auth/key/username/ -- reply

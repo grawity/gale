@@ -35,7 +35,7 @@ if [ -z "$CONF_GALE_DOMAIN" ]; then
 	exit 1
 fi
 
-if gkinfo "$CONF_GALE_DOMAIN" 2>/dev/null | qgrep 'Signed by: <ROOT>' ; then
+if testkey "$CONF_GALE_DOMAIN" ; then
 
 cat <<EOM
 
@@ -93,7 +93,7 @@ EOM
 		exit 1
 	fi
 
-	if gkinfo < "$skey" | qgrep "^Public key: <$CONF_GALE_DOMAIN>" ; then
+	if gkinfo -x < "$skey" | qgrep "^Public key: <$CONF_GALE_DOMAIN>" ; then
 		echo "Good, it looks like your key..."
 	else
 		echo "Error: \"$skey\" not for \"$CONF_GALE_DOMAIN\"."
@@ -102,7 +102,7 @@ EOM
 		exit 1
 	fi
 
-	if gkinfo < "$skey" | qgrep "Signed by: <ROOT>" ; then
+	if testkey "$skey" ; then
 		echo "And it looks properly signed.  Hooray for you!"
 	else
 		echo "Error: \"$skey\" is not fully signed."

@@ -43,7 +43,8 @@ fi
 run chown $GALE_USER "$sbindir/gksign"
 run chmod 4755 "$sbindir/gksign"
 if [ "x$bindir" != "x$sbindir" ]; then
-	run ln -s "$sbindir/gksign" "$bindir/gksign"
+	run ln -s "$sbindir/gksign" "$bindir/gksign.tmp.$$"
+	run mv "$bindir/gksign.tmp.$$" "$bindir/gksign"
 fi
 
 [ -f "$SYS_DIR/auth/trusted/ROOT" ] || run cp "$srcdir/auth/ROOT" "$SYS_DIR/auth/trusted"
@@ -131,7 +132,7 @@ EOM
 GALE_SERVER $GALE_SERVER
 EOM
 
-gkinfo "$GALE_DOMAIN" 2>/dev/null | qgrep 'Signed by: <ROOT>' || cat << EOM
+testkey "$GALE_DOMAIN" || cat << EOM
 
 *** You lack a signed key for your domain, "$GALE_DOMAIN".
 Become user "$GALE_USER" and make the "domain" target here to create

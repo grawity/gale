@@ -4,8 +4,10 @@ AM_INIT_AUTOMAKE(gale,0.16)
 AM_CONFIG_HEADER(include/gale/config.h:config.h.in)
 AC_CANONICAL_HOST
 
-BUILD="lib auth include server gsend gsub gwatch gkeys gdomain"
+BUILD="misc lib auth include server gsend gsub gwatch gkeys gdomain"
 extra_libs=""
+no_wacky_libs=""
+have_libdb=""
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -46,9 +48,9 @@ CPPFLAGS="-Dmain=cgiMain $CPPFLAGS"
 AC_CHECK_LIB(cgic,cgiFormString)
 CPPFLAGS="$save_flags"
 
-AC_CHECK_LIB(db,db_open,[
+AC_CHECK_LIB(db,db_appinit,[
   LIBS="-ldb $LIBS"
-  BUILD="$BUILD glog"
+  have_libdb="yes"
 ])
 
 AC_CHECK_LIB(pq,PQsetdb,[
@@ -79,6 +81,19 @@ fi
 dnl Checks for header files.
 AC_CHECK_HEADERS(sys/bitypes.h curses.h term.h dlfcn.h readline/readline.h)
 
+if test -n "$have_libdb"; then
+  AC_MSG_CHECKING([for suitable version of Berkeley db])
+  AC_TRY_COMPILE([
+#include <db.h>
+  ],[
+    DB_ENV dbenv;
+    dbenv.db_errcall;
+  ],[
+    AC_MSG_RESULT(yes)
+    BUILD="$BUILD glog"
+  ],AC_MSG_RESULT(no))
+fi
+
 if test ! -f "rsaref/source/rsaref.h"; then
   AC_CHECK_HEADERS(rsaref.h,,[
     AC_MSG_ERROR(cannot find RSAREF headers, see INSTALL directions)
@@ -93,8 +108,8 @@ AC_CHECK_SIZEOF(long)
 dnl Checks for library functions.
 
 dnl Configurations that would break tests.
-LIBS="-lgauth -lgale -lgauth -lgale -lrsaref $LIBS"
-LDFLAGS="-L\${top_builddir}/lib -L\${top_builddir}/auth $LDFLAGS"
+LIBS="-lgale -lgauth -lgmisc -lrsaref $LIBS"
+LDFLAGS="-L\${top_builddir}/lib -L\${top_builddir}/auth -L\${top_builddir}/misc $LDFLAGS"
 CPPFLAGS="-I\${top_srcdir}/include $CPPFLAGS"
 CPPFLAGS="-DGALE_SYS_DIR=\\\"${sysconfdir}/gale\\\" $CPPFLAGS"
 
@@ -103,6 +118,7 @@ AC_OUTPUT(
 	Makefile 
 	lib/Makefile 
 	auth/Makefile 
+	misc/Makefile
 	gsub/Makefile
 	gzgw/Makefile
 	glog/Makefile

@@ -7,6 +7,10 @@ qgrep() {
 	grep "$@" > /dev/null
 }
 
+testkey() {
+	gkinfo -x "$1" 2>/dev/null | qgrep '^ *Signed: <ROOT>'
+}
+
 if [ -n "$GALE_SYS_DIR" ]; then
 	SYS_DIR="$GALE_SYS_DIR"
 elif [ -n "$sysconfdir" ]; then
