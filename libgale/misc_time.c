@@ -127,19 +127,25 @@ int gale_unpack_time(struct gale_data *data,struct gale_time *time) {
 }
 
 struct gale_text gale_time_format(struct gale_time time) {
+	struct gale_text format;
 	struct timeval tv;
 	struct tm *tm;
-	char date[30];
+	char *date;
 	int beat;
+
+	format = gale_var(G_("GALE_TIME_FORMAT"));
+	if (0 == format.l) format = G_("%Y-%m-%d %H:%M:%S");
 
 	gale_time_to(&tv,time);
 	tv.tv_sec += 3600; /* GMT -> BMT */
 	tm = gmtime(&tv.tv_sec);
-	strftime(date,sizeof(date),"%Y.%m.%d @",tm);
-
 	beat = 1000 * (3600*tm->tm_hour + 60*tm->tm_min + tm->tm_sec) / 864;
-	return gale_text_concat(4,
-		gale_text_from(NULL,date,-1),
-		gale_text_from_number(beat / 100,10,-3),
-		G_("."),gale_text_from_number(beat % 100,10,-2));
+	format = gale_text_replace(format,G_("%."),
+		gale_text_from_number(beat / 100,10,-3));
+
+	tv.tv_sec -= 3600;
+	tm = localtime(&tv.tv_sec);
+	gale_create_array(date,2*format.l);
+	strftime(date,2*format.l,gale_text_to(NULL,format),tm);
+	return gale_text_from(NULL,date,-1);
 }
