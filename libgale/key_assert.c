@@ -10,6 +10,7 @@ static struct gale_key_assertion *create(struct gale_time time,int is_trusted) {
 	gale_create(output);
 	output->ref_count = 1;
 	output->trust_count = is_trusted ? 1 : 0;
+        output->from = G_("invalid");
 	output->key = NULL;
 	output->bundled = NULL;
 	output->source = null_data;
@@ -183,12 +184,14 @@ static int beats(
 
 /** Supply some raw key data to the system. 
  *  \param source Raw key bits.
+ *  \param from Text describing where the key came from.
  *  \param is_trusted Nonzero iff the key comes from a trusted source and
  *         doesn't require external validation.
  *  \return Assertion handle. 
  *  \sa gale_key_assert_group(), gale_key_retract() */
 struct gale_key_assertion *gale_key_assert(
-	struct gale_data source,struct gale_time stamp,int is_trusted) 
+	struct gale_data source,struct gale_text from,
+        struct gale_time stamp,int is_trusted) 
 {
 	struct gale_text name;
 	struct gale_key *key;
@@ -196,19 +199,25 @@ struct gale_key_assertion *gale_key_assert(
 
 	name = key_i_name(source);
 	if (0 == name.l) {
-		gale_alert(GALE_WARNING,G_("ignoring invalid key"),0);
+		gale_alert(GALE_WARNING,gale_text_concat(2,
+                            G_("ignoring invalid key "),from),0);
 		return create(stamp,is_trusted); /* not relevant to us */
 	}
 
-	if (key_i_stub(source)) return create(stamp,is_trusted);
+	if (key_i_stub(source)) {
+                output = create(stamp,is_trusted);
+                output->from = from;
+                return output;
+        }
 
 	key = gale_key_handle(name);
 
 	if (key_i_private(source)) {
 		if (!is_trusted) {
-			gale_alert(GALE_WARNING,gale_text_concat(3,
+			gale_alert(GALE_WARNING,gale_text_concat(4,
 				G_("\""),name,
-				G_("\": ignoring untrusted private key")),0);
+				G_("\": ignoring untrusted private key "),
+                                from),0);
 			return create(stamp,is_trusted);
 		}
 
@@ -223,19 +232,24 @@ struct gale_key_assertion *gale_key_assert(
 
 		output = create(stamp,is_trusted);
 		output->source = source;
+                output->from = from;
 		output->group = key_i_group(output->source);
 
 		if (beats(key->private,output)) {
-			gale_alert(GALE_WARNING,gale_text_concat(3,
+			gale_alert(GALE_WARNING,gale_text_concat(6,
 				G_("\""),name,
-				G_("\": ignoring obsolete private key")),0);
+				G_("\": ignoring obsolete private key "),
+                                from,G_(" in favor of key "),
+                                key->private->from),0);
 			return output;
 		}
 
 		if (NULL != key->private) {
-			gale_alert(GALE_WARNING,gale_text_concat(3,
+			gale_alert(GALE_WARNING,gale_text_concat(6,
 				G_("\""),name,
-				G_("\": replacing obsolete private key")),0);
+				G_("\": replacing obsolete private key "),
+                                key->private->from,G_(" with key "),
+                                from),0);
 			key->private->key = NULL;
 		}
 
@@ -250,15 +264,18 @@ struct gale_key_assertion *gale_key_assert(
 		/* We're the same as the existing key. */
 		++(key->public->ref_count);
 		if (is_trusted) assert_trust(key->public);
-		if (gale_time_compare(stamp,key->public->stamp) > 0)
+		if (gale_time_compare(stamp,key->public->stamp) > 0) {
 			key->public->stamp = stamp;
+                        key->public->from = from;
+                }
 		return key->public;
-	} 
+	}
 
 	/* We're in contention for the key. */
 
 	output = create(stamp,is_trusted);
 	output->key = key;
+        output->from = from;
 	output->source = source;
 	output->group = key_i_group(output->source);
 
@@ -268,7 +285,9 @@ struct gale_key_assertion *gale_key_assert(
 		for (count = 0; bundled[count].l > 0; ++count) ;
 		gale_create_array(output->bundled,1 + count);
 		for (i = 0; i < count; ++i)
-			output->bundled[i] = gale_key_assert(bundled[i],stamp,is_trusted);
+			output->bundled[i] = gale_key_assert(bundled[i],
+                                gale_text_concat(2,G_("bundled with key "),
+                                        from),stamp,is_trusted);
 		output->bundled[i] = NULL;
 	}
 
@@ -281,9 +300,11 @@ struct gale_key_assertion *gale_key_assert(
 	/* Fight for the key! */
 	if (!beats(key->public,output)) {
 		if (NULL != key->public) {
-			gale_alert(GALE_WARNING,gale_text_concat(3,
+			gale_alert(GALE_WARNING,gale_text_concat(6,
 				G_("\""),name,
-				G_("\": replacing obsolete key")),0);
+				G_("\": replacing obsolete key "),
+                                key->public->from,G_(" with key "),
+                                from),0);
 			assert(key->public->key == key);
 			key->public->key = NULL;
 		}
@@ -291,13 +312,15 @@ struct gale_key_assertion *gale_key_assert(
 		assert(key->public->key == key);
 	} else {
 		if (NULL == key->public)
-			gale_alert(GALE_WARNING,gale_text_concat(3,
+			gale_alert(GALE_WARNING,gale_text_concat(4,
 				G_("\""),name,
-				G_("\": ignoring lame key")),0);
+				G_("\": ignoring lame key "),from),0);
 		else
-			gale_alert(GALE_WARNING,gale_text_concat(3,
+			gale_alert(GALE_WARNING,gale_text_concat(6,
 				G_("\""),name,
-				G_("\": ignoring obsolete key")),0);
+				G_("\": ignoring obsolete key "),from,
+                                G_(" in favor of key "),
+                                key->public->from),0);
 		output->key = NULL;
 	}
 
@@ -306,16 +329,18 @@ struct gale_key_assertion *gale_key_assert(
 
 /** Supply some slightly cooked key data.
  *  \param source Key data.
+ *  \param from Text describing where the key came from.
  *  \param is_trusted Nonzero iff the key comes from a trusted source and
  *         doesn't require external validation.
  *  \return Assertion handle. 
  *  \sa gale_key_assert(), gale_key_retract() */
 struct gale_key_assertion *gale_key_assert_group(
 	struct gale_group source,
+        struct gale_text from,
 	struct gale_time stamp,
 	int is_trusted)
 {
-	return gale_key_assert(key_i_create(source),stamp,is_trusted);
+	return gale_key_assert(key_i_create(source),from,stamp,is_trusted);
 }
 
 /** Retract a previous assertion.
@@ -384,6 +409,14 @@ struct gale_group gale_key_data(const struct gale_key_assertion *assert) {
 struct gale_data gale_key_raw(const struct gale_key_assertion *assert) {
 	if (NULL == assert) return null_data;
 	return assert->source;
+}
+
+/** Get text describing where a key came from.
+ *  \param assert Assertion handle from gale_key_public()
+ *         or gale_key_private(). */
+struct gale_text gale_key_from(const struct gale_key_assertion *assert) {
+        if (NULL == assert) return G_("(none)");
+        return assert->from;
 }
 
 /** Get the most recent timestamp given for a key.

@@ -9,20 +9,20 @@ int main(int argc,char *argv[]) {
 	gale_init("key_test",argc,argv);
 
 	key = gale_read_file(G_("/home/egnor/etc/gale/auth/trusted/ROOT"),65536,1,NULL);
-	ass = gale_key_assert(key,now,1);
+	ass = gale_key_assert(key,G_("test 1"),now,1);
 	if (gale_key_public(gale_key_handle(G_("ROOT")),now) != ass) 
 		return 1;
 
 	key = gale_read_file(G_("/home/egnor/etc/gale/auth/local/slashsite.gateway@gale.org"),65536,1,NULL);
-	ass = gale_key_assert(key,now,0);
+	ass = gale_key_assert(key,G_("test 2"),now,0);
 	if (gale_key_public(gale_key_handle(G_("gateway.slashsite@gale.org")),now) != ass) return 1;
 
 	key = gale_read_file(G_("/home/egnor/.gale/auth/private/slashsite.gateway@gale.org"),65536,1,NULL);
-	ass = gale_key_assert(key,now,1);
+	ass = gale_key_assert(key,G_("test 3"),now,1);
 	if (gale_key_private(gale_key_handle(G_("gateway.slashsite@gale.org"))) != ass) return 1;
 
 	key = gale_read_file(G_("/home/egnor/.gale/auth/private/ROOT"),65536,1,NULL);
-	ass = gale_key_assert(key,now,1);
+	ass = gale_key_assert(key,G_("test 4"),now,1);
 	if (gale_key_private(gale_key_handle(G_("ROOT"))) != ass) 
 		return 1;
 

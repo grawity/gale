@@ -9,6 +9,7 @@ struct gale_key;
 struct gale_key_assertion {
 	int ref_count;
 	int trust_count;
+        struct gale_text from;
 	struct gale_key *key;
 	struct gale_key_assertion **bundled;
 	struct gale_data source;

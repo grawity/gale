@@ -20,9 +20,9 @@ const struct gale_key_assertion *gale_key_public(
 	struct gale_time);
 
 struct gale_key_assertion *gale_key_assert(
-	struct gale_data,struct gale_time,int trust);
+	struct gale_data,struct gale_text,struct gale_time,int trust);
 struct gale_key_assertion *gale_key_assert_group(
-	struct gale_group,struct gale_time,int trust);
+	struct gale_group,struct gale_text,struct gale_time,int trust);
 void gale_key_retract(struct gale_key_assertion *,int trust);
 
 int gale_key_trusted(const struct gale_key_assertion *);
@@ -32,6 +32,7 @@ const struct gale_key_assertion *gale_key_signed(
 
 struct gale_group gale_key_data(const struct gale_key_assertion *);
 struct gale_data gale_key_raw(const struct gale_key_assertion *);
+struct gale_text gale_key_from(const struct gale_key_assertion *);
 struct gale_time gale_key_time(const struct gale_key_assertion *);
 
 /** Callback for gale_key_search() and gale_key_generate().

@@ -91,7 +91,7 @@ static void *on_timeout(oop_source *oop,struct timeval when,void *x) {
 		/* Update the timestamp if we didn't find anything. */
 		if (!gale_time_compare(cache->last_refresh,gale_key_time(ass)))
 			gale_key_retract(gale_key_assert(
-				gale_key_raw(ass),now,0),0);
+				gale_key_raw(ass),gale_key_from(ass),now,0),0);
 
 		/* Push the new timestamp into the rest of our world. */
 		gale_key_search(oop,cache->key,
@@ -106,6 +106,7 @@ static void *on_timeout(oop_source *oop,struct timeval when,void *x) {
 static void *on_packet(struct gale_link *l,struct gale_packet *packet,void *x) {
 	struct gale_group group,original;
 	struct gale_fragment frag;
+        struct gale_text from;
 	struct gale_time now = gale_time_now(),then;
 	const struct gale_data *bundled;
 	struct cache *cache = (struct cache *) x;
@@ -124,14 +125,21 @@ static void *on_packet(struct gale_link *l,struct gale_packet *packet,void *x) {
 	else
 		then = now;
 
+        if (gale_group_lookup(original,G_("id/instance"),frag_text,&frag))
+                from = frag.value.text;
+        else
+                from = G_("(unknown)");
+
 	bundled = gale_crypto_bundled(group);
 	while (NULL != bundled && 0 != bundled->l)
-		gale_key_assert(*bundled++,then,0);
+		gale_key_assert(*bundled++,gale_text_concat(2,
+                            G_("bundled with AKD response from "),from),then,0);
 
-	if (gale_group_lookup(original,G_("answer/key"),frag_data,&frag))
-		gale_key_assert(frag.value.data,then,0);
-	if (gale_group_lookup(original,G_("answer.key"),frag_data,&frag))
-		gale_key_assert(frag.value.data,then,0);
+	if (gale_group_lookup(original,G_("answer/key"),frag_data,&frag)
+	||  gale_group_lookup(original,G_("answer.key"),frag_data,&frag)) {
+		gale_key_assert(frag.value.data,gale_text_concat(2,
+                            G_("in AKD response from "),from),then,0);
+        }
 
 	if (NULL != gale_key_public(cache->key,now))
 		end_search(cache);

@@ -54,7 +54,9 @@ void print(const struct gale_key_assertion *ass) {
 		gale_print(stdout,0,G_("\n"));
 
 		if (do_verbose) {
-			gale_print(stdout,0,G_("  "));
+                        gale_print(stdout,0,G_("  Found "));
+                        gale_print(stdout,0,gale_key_from(ass));
+			gale_print(stdout,0,G_("\n  "));
 			gale_print(stdout,0,
 				gale_print_group(data,2));
 			gale_print(stdout,0,G_("\n\n"));
@@ -103,7 +105,7 @@ void *on_location(struct gale_text name,struct gale_location *loc,void *user) {
 void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 	const struct gale_data * const data = (const struct gale_data *) user;
 	if (NULL == key) return OOP_HALT;
-	print(gale_key_assert(*data,gale_time_forever(),0));
+	print(gale_key_assert(*data,G_("read from stdin"),gale_time_forever(),0));
 	return OOP_HALT;
 }
 
@@ -176,7 +178,9 @@ int main(int argc,char *argv[]) {
 		if (0 == key.l)
 			gale_alert(GALE_ERROR,G_("could not read stdin"),0);
 
-		ass = gale_key_assert(key,gale_time_forever(),1);
+		ass = gale_key_assert(key,
+                        G_("read from stdin"),
+                        gale_time_forever(),1);
 		if (do_trust_input) 
 			print(ass);
 		else {

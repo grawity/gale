@@ -90,7 +90,10 @@ static void *on_unsealed(oop_source *oop,struct timeval when,void *x) {
 		const struct gale_data *bundled = 
 			gale_crypto_bundled(ctx->message->data);
 		while (NULL != bundled && 0 != bundled->l)
-			gale_key_assert(*bundled++,now,0);
+			gale_key_assert(*bundled++,sender 
+                                ? gale_text_concat(2,
+                                  G_("bundled with message from "),*sender)
+                                : G_("bundled with message"),now,0);
 	}
 
 	assert(0 == ctx->from_count);

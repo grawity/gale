@@ -31,7 +31,7 @@ static void builtin_hook(struct gale_time now,oop_source *oop,
 		frag.value.text = name;
 		gale_group_add(&data,frag);
 
-		**cache = gale_key_assert_group(data,
+		**cache = gale_key_assert_group(data,G_("built in"),
 			gale_time_seconds(989797178),1);
 	}
 

@@ -35,7 +35,8 @@ static void get_file(int trust,struct dir_filename *f) {
 		if (0 == d.l)
 			f->ass = NULL;
 		else {
-			f->ass = gale_key_assert(d,
+			f->ass = gale_key_assert(d,gale_text_concat(2,
+                                G_("in "),f->name),
 				gale_get_file_time(f->state),trust);
 			if (NULL != owner && NULL == gale_key_owner(f->ass))
 				gale_alert(GALE_WARNING,gale_text_concat(3,
@@ -76,7 +77,9 @@ static void put_file(int trust,
 		gale_alert(GALE_NOTICE,gale_text_concat(3,
 			G_("wrote \""),f->name,G_("\"")),0);
 		gale_key_retract(f->ass,trust);
-		f->ass = gale_key_assert(d,gale_get_file_time(f->state),trust);
+		f->ass = gale_key_assert(d,gale_text_concat(2,
+                        G_("in "),f->name),
+                        gale_get_file_time(f->state),trust);
 	} else
 		gale_alert(GALE_WARNING,gale_text_concat(3,
 			G_("could not write \""),f->name,G_("\"")),errno);

@@ -9,6 +9,7 @@
 
 struct generation {
 	struct gale_key *key;
+        struct gale_text from;
 	struct gale_group data;
 	struct gale_time now;
 	gale_key_call *call;
@@ -18,9 +19,9 @@ struct generation {
 static void *finish(oop_source *oop,struct generation *gen,int do_public) {
 	struct gale_group public = gale_crypto_public(gen->data);
 	if (gale_group_compare(public,gen->data))
-		gale_key_assert_group(gen->data,gen->now,1);
+		gale_key_assert_group(gen->data,gen->from,gen->now,1);
 	if (do_public) 
-		gale_key_assert_group(public,gen->now,1);
+		gale_key_assert_group(public,gen->from,gen->now,1);
 	return gen->call(oop,gen->key,gen->user);
 }
 
@@ -47,7 +48,7 @@ static void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 
 		if (gale_crypto_sign(1,&signer,&signee)) {
 			struct gale_key_assertion *ass =
-				gale_key_assert_group(signee,gen->now,1);
+				gale_key_assert_group(signee,gen->from,gen->now,1);
 			if (ass == gale_key_public(gen->key,gen->now)
 			&&  gale_key_owner(gale_key_signed(ass)) == key)
 				return finish(oop,gen,0);
@@ -86,7 +87,7 @@ static void *on_parent(oop_source *oop,struct gale_key *key,void *user) {
 
 			if (newbits.l > 0) {
 				struct gale_key_assertion *ass;
-				ass = gale_key_assert(newbits,gen->now,1);
+				ass = gale_key_assert(newbits,gen->from,gen->now,1);
 				if (ass == gale_key_public(gen->key,gen->now)
 				&&  gale_key_owner(gale_key_signed(ass)) == key)
 					return finish(oop,gen,0);
@@ -119,6 +120,7 @@ void gale_key_generate(oop_source *source,
 
 	gale_create(gen);
 	gen->key = key;
+        gen->from = G_("generated locally");
 	gen->data = data;
 	gen->now = gale_time_now();
 	gen->call = call;
