@@ -54,6 +54,9 @@
 /* Define if you have the <gc.h> header file.  */
 #undef HAVE_GC_H
 
+/* Define if you have the <getopt.h> header file.  */
+#undef HAVE_GETOPT_H
+
 /* Define if you have the <readline/readline.h> header file.  */
 #undef HAVE_READLINE_READLINE_H
 

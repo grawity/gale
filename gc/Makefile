@@ -1,390 +1,370 @@
-# Primary targets:
-# gc.a - builds basic library
-# libgc.a - builds library for use with g++ "-fgc-keyword" extension
-# c++ - adds C++ interface to library
-# cords - adds cords (heavyweight strings) to library
-# test - prints porting information, then builds basic version of gc.a,
-#      	 and runs some tests of collector and cords.  Does not add cords or
-#	 c++ interface to gc.a
-# cord/de - builds dumb editor based on cords.
-ABI_FLAG= 
-CC=cc $(ABI_FLAG)
-CXX=CC $(ABI_FLAG)
-AS=as $(ABI_FLAG)
-#  The above doesn't work with gas, which doesn't run cpp.
-#  Define AS as `gcc -c -x assembler-with-cpp' instead.
-#  Under Irix 6, you will have to specify the ABI for as if you specify
-#  it for the C compiler.
+# Generated automatically from Makefile.in by configure.
+# Makefile.in generated automatically by automake 1.3 from Makefile.am
 
-CFLAGS= -O -DNO_SIGNALS -DALL_INTERIOR_POINTERS -DNO_EXECUTE_PERMISSION -DSILENT
+# Copyright (C) 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
 
-# Setjmp_test may yield overly optimistic results when compiled
-# without optimization.
-# -DSILENT disables statistics printing, and improves performance.
-# -DCHECKSUMS reports on erroneously clear dirty bits, and unexpectedly
-#   altered stubborn objects, at substantial performance cost.
-#   Use only for incremental collector debugging.
-# -DFIND_LEAK causes the collector to assume that all inaccessible
-#   objects should have been explicitly deallocated, and reports exceptions.
-#   Finalization and the test program are not usable in this mode.
-# -DSOLARIS_THREADS enables support for Solaris (thr_) threads.
-#   (Clients should also define SOLARIS_THREADS and then include
-#   gc.h before performing thr_ or dl* or GC_ operations.)
-#   Must also define -D_REENTRANT
-# -D_SOLARIS_PTHREADS enables support for Solaris pthreads.
-#   Define SOLARIS_THREADS as well.
-# -DIRIX_THREADS enables support for Irix pthreads.  See README.irix.
-# -DALL_INTERIOR_POINTERS allows all pointers to the interior
-#   of objects to be recognized.  (See gc_priv.h for consequences.)
-# -DSMALL_CONFIG tries to tune the collector for small heap sizes,
-#   usually causing it to use less space in such situations.
-#   Incremental collection no longer works in this case.
-# -DLARGE_CONFIG tunes the collector for unusually large heaps.
-#   Necessary for heaps larger than about 500 MB on most machines.
-#   Recommended for heaps larger than about 64 MB.
-# -DDONT_ADD_BYTE_AT_END is meaningful only with
-#   -DALL_INTERIOR_POINTERS.  Normally -DALL_INTERIOR_POINTERS
-#   causes all objects to be padded so that pointers just past the end of
-#   an object can be recognized.  This can be expensive.  (The padding
-#   is normally more than one byte due to alignment constraints.)
-#   -DDONT_ADD_BYTE_AT_END disables the padding.
-# -DNO_SIGNALS does not disable signals during critical parts of
-#   the GC process.  This is no less correct than many malloc 
-#   implementations, and it sometimes has a significant performance
-#   impact.  However, it is dangerous for many not-quite-ANSI C
-#   programs that call things like printf in asynchronous signal handlers.
-# -DNO_EXECUTE_PERMISSION may cause some or all of the heap to not
-#   have execute permission, i.e. it may be impossible to execute
-#   code from the heap.  Currently this only affects the incremental
-#   collector on UNIX machines.  It may greatly improve its performance,
-#   since this may avoid some expensive cache synchronization.
-# -DOPERATOR_NEW_ARRAY declares that the C++ compiler supports the
-#   new syntax "operator new[]" for allocating and deleting arrays.
-#   See gc_cpp.h for details.  No effect on the C part of the collector.
-#   This is defined implicitly in a few environments.
-# -DREDIRECT_MALLOC=X causes malloc, realloc, and free to be defined
-#   as aliases for X, GC_realloc, and GC_free, respectively.
-#   Calloc is redefined in terms of the new malloc.  X should
-#   be either GC_malloc or GC_malloc_uncollectable.
-#   The former is occasionally useful for working around leaks in code
-#   you don't want to (or can't) look at.  It may not work for
-#   existing code, but it often does.  Neither works on all platforms,
-#   since some ports use malloc or calloc to obtain system memory.
-#   (Probably works for UNIX, and win32.)
-# -DIGNORE_FREE turns calls to free into a noop.  Only useful with
-#   -DREDIRECT_MALLOC.
-# -DNO_DEBUGGING removes GC_dump and the debugging routines it calls.
-#   Reduces code size slightly at the expense of debuggability.
-# -DJAVA_FINALIZATION makes it somewhat safer to finalize objects out of
-#   order by specifying a nonstandard finalization mark procedure  (see
-#   finalize.c).  Objects reachable from finalizable objects will be marked
-#   in a sepearte postpass, and hence their memory won't be reclaimed.
-#   Not recommended unless you are implementing a language that specifies
-#   these semantics.
-# -DFINALIZE_ON_DEMAND causes finalizers to be run only in response
-#   to explicit GC_invoke_finalizers() calls.
-# -DATOMIC_UNCOLLECTABLE includes code for GC_malloc_atomic_uncollectable.
-#   This is useful if either the vendor malloc implementation is poor,
-#   or if REDIRECT_MALLOC is used.
-# -DHBLKSIZE=ddd, where ddd is a power of 2 between 512 and 16384, explicitly
-#   sets the heap block size.  Each heap block is devoted to a single size and
-#   kind of object.  For the incremental collector it makes sense to match
-#   the most likely page size.  Otherwise large values result in more
-#   fragmentation, but generally better performance for large heaps.
-# -DUSE_MMAP use MMAP instead of sbrk to get new memory.
-#   Works for Solaris and Irix.
-# -DMMAP_STACKS (for Solaris threads) Use mmap from /dev/zero rather than
-#   GC_scratch_alloc() to get stack memory.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
 
 
+SHELL = /bin/sh
 
-LIBGC_CFLAGS= -O -DNO_SIGNALS -DSILENT \
-    -DREDIRECT_MALLOC=GC_malloc_uncollectable \
-    -DDONT_ADD_BYTE_AT_END -DALL_INTERIOR_POINTERS
-#   Flags for building libgc.a -- the last two are required.
-
-CXXFLAGS= $(CFLAGS) 
-AR= ar
-RANLIB= ranlib
-
-
-# Redefining srcdir allows object code for the nonPCR version of the collector
-# to be generated in different directories.  In this case, the destination directory
-# should contain a copy of the original include directory.
 srcdir = .
-VPATH = $(srcdir)
+top_srcdir = ..
+prefix = /home/egnor
+exec_prefix = ${prefix}
 
-OBJS= alloc.o reclaim.o allchblk.o misc.o mach_dep.o os_dep.o mark_rts.o headers.o mark.o obj_map.o blacklst.o finalize.o new_hblk.o dbg_mlc.o malloc.o stubborn.o checksums.o solaris_threads.o irix_threads.o typd_mlc.o ptr_chck.o mallocx.o solaris_pthreads.o
+bindir = ${exec_prefix}/bin
+sbindir = ${exec_prefix}/sbin
+libexecdir = ${exec_prefix}/libexec
+datadir = ${prefix}/share
+sysconfdir = ${prefix}/etc
+sharedstatedir = ${prefix}/com
+localstatedir = ${prefix}/var
+libdir = ${exec_prefix}/lib
+infodir = ${prefix}/info
+mandir = ${prefix}/man
+includedir = ${prefix}/include
+oldincludedir = /usr/include
 
-CSRCS= reclaim.c allchblk.c misc.c alloc.c mach_dep.c os_dep.c mark_rts.c headers.c mark.c obj_map.c pcr_interface.c blacklst.c finalize.c new_hblk.c real_malloc.c dyn_load.c dbg_mlc.c malloc.c stubborn.c checksums.c solaris_threads.c irix_threads.c typd_mlc.c ptr_chck.c mallocx.c solaris_pthreads.c
+DISTDIR =
 
-CORD_SRCS=  cord/cordbscs.c cord/cordxtra.c cord/cordprnt.c cord/de.c cord/cordtest.c cord/cord.h cord/ec.h cord/private/cord_pos.h cord/de_win.c cord/de_win.h cord/de_cmds.h cord/de_win.ICO cord/de_win.RC cord/SCOPTIONS.amiga cord/SMakefile.amiga
+pkgdatadir = $(datadir)/gale
+pkglibdir = $(libdir)/gale
+pkgincludedir = $(includedir)/gale
 
-CORD_OBJS=  cord/cordbscs.o cord/cordxtra.o cord/cordprnt.o
+top_builddir = ..
 
-SRCS= $(CSRCS) mips_sgi_mach_dep.s rs6000_mach_dep.s alpha_mach_dep.s \
-    sparc_mach_dep.s gc.h gc_typed.h gc_hdrs.h gc_priv.h gc_private.h \
-    config.h gc_mark.h include/gc_inl.h include/gc_inline.h gc.man \
-    threadlibs.c if_mach.c if_not_there.c gc_cpp.cc gc_cpp.h weakpointer.h \
-    gcc_support.c mips_ultrix_mach_dep.s include/gc_alloc.h gc_alloc.h \
-    sparc_sunos4_mach_dep.s solaris_threads.h $(CORD_SRCS)
+ACLOCAL = aclocal
+AUTOCONF = autoconf
+AUTOMAKE = automake
+AUTOHEADER = autoheader
 
-OTHER_FILES= Makefile PCR-Makefile OS2_MAKEFILE NT_MAKEFILE BCC_MAKEFILE \
-           README test.c test_cpp.cc setjmp_t.c SMakefile.amiga \
-           SCoptions.amiga README.amiga README.win32 cord/README \
-           cord/gc.h include/gc.h include/gc_typed.h include/cord.h \
-           include/ec.h include/private/cord_pos.h include/private/config.h \
-           include/private/gc_hdrs.h include/private/gc_priv.h \
-	   include/gc_cpp.h README.rs6000 \
-           include/weakpointer.h README.QUICK callprocs pc_excludes \
-           barrett_diagram README.OS2 README.Mac MacProjects.sit.hqx \
-           MacOS.c EMX_MAKEFILE makefile.depend README.debugging \
-           include/gc_cpp.h Mac_files/datastart.c Mac_files/dataend.c \
-           Mac_files/MacOS_config.h Mac_files/MacOS_Test_config.h \
-           add_gc_prefix.c README.solaris2 README.sgi README.hp README.uts \
-	   win32_threads.c NT_THREADS_MAKEFILE gc.mak README.dj Makefile.dj \
-	   README.alpha README.linux version.h Makefile.DLLs gc_watcom.asm \
-	   WCC_MAKEFILE
+INSTALL = /usr/bin/install -c
+INSTALL_PROGRAM = ${INSTALL}
+INSTALL_DATA = ${INSTALL} -m 644
+INSTALL_SCRIPT = ${INSTALL_PROGRAM}
+transform = s,x,x,
 
-CORD_INCLUDE_FILES= $(srcdir)/gc.h $(srcdir)/cord/cord.h $(srcdir)/cord/ec.h \
-           $(srcdir)/cord/private/cord_pos.h
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+host_alias = i686-pc-linux-gnu
+host_triplet = i686-pc-linux-gnu
+CC = gcc
+DB_LIBS = 
+DL_LIBS = -ldl
+GALE_LIBS = ${top_builddir}/lib/libgale.la ${top_builddir}/gc/libgc.a
+LD = /ofb/apps/egcs-1.0.3a/lib/gcc-lib/i686-pc-linux-gnu/egcs-2.90.29/ld
+LIBTOOL = $(SHELL) $(top_builddir)/libtool
+LN_S = ln -s
+MAKEINFO = /mnt/ofb/home/egnor/main/gale/missing makeinfo
+NM = /usr/bin/nm -B
+PACKAGE = gale
+RANLIB = ranlib
+READLINE_LIBS = -lreadline
+VERSION = 0.19
+YACC = bison -y
+ZEPHYR_LIBS = -lzephyr -lcom_err
 
-UTILS= if_mach if_not_there threadlibs
+SUBDIRS = include
+lib_LIBRARIES = libgc.a
+libgc_a_SOURCES =
 
-# Libraries needed for curses applications.  Only needed for de.
-CURSES= -lcurses -ltermlib
+DIST_COMMON = Makefile.am Makefile.in
+mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+CONFIG_HEADER = ../include/gale/config.h
+CONFIG_CLEAN_FILES = 
+LIBRARIES =  $(lib_LIBRARIES)
 
-# The following is irrelevant on most systems.  But a few
-# versions of make otherwise fork the shell specified in
-# the SHELL environment variable.
-SHELL= /bin/sh
 
-SPECIALCFLAGS = 
-# Alternative flags to the C compiler for mach_dep.c.
-# Mach_dep.c often doesn't like optimization, and it's
-# not time-critical anyway.
-# Set SPECIALCFLAGS to -q nodirect_code on Encore.
+DEFS = -DHAVE_CONFIG_H -I. -I$(srcdir) -I../include/gale
+CPPFLAGS = -DGALE_SYS_DIR=\"${prefix}/etc/gale\" -I${top_srcdir}/include -I${top_builddir}/include -I/ofb/include -I${top_srcdir}/gc/include -I${top_srcdir}/rsaref/source
+LDFLAGS = -L/ofb/lib
+LIBS = -ltermcap -lnsl 
+libgc_a_LIBADD = 
+libgc_a_OBJECTS = 
+AR = ar
 
-all: gc.a gctest
 
-pcr: PCR-Makefile gc_private.h gc_hdrs.h gc.h config.h mach_dep.o $(SRCS)
-	make -f PCR-Makefile depend
-	make -f PCR-Makefile
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-$(OBJS) test.o dyn_load.o dyn_load_sunos53.o: $(srcdir)/gc_priv.h $(srcdir)/gc_hdrs.h $(srcdir)/gc.h \
-    $(srcdir)/config.h $(srcdir)/gc_typed.h Makefile
-# The dependency on Makefile is needed.  Changing
-# options such as -DSILENT affects the size of GC_arrays,
-# invalidating all .o files that rely on gc_priv.h
+TAR = tar
+GZIP = --best
+SOURCES = $(libgc_a_SOURCES)
+OBJECTS = $(libgc_a_OBJECTS)
 
-mark.o typd_mlc.o finalize.o: $(srcdir)/gc_mark.h
+all: all-recursive all-am
 
-base_lib gc.a: $(OBJS) dyn_load.o $(UTILS)
-	echo > base_lib
-	rm -f on_sparc_sunos5
-	./if_mach SPARC SUNOS5 touch on_sparc_sunos5
-	./if_mach SPARC SUNOS5 $(AR) rus gc.a $(OBJS) dyn_load.o
-	./if_not_there on_sparc_sunos5 $(AR) ru gc.a $(OBJS) dyn_load.o
-	./if_not_there on_sparc_sunos5 $(RANLIB) gc.a || cat /dev/null
-#	ignore ranlib failure; that usually means it doesn't exist, and isn't needed
+.SUFFIXES:
+.SUFFIXES: .S .c .lo .o .s
+$(srcdir)/Makefile.in: Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4)
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu gc/Makefile
 
-libgc.a: 
-	make CFLAGS="$(LIBGC_CFLAGS)" clean gc.a gcc_support.o
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status $(BUILT_SOURCES)
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+
+mostlyclean-libLIBRARIES:
+
+clean-libLIBRARIES:
+	-test -z "$(lib_LIBRARIES)" || rm -f $(lib_LIBRARIES)
+
+distclean-libLIBRARIES:
+
+maintainer-clean-libLIBRARIES:
+
+install-libLIBRARIES: $(lib_LIBRARIES)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(libdir)
+	list='$(lib_LIBRARIES)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(libdir)/$$p"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(libdir)/$$p; \
+	  else :; fi; \
+	done
+	@$(POST_INSTALL)
+	@list='$(lib_LIBRARIES)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo " $(RANLIB) $(DESTDIR)$(libdir)/$$p"; \
+	    $(RANLIB) $(DESTDIR)$(libdir)/$$p; \
+	  else :; fi; \
+	done
+
+uninstall-libLIBRARIES:
+	@$(NORMAL_UNINSTALL)
+	list='$(lib_LIBRARIES)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(libdir)/$$p; \
+	done
+
+.s.o:
+	$(COMPILE) -c $<
+
+.S.o:
+	$(COMPILE) -c $<
+
+mostlyclean-compile:
+	-rm -f *.o core *.core
+
+clean-compile:
+
+distclean-compile:
+	-rm -f *.tab.c
+
+maintainer-clean-compile:
+
+.s.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.S.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+mostlyclean-libtool:
+	-rm -f *.lo
+
+clean-libtool:
+	-rm -rf .libs _libs
+
+distclean-libtool:
+
+maintainer-clean-libtool:
+
+# This directory's subdirectories are mostly independent; you can cd
+# into them and run `make' without going through this Makefile.
+# To change the values of `make' variables: instead of editing Makefiles,
+# (1) if the variable is set in `config.status', edit `config.status'
+#     (which will cause the Makefiles to be regenerated when you run `make');
+# (2) otherwise, pass the desired values on the `make' command line.
+
+
+
+all-recursive install-data-recursive install-exec-recursive \
+installdirs-recursive install-recursive uninstall-recursive  \
+check-recursive installcheck-recursive info-recursive dvi-recursive:
+	@set fnord $(MAKEFLAGS); amf=$$2; \
+	list='$(SUBDIRS)'; for subdir in $$list; do \
+	  target=`echo $@ | sed s/-recursive//`; \
+	  echo "Making $$target in $$subdir"; \
+	  (cd $$subdir && $(MAKE) $$target) \
+	   || case "$$amf" in *=*) exit 1;; *k*) fail=yes;; *) exit 1;; esac; \
+	done && test -z "$$fail"
+
+mostlyclean-recursive clean-recursive distclean-recursive \
+maintainer-clean-recursive:
+	@set fnord $(MAKEFLAGS); amf=$$2; \
+	rev=''; list='$(SUBDIRS)'; for subdir in $$list; do \
+	  rev="$$subdir $$rev"; \
+	done; \
+	for subdir in $$rev; do \
+	  target=`echo $@ | sed s/-recursive//`; \
+	  echo "Making $$target in $$subdir"; \
+	  (cd $$subdir && $(MAKE) $$target) \
+	   || case "$$amf" in *=*) exit 1;; *k*) fail=yes;; *) exit 1;; esac; \
+	done && test -z "$$fail"
+tags-recursive:
+	list='$(SUBDIRS)'; for subdir in $$list; do \
+	  (cd $$subdir && $(MAKE) tags); \
+	done
+
+tags: TAGS
+
+ID: $(HEADERS) $(SOURCES) $(LISP)
+	here=`pwd` && cd $(srcdir) \
+	  && mkid -f$$here/ID $(SOURCES) $(HEADERS) $(LISP)
+
+TAGS: tags-recursive $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) $(LISP)
+	tags=; \
+	here=`pwd`; \
+	list='$(SUBDIRS)'; for subdir in $$list; do \
+	  test -f $$subdir/TAGS && tags="$$tags -i $$here/$$subdir/TAGS"; \
+	done; \
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	test -z "$(ETAGS_ARGS)$$unique$(LISP)$$tags" \
+	  || (cd $(srcdir) && etags $(ETAGS_ARGS) $$tags  $$unique $(LISP) -o $$here/TAGS)
+
+mostlyclean-tags:
+
+clean-tags:
+
+distclean-tags:
+	-rm -f TAGS ID
+
+maintainer-clean-tags:
+
+distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+
+subdir = gc
+
+distdir: $(DISTFILES)
+	here=`cd $(top_builddir) && pwd`; \
+	top_distdir=`cd $(top_distdir) && pwd`; \
+	distdir=`cd $(distdir) && pwd`; \
+	cd $(top_srcdir) \
+	  && $(AUTOMAKE) --include-deps --build-dir=$$here --srcdir-name=$(top_srcdir) --output-dir=$$top_distdir --gnu gc/Makefile
+	@for file in $(DISTFILES); do \
+	  d=$(srcdir); \
+	  test -f $(distdir)/$$file \
+	  || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	  || cp -p $$d/$$file $(distdir)/$$file; \
+	done
+	for subdir in $(SUBDIRS); do \
+	  test -d $(distdir)/$$subdir \
+	  || mkdir $(distdir)/$$subdir \
+	  || exit 1; \
+	  chmod 777 $(distdir)/$$subdir; \
+	  (cd $$subdir && $(MAKE) top_distdir=../$(top_distdir) distdir=../$(distdir)/$$subdir distdir) \
+	    || exit 1; \
+	done
+	$(MAKE) top_distdir="$(top_distdir)" distdir="$(distdir)" dist-hook
+info: info-recursive
+dvi: dvi-recursive
+check: all-am
+	$(MAKE) check-recursive
+installcheck: installcheck-recursive
+all-am: Makefile $(LIBRARIES)
+
+install-exec-am: install-libLIBRARIES
+
+uninstall-am: uninstall-libLIBRARIES
+
+install-exec: install-exec-recursive install-exec-am
+	@$(NORMAL_INSTALL)
+
+install-data: install-data-recursive
+	@$(NORMAL_INSTALL)
+
+install: install-recursive install-exec-am
+	@:
+
+uninstall: uninstall-recursive uninstall-am
+
+install-strip:
+	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' INSTALL_SCRIPT='$(INSTALL_PROGRAM)' install
+installdirs: installdirs-recursive
+	$(mkinstalldirs)  $(DATADIR)$(libdir)
+
+
+mostlyclean-generic:
+	-test -z "$(MOSTLYCLEANFILES)" || rm -f $(MOSTLYCLEANFILES)
+
+clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
+
+distclean-generic:
+	-rm -f Makefile $(DISTCLEANFILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
+
+maintainer-clean-generic:
+	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
+	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
+mostlyclean-am:  mostlyclean-libLIBRARIES mostlyclean-compile \
+		mostlyclean-libtool mostlyclean-tags \
+		mostlyclean-generic
+
+clean-am:  clean-libLIBRARIES clean-compile clean-libtool clean-tags \
+		clean-generic mostlyclean-am
+
+distclean-am:  distclean-libLIBRARIES distclean-compile \
+		distclean-libtool distclean-tags distclean-generic \
+		clean-am
+
+maintainer-clean-am:  maintainer-clean-libLIBRARIES \
+		maintainer-clean-compile maintainer-clean-libtool \
+		maintainer-clean-tags maintainer-clean-generic \
+		distclean-am
+
+mostlyclean:  mostlyclean-recursive mostlyclean-am
+
+clean:  clean-recursive clean-am clean-local
+
+distclean:  distclean-recursive distclean-am
+	-rm -f config.status
+	-rm -f libtool
+
+maintainer-clean:  maintainer-clean-recursive maintainer-clean-am
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+.PHONY: mostlyclean-libLIBRARIES distclean-libLIBRARIES \
+clean-libLIBRARIES maintainer-clean-libLIBRARIES uninstall-libLIBRARIES \
+install-libLIBRARIES mostlyclean-compile distclean-compile \
+clean-compile maintainer-clean-compile mostlyclean-libtool \
+distclean-libtool clean-libtool maintainer-clean-libtool \
+install-data-recursive uninstall-data-recursive install-exec-recursive \
+uninstall-exec-recursive installdirs-recursive uninstalldirs-recursive \
+all-recursive check-recursive installcheck-recursive info-recursive \
+dvi-recursive mostlyclean-recursive distclean-recursive clean-recursive \
+maintainer-clean-recursive tags tags-recursive mostlyclean-tags \
+distclean-tags clean-tags maintainer-clean-tags distdir info dvi \
+installcheck all-am install-exec-am uninstall-am install-exec \
+install-data install uninstall all installdirs mostlyclean-generic \
+distclean-generic clean-generic maintainer-clean-generic clean \
+mostlyclean distclean maintainer-clean
+
+
+libgc.a:
+	$(MAKE) -f Makefile.gc gc.a srcdir="${srcdir}" CC="${CC}"
 	mv gc.a libgc.a
-	rm -f on_sparc_sunos5
-	./if_mach SPARC SUNOS5 touch on_sparc_sunos5
-	./if_mach SPARC SUNOS5 $(AR) rus libgc.a gcc_support.o
-	./if_not_there on_sparc_sunos5 $(AR) ru libgc.a gcc_support.o
-	./if_not_there on_sparc_sunos5 $(RANLIB) libgc.a || cat /dev/null
 
-cords: $(CORD_OBJS) cord/cordtest $(UTILS)
-	rm -f on_sparc_sunos5
-	./if_mach SPARC SUNOS5 touch on_sparc_sunos5
-	./if_mach SPARC SUNOS5 $(AR) rus gc.a $(CORD_OBJS)
-	./if_not_there on_sparc_sunos5 $(AR) ru gc.a $(CORD_OBJS)
-	./if_not_there on_sparc_sunos5 $(RANLIB) gc.a || cat /dev/null
+clean-local:
+	$(MAKE) -f Makefile.gc clean srcdir="${srcdir}" CC="${CC}"
 
-gc_cpp.o: $(srcdir)/gc_cpp.cc $(srcdir)/gc_cpp.h $(srcdir)/gc.h Makefile
-	$(CXX) -c $(CXXFLAGS) $(srcdir)/gc_cpp.cc
+dist-hook:
+	$(RM) $(distdir)/README
 
-test_cpp: $(srcdir)/test_cpp.cc $(srcdir)/gc_cpp.h gc_cpp.o $(srcdir)/gc.h \
-base_lib $(UTILS)
-	rm -f test_cpp
-	./if_mach HP_PA "" $(CXX) $(CXXFLAGS) -o test_cpp $(srcdir)/test_cpp.cc gc_cpp.o gc.a -ldld
-	./if_not_there test_cpp $(CXX) $(CXXFLAGS) -o test_cpp $(srcdir)/test_cpp.cc gc_cpp.o gc.a `./threadlibs`
-
-c++: gc_cpp.o $(srcdir)/gc_cpp.h test_cpp
-	rm -f on_sparc_sunos5
-	./if_mach SPARC SUNOS5 touch on_sparc_sunos5
-	./if_mach SPARC SUNOS5 $(AR) rus gc.a gc_cpp.o
-	./if_not_there on_sparc_sunos5 $(AR) ru gc.a gc_cpp.o
-	./if_not_there on_sparc_sunos5 $(RANLIB) gc.a || cat /dev/null
-	./test_cpp 1
-	echo > c++
-
-dyn_load_sunos53.o: dyn_load.c
-	$(CC) $(CFLAGS) -DSUNOS53_SHARED_LIB -c $(srcdir)/dyn_load.c -o $@
-
-# SunOS5 shared library version of the collector
-libgc.so: $(OBJS) dyn_load_sunos53.o
-	$(CC) -G -o libgc.so $(OBJS) dyn_load_sunos53.o -ldl
-
-# Alpha/OSF shared library version of the collector
-libalphagc.so: $(OBJS)
-	ld -shared -o libalphagc.so $(OBJS) dyn_load.o -lc
-	ln libalphagc.so libgc.so
-
-# IRIX shared library version of the collector
-libirixgc.so: $(OBJS) dyn_load.o
-	ld -shared $(ABI_FLAG) -o libirixgc.so $(OBJS) dyn_load.o -lc
-	ln libirixgc.so libgc.so
-
-mach_dep.o: $(srcdir)/mach_dep.c $(srcdir)/mips_sgi_mach_dep.s $(srcdir)/mips_ultrix_mach_dep.s $(srcdir)/rs6000_mach_dep.s $(UTILS)
-	rm -f mach_dep.o
-	./if_mach MIPS IRIX5 $(AS) -o mach_dep.o $(srcdir)/mips_sgi_mach_dep.s
-	./if_mach MIPS RISCOS $(AS) -o mach_dep.o $(srcdir)/mips_ultrix_mach_dep.s
-	./if_mach MIPS ULTRIX $(AS) -o mach_dep.o $(srcdir)/mips_ultrix_mach_dep.s
-	./if_mach RS6000 "" $(AS) -o mach_dep.o $(srcdir)/rs6000_mach_dep.s
-	./if_mach ALPHA "" $(AS) -o mach_dep.o $(srcdir)/alpha_mach_dep.s
-	./if_mach SPARC SUNOS5 $(AS) -o mach_dep.o $(srcdir)/sparc_mach_dep.s
-	./if_mach SPARC SUNOS4 $(AS) -o mach_dep.o $(srcdir)/sparc_sunos4_mach_dep.s
-	./if_not_there mach_dep.o $(CC) -c $(SPECIALCFLAGS) $(srcdir)/mach_dep.c
-
-mark_rts.o: $(srcdir)/mark_rts.c if_mach if_not_there $(UTILS)
-	rm -f mark_rts.o
-	-./if_mach ALPHA OSF1 $(CC) -c $(CFLAGS) -Wo,-notail $(srcdir)/mark_rts.c
-	./if_not_there mark_rts.o $(CC) -c $(CFLAGS) $(srcdir)/mark_rts.c
-#	Work-around for DEC optimizer tail recursion elimination bug.
-#  The ALPHA-specific line should be removed if gcc is used.
-
-alloc.o: version.h
-
-cord/cordbscs.o: $(srcdir)/cord/cordbscs.c $(CORD_INCLUDE_FILES)
-	$(CC) $(CFLAGS) -c $(srcdir)/cord/cordbscs.c
-	mv cordbscs.o cord/cordbscs.o
-#  not all compilers understand -o filename
-
-cord/cordxtra.o: $(srcdir)/cord/cordxtra.c $(CORD_INCLUDE_FILES)
-	$(CC) $(CFLAGS) -c $(srcdir)/cord/cordxtra.c
-	mv cordxtra.o cord/cordxtra.o
-
-cord/cordprnt.o: $(srcdir)/cord/cordprnt.c $(CORD_INCLUDE_FILES)
-	$(CC) $(CFLAGS) -c $(srcdir)/cord/cordprnt.c
-	mv cordprnt.o cord/cordprnt.o
-
-cord/cordtest: $(srcdir)/cord/cordtest.c $(CORD_OBJS) gc.a $(UTILS)
-	rm -f cord/cordtest
-	./if_mach SPARC DRSNX $(CC) $(CFLAGS) -o cord/cordtest $(srcdir)/cord/cordtest.c $(CORD_OBJS) gc.a -lucb
-	./if_mach HP_PA "" $(CC) $(CFLAGS) -o cord/cordtest $(srcdir)/cord/cordtest.c $(CORD_OBJS) gc.a -ldld
-	./if_not_there cord/cordtest $(CC) $(CFLAGS) -o cord/cordtest $(srcdir)/cord/cordtest.c $(CORD_OBJS) gc.a `./threadlibs`
-
-cord/de: $(srcdir)/cord/de.c cord/cordbscs.o cord/cordxtra.o gc.a $(UTILS)
-	rm -f cord/de
-	./if_mach SPARC DRSNX $(CC) $(CFLAGS) -o cord/de $(srcdir)/cord/de.c cord/cordbscs.o cord/cordxtra.o gc.a $(CURSES) -lucb
-	./if_mach HP_PA "" $(CC) $(CFLAGS) -o cord/de $(srcdir)/cord/de.c cord/cordbscs.o cord/cordxtra.o gc.a $(CURSES) -ldld
-	./if_mach RS6000 "" $(CC) $(CFLAGS) -o cord/de $(srcdir)/cord/de.c cord/cordbscs.o cord/cordxtra.o gc.a -lcurses
-	./if_mach I386 LINUX $(CC) $(CFLAGS) -o cord/de $(srcdir)/cord/de.c cord/cordbscs.o cord/cordxtra.o gc.a -lcurses
-	./if_mach ALPHA LINUX $(CC) $(CFLAGS) -o cord/de $(srcdir)/cord/de.c cord/cordbscs.o cord/cordxtra.o gc.a -lcurses
-	./if_not_there cord/de $(CC) $(CFLAGS) -o cord/de $(srcdir)/cord/de.c cord/cordbscs.o cord/cordxtra.o gc.a $(CURSES) `./threadlibs`
-
-if_mach: $(srcdir)/if_mach.c $(srcdir)/config.h
-	$(CC) $(CFLAGS) -o if_mach $(srcdir)/if_mach.c
-
-threadlibs: $(srcdir)/threadlibs.c $(srcdir)/config.h Makefile
-	$(CC) $(CFLAGS) -o threadlibs $(srcdir)/threadlibs.c
-
-if_not_there: $(srcdir)/if_not_there.c
-	$(CC) $(CFLAGS) -o if_not_there $(srcdir)/if_not_there.c
-
-clean: 
-	rm -f gc.a *.o gctest gctest_dyn_link test_cpp \
-	      setjmp_test  mon.out gmon.out a.out core if_not_there if_mach \
-	      threadlibs $(CORD_OBJS) cord/cordtest cord/de
-	-rm -f *~
-
-gctest: test.o gc.a if_mach if_not_there
-	rm -f gctest
-	./if_mach SPARC DRSNX $(CC) $(CFLAGS) -o gctest  test.o gc.a -lucb
-	./if_mach HP_PA "" $(CC) $(CFLAGS) -o gctest  test.o gc.a -ldld
-	./if_not_there gctest $(CC) $(CFLAGS) -o gctest test.o gc.a `./threadlibs`
-
-# If an optimized setjmp_test generates a segmentation fault,
-# odds are your compiler is broken.  Gctest may still work.
-# Try compiling setjmp_t.c unoptimized.
-setjmp_test: $(srcdir)/setjmp_t.c $(srcdir)/gc.h if_mach if_not_there
-	$(CC) $(CFLAGS) -o setjmp_test $(srcdir)/setjmp_t.c
-
-test:  KandRtest cord/cordtest
-	cord/cordtest
-
-# Those tests that work even with a K&R C compiler:
-KandRtest: setjmp_test gctest
-	./setjmp_test
-	./gctest
-
-add_gc_prefix: add_gc_prefix.c
-	$(CC) -o add_gc_prefix $(srcdir)/add_gc_prefix.c
-
-gc.tar: $(SRCS) $(OTHER_FILES) add_gc_prefix
-	./add_gc_prefix $(SRCS) $(OTHER_FILES) > /tmp/gc.tar-files
-	(cd $(srcdir)/.. ; tar cvfh - `cat /tmp/gc.tar-files`) > gc.tar
-
-pc_gc.tar: $(SRCS) $(OTHER_FILES)
-	tar cvfX pc_gc.tar pc_excludes $(SRCS) $(OTHER_FILES)
-
-floppy: pc_gc.tar
-	-mmd a:/cord
-	-mmd a:/cord/private
-	-mmd a:/include
-	-mmd a:/include/private
-	mkdir /tmp/pc_gc
-	cat pc_gc.tar | (cd /tmp/pc_gc; tar xvf -)
-	-mcopy -tmn /tmp/pc_gc/* a:
-	-mcopy -tmn /tmp/pc_gc/cord/* a:/cord
-	-mcopy -mn /tmp/pc_gc/cord/de_win.ICO a:/cord
-	-mcopy -tmn /tmp/pc_gc/cord/private/* a:/cord/private
-	-mcopy -tmn /tmp/pc_gc/include/* a:/include
-	-mcopy -tmn /tmp/pc_gc/include/private/* a:/include/private
-	rm -r /tmp/pc_gc
-
-gc.tar.Z: gc.tar
-	compress gc.tar
-
-gc.tar.gz: gc.tar
-	gzip gc.tar
-
-lint: $(CSRCS) test.c
-	lint -DLINT $(CSRCS) test.c | egrep -v "possible pointer alignment problem|abort|exit|sbrk|mprotect|syscall"
-
-# BTL: added to test shared library version of collector.
-# Currently works only under SunOS5.  Requires GC_INIT call from statically
-# loaded client code.
-ABSDIR = `pwd`
-gctest_dyn_link: test.o libgc.so
-	$(CC) -L$(ABSDIR) -R$(ABSDIR) -o gctest_dyn_link test.o -lgc -ldl -lthread
-
-gctest_irix_dyn_link: test.o libirixgc.so
-	$(CC) -L$(ABSDIR) -o gctest_irix_dyn_link test.o -lirixgc
-
-test_dll.o: test.c libgc_globals.h
-	$(CC) $(CFLAGS) -DGC_USE_DLL -c test.c -o test_dll.o
-
-test_dll: test_dll.o libgc_dll.a libgc.dll
-	$(CC) test_dll.o -L$(ABSDIR) -lgc_dll -o test_dll
-
-SYM_PREFIX-libgc=GC
-
-# Uncomment the following line to build a GNU win32 DLL
-# include Makefile.DLLs
-
-reserved_namespace: $(SRCS)
-	for file in $(SRCS) test.c test_cpp.cc; do \
-		sed s/GC_/_GC_/g < $$file > tmp; \
-		cp tmp $$file; \
-		done
-
-user_namespace: $(SRCS)
-	for file in $(SRCS) test.c test_cpp.cc; do \
-		sed s/_GC_/GC_/g < $$file > tmp; \
-		cp tmp $$file; \
-		done
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:
