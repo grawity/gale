@@ -20,19 +20,17 @@ struct gale_group gale_group_empty(void) {
 }
 
 void gale_group_add(struct gale_group *g,struct gale_fragment f) {
-	struct gale_group n,*gn;
+	struct gale_group *gn;
 	struct gale_fragment *list;
-
-	gale_create(list);
-	list[0] = f;
-	n.list = list;
-	n.len = 1;
 
 	gale_create(gn);
 	*gn = *g;
-	n.next = gn;
 
-	*g = n;
+	gale_create(list);
+	list[0] = f;
+	g->list = list;
+	g->len = 1;
+	g->next = gn;
 }
 
 void gale_group_append(struct gale_group *g,struct gale_group ga) {
@@ -153,149 +151,175 @@ void gale_group_prefix(struct gale_group *g,struct gale_group tail) {
 	*g = n;
 }
 
-int gale_unpack_group(struct gale_data *data,struct gale_group *group) {
-	u32 type,len;
+int gale_unpack_fragment(struct gale_data *d,struct gale_fragment *f) {
+	struct gale_data fdata;
+	size_t size;
+	u32 num,type,len;
 
-	*group = gale_group_empty();
-	while (gale_unpack_u32(data,&type)) {
-		struct gale_data fdata;
-		struct gale_fragment frag;
-		struct gale_group sub;
-		size_t size;
-		u32 num;
+	if (!gale_unpack_u32(d,&type) || type > max_fragment
+	||  !gale_unpack_u32(d,&len) || len > d->l)
+		return 0;
 
-		if (!gale_unpack_u32(data,&len) || len > data->l) goto warning;
-		fdata.p = data->p;
-		fdata.l = len;
-		data->p += len;
-		data->l -= len;
+	/* point of no return */
 
-		if (type > max_fragment) continue;
-		if (!gale_unpack_text(&fdata,&frag.name)) goto warning;
+	fdata.p = d->p;
+	fdata.l = len;
+	d->p += len;
+	d->l -= len;
 
-		switch (type) {
-		case fragment_text:
-			frag.type = frag_text;
-			size = fdata.l / gale_wch_size();
-			if (!gale_unpack_text_len(&fdata,size,
-			                          &frag.value.text))
-				goto warning;
-			break;
-		case fragment_data:
-			frag.type = frag_data;
-			frag.value.data = gale_data_copy(fdata);
-			fdata.p += fdata.l;
-			fdata.l -= fdata.l;
-			break;
-		case fragment_time:
-			frag.type = frag_time;
-			if (!gale_unpack_time(&fdata,&frag.value.time))
-				goto warning;
-			break;
-		case fragment_number:
-			frag.type = frag_number;
-			if (!gale_unpack_u32(&fdata,&num)) goto warning;
-			frag.value.number = (s32) num;
-			break;
-		case fragment_group:
-			frag.type = frag_group;
-			if (!gale_unpack_group(&fdata,&sub)) goto warning;
-			frag.value.group = sub;
-			break;
-		default:
-			assert(0);
-		}
+	if (!gale_unpack_text(&fdata,&f->name)) goto warning;
 
-		if (0 != fdata.l) {
-		warning:
-			gale_alert(GALE_WARNING,G_("invalid fragment"),0);
-			frag.name = G_("error");
-			frag.type = frag_data;
-			frag.value.data = gale_data_copy(fdata);
-		}
+	switch (type) {
+	case fragment_text:
+		f->type = frag_text;
+		size = fdata.l / gale_wch_size();
+		if (!gale_unpack_text_len(&fdata,size,&f->value.text))
+			goto warning;
+		break;
+	case fragment_data:
+		f->type = frag_data;
+		f->value.data = gale_data_copy(fdata);
+		fdata = null_data;
+		break;
+	case fragment_time:
+		f->type = frag_time;
+		if (!gale_unpack_time(&fdata,&f->value.time))
+			goto warning;
+		break;
+	case fragment_number:
+		f->type = frag_number;
+		if (!gale_unpack_u32(&fdata,&num)) 
+			goto warning;
+		f->value.number = (s32) num;
+		break;
+	case fragment_group:
+		f->type = frag_group;
+		if (!gale_unpack_group(&fdata,&f->value.group)) 
+			goto warning;
+		break;
+	default:
+		assert(0); /* checked above */
+	}
 
-		gale_group_add(group,frag);
+	if (0 != fdata.l) {
+	warning:
+		gale_alert(GALE_WARNING,G_("invalid fragment"),0);
+		f->name = G_("error");
+		f->type = frag_data;
+		f->value.data = gale_data_copy(fdata);
 	}
 
 	return 1;
 }
 
-void gale_pack_group(struct gale_data *data,struct gale_group group) {
-	while (!gale_group_null(group)) {
-		struct gale_fragment frag = gale_group_first(group);
-		size_t len = gale_text_size(frag.name);
-		group = gale_group_rest(group);
+size_t gale_fragment_size(struct gale_fragment frag) {
+	size_t size = 0;
+	size += gale_u32_size() * 2; /* type, length */
+	size += gale_text_size(frag.name);
+	switch (frag.type) {
+	case frag_text:
+		size += gale_text_len_size(frag.value.text);
+		break;
+	case frag_data:
+		size += frag.value.data.l;
+		break;
+	case frag_time:
+		size += gale_time_size();
+		break;
+	case frag_number:
+		size += gale_u32_size();
+		break;
+	case frag_group:
+		size += gale_group_size(frag.value.group);
+		break;
+	default:
+		assert(0);
+	}
 
-		switch (frag.type) {
-		case frag_text:
-			gale_pack_u32(data,fragment_text);
-			gale_pack_u32(data,len + 
-			              gale_text_len_size(frag.value.text));
-			gale_pack_text(data,frag.name);
-			gale_pack_text_len(data,frag.value.text);
-			break;
-		case frag_data:
-			gale_pack_u32(data,fragment_data);
-			gale_pack_u32(data,len + frag.value.data.l);
-			gale_pack_text(data,frag.name);
-			gale_pack_copy(data,
-			               frag.value.data.p,frag.value.data.l);
-			break;
-		case frag_time:
-			gale_pack_u32(data,fragment_time);
-			gale_pack_u32(data,len + gale_time_size());
-			gale_pack_text(data,frag.name);
-			gale_pack_time(data,frag.value.time);
-			break;
-		case frag_number:
-			gale_pack_u32(data,fragment_number);
-			gale_pack_u32(data,len + gale_u32_size());
-			gale_pack_text(data,frag.name);
-			gale_pack_u32(data,(u32) frag.value.number);
-			break;
-		case frag_group:
-			gale_pack_u32(data,fragment_group);
-			gale_pack_u32(data,len + 
-			              gale_group_size(frag.value.group));
-			gale_pack_text(data,frag.name);
-			gale_pack_group(data,frag.value.group);
-			break;
-		default:
-			assert(0);
+	return size;
+}
+
+void gale_pack_fragment(struct gale_data *data,struct gale_fragment frag) {
+	size_t len = gale_text_size(frag.name);
+
+	switch (frag.type) {
+	case frag_text:
+		gale_pack_u32(data,fragment_text);
+		gale_pack_u32(data,len + 
+			      gale_text_len_size(frag.value.text));
+		gale_pack_text(data,frag.name);
+		gale_pack_text_len(data,frag.value.text);
+		break;
+	case frag_data:
+		gale_pack_u32(data,fragment_data);
+		gale_pack_u32(data,len + frag.value.data.l);
+		gale_pack_text(data,frag.name);
+		gale_pack_copy(data,
+			       frag.value.data.p,frag.value.data.l);
+		break;
+	case frag_time:
+		gale_pack_u32(data,fragment_time);
+		gale_pack_u32(data,len + gale_time_size());
+		gale_pack_text(data,frag.name);
+		gale_pack_time(data,frag.value.time);
+		break;
+	case frag_number:
+		gale_pack_u32(data,fragment_number);
+		gale_pack_u32(data,len + gale_u32_size());
+		gale_pack_text(data,frag.name);
+		gale_pack_u32(data,(u32) frag.value.number);
+		break;
+	case frag_group:
+		gale_pack_u32(data,fragment_group);
+		gale_pack_u32(data,len + 
+			      gale_group_size(frag.value.group));
+		gale_pack_text(data,frag.name);
+		gale_pack_group(data,frag.value.group);
+		break;
+	default:
+		assert(0);
+	}
+}
+
+int gale_unpack_group(struct gale_data *data,struct gale_group *group) {
+	struct gale_fragment list[100],*copy;
+	struct gale_group *next;
+	int count = 0;
+
+	while (gale_unpack_fragment(data,&list[count])) {
+		if (++count == sizeof(list)/sizeof(list[0])) {
+			gale_create_array(copy,group->len = count);
+			memcpy(copy,list,sizeof(list[0]) * count);
+			gale_create(next);
+			group->list = copy;
+			group->next = next;
+			group = next;
+			count = 0;
 		}
 	}
+
+	gale_create_array(copy,group->len = count);
+	memcpy(copy,list,sizeof(list[0]) * count);
+	group->list = copy;
+	group->next = NULL;
+	return 1;
 }
 
 size_t gale_group_size(struct gale_group group) {
 	size_t size = 0;
-
 	while (!gale_group_null(group)) {
-		struct gale_fragment frag = gale_group_first(group);
+		size += gale_fragment_size(gale_group_first(group));
 		group = gale_group_rest(group);
-		size += gale_u32_size() * 2; /* type, length */
-		size += gale_text_size(frag.name);
-		switch (frag.type) {
-		case frag_text:
-			size += gale_text_len_size(frag.value.text);
-			break;
-		case frag_data:
-			size += frag.value.data.l;
-			break;
-		case frag_time:
-			size += gale_time_size();
-			break;
-		case frag_number:
-			size += gale_u32_size();
-			break;
-		case frag_group:
-			size += gale_group_size(frag.value.group);
-			break;
-		default:
-			assert(0);
-		}
 	}
 
 	return size;
+}
+
+void gale_pack_group(struct gale_data *data,struct gale_group group) {
+	while (!gale_group_null(group)) {
+		gale_pack_fragment(data,gale_group_first(group));
+		group = gale_group_rest(group);
+	}
 }
 
 struct gale_text gale_print_fragment(struct gale_fragment frag,int indent) {
