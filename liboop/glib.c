@@ -85,19 +85,18 @@ static gint on_poll(GPollFD *array,guint num,gint timeout) {
 	return count;
 }
 
-#ifdef HAVE_POLL_H
-static gint real_poll(GPollFD *array,guint num,gint timeout) {
-	assert(sizeof(GPollFD) == sizeof(struct pollfd));
-	return poll((struct pollfd *) array,num,timeout);
-}
-#endif
-
 oop_source *oop_glib_new(void) {
 	if (use_count++) return oop_sys_source(sys);
 
 	sys = oop_sys_new();
 	sel = oop_select_new(oop_sys_source(sys),on_select,NULL);
-	g_main_set_poll_func(on_poll);
+
+#if GLIB_MAJOR_VERSION >= 2
+        g_main_context_set_poll_func(g_main_context_default(), on_poll);
+#else
+        g_main_set_poll_func(on_poll);
+#endif
+
 	return oop_sys_source(sys);
 }
 
@@ -107,6 +106,11 @@ void *oop_glib_return(void) {
 }
 
 #ifdef HAVE_POLL_H
+static gint real_poll(GPollFD *array,guint num,gint timeout) {
+	assert(sizeof(GPollFD) == sizeof(struct pollfd));
+	return poll((struct pollfd *) array,num,timeout);
+}
+
 void oop_glib_delete(void) {
 	assert(use_count > 0 && "oop_glib_delete() called too much");
 	if (0 != --use_count) return;
@@ -115,6 +119,8 @@ void oop_glib_delete(void) {
 	oop_sys_delete(sys);
 	g_main_set_poll_func(real_poll);
 }
+#else
+void oop_glib_delete(void) { /* sigh */ }
 #endif
 
 #endif

@@ -6,9 +6,8 @@
 # terms of the GNU Lesser General Public License, version 2.1 or later.
 # See the file COPYING for details.
 
-AUTOMAKE_OPTIONS = foreign 1.2
-lib_LTLIBRARIES = liboop-adns.la liboop-glib.la liboop-tcl.la liboop-www.la liboop-rl.la liboop.la
-INCLUDES = $(GLIB_INCLUDES) $(TCL_INCLUDES) $(WWW_INCLUDES)
+AUTOMAKE_OPTIONS = foreign 1.7
+lib_LTLIBRARIES = liboop-adns.la liboop-glib.la liboop-glib2.la liboop-tcl.la liboop-www.la liboop-rl.la liboop.la
 
 # versions updated as of 0.8
 liboop_la_LDFLAGS = -version-info 4:0:0 # version:revision:age
@@ -20,14 +19,22 @@ liboop_adns_la_SOURCES = adns.c
 
 liboop_glib_la_LDFLAGS = -version-info 1:0:0
 liboop_glib_la_LIBADD = $(GLIB_LIBS)
+liboop_glib_la_CFLAGS = $(GLIB_INCLUDES)
 liboop_glib_la_SOURCES = glib.c
+
+liboop_glib2_la_LDFLAGS = -version-info 0:0:0
+liboop_glib2_la_LIBADD = $(GLIB2_LIBS)
+liboop_glib2_la_CFLAGS = $(GLIB2_CFLAGS)
+liboop_glib2_la_SOURCES = glib.c
 
 liboop_tcl_la_LDFLAGS = -version-info 0:0:0
 liboop_tcl_la_LIBADD = $(TCL_LIBS)
+liboop_tcl_la_CFLAGS = $(TCL_INCLUDES)
 liboop_tcl_la_SOURCES = tcl.c
 
 liboop_www_la_LDFLAGS = -version-info 0:0:0
 liboop_www_la_LIBADD = $(WWW_LIBS)
+liboop_www_la_CFLAGS = $(WWW_INCLUDES)
 liboop_www_la_SOURCES = www.c
 
 liboop_rl_la_LDFLAGS = -version-info 0:0:0

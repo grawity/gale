@@ -52,6 +52,8 @@ fi
 LIBS="$save_libs"
 CPPFLAGS="$save_cppflags"
 
+PKG_CHECK_MODULES(GLIB2,glib-2.0 >= 2.0,AC_DEFINE(HAVE_GLIB),[:])
+
 for version in 8.4 8.3 8.2 8.1 8.0 ; do
   CPPFLAGS="$save_cppflags -I/usr/include/tcl$version"
   AC_CHECK_LIB(tcl$version,Tcl_Main,[
@@ -86,6 +88,8 @@ CFLAGS="-Wall -Wno-comment -Wmissing-prototypes -Wstrict-prototypes -Wpointer-ar
 AC_SUBST(PROG_LDCONFIG)
 AC_SUBST(GLIB_INCLUDES)
 AC_SUBST(GLIB_LIBS)
+AC_SUBST(GLIB2_CFLAGS)
+AC_SUBST(GLIB2_LIBS)
 AC_SUBST(TCL_INCLUDES)
 AC_SUBST(TCL_LIBS)
 AC_SUBST(ADNS_LIBS)
