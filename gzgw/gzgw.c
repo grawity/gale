@@ -108,6 +108,7 @@ void to_g(ZNotice_t *notice) {
 		len = notice->z_message_len - (ptr - notice->z_message);
 		while (len > 0 && *ptr) {
 			end = memchr(ptr,'\n',len);
+			if (!end) end = ptr + len;
 			append(end - ptr,ptr);
 			append(2,"\r\n");
 			len -= (end - ptr) + 1;
