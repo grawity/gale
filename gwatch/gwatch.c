@@ -68,9 +68,7 @@ void watch_id(struct gale_id *id) {
 }
 
 void watch_domain(const char *id) {
-	char *tmp = gale_malloc(strlen(id) + 30);
-	sprintf(tmp,"@%s/notice/",id);
-	watch_cat(tmp);
+	watch_cat(dom_category(id,"notice"));
 }
 
 void read_file(const char *fn) {

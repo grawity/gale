@@ -73,8 +73,11 @@ struct auth_id *lookup_id(const char *);
 /* Locate the public key, locally or remotely.  (Potentially) very slow! */
 int find_id(struct auth_id *);
 
-/* Return prefix / domain / user / suffix in a newly gale_malloc()'d string. */
+/* Return @ domain / prefix / user / suffix in a newly allocated string. */
 char *id_category(struct auth_id *,const char *prefix,const char *suffix);
+
+/* Return @ dom / prefix / in a newly allocated string.  NULL dom = default */
+char *dom_category(const char *dom,const char *prefix);
 
 /* For compatibility.  Deprecated. */
 #define gale_id auth_id

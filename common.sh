@@ -24,7 +24,6 @@ if [ -f "$CONF" ]; then
 	while read var value <&3 ; do
 		[ -z "$var" -o "x$var" = "x#" ] && continue
 		eval "CONF_$var=\"$value\""
-		echo "CONF_$var=\"$value\""
 	done
 
 	exec 3<&-

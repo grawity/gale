@@ -45,6 +45,17 @@ char *id_category(struct gale_id *id,const char *pfx,const char *sfx) {
 	return tmp;
 }
 
+char *dom_category(const char *dom,const char *pfx) {
+	char *tmp;
+	if (!dom) dom = getenv("GALE_DOMAIN");
+	tmp = gale_malloc(strlen(pfx) + strlen(dom) + 4);
+	if (old_style())
+		sprintf(tmp,"%s/%s/",pfx,dom);
+	else
+		sprintf(tmp,"@%s/%s/",dom,pfx);
+	return tmp;
+}
+
 /*
    1: got a key
    0: no success

@@ -259,10 +259,16 @@ int main(int argc,char *argv[]) {
 		gale_alert(GALE_WARNING,"*** DANGER! ***\a "
 		                        "Category is a username!  "
 		                        "Did you want that?",0);
-	if (ttyin && msg->category[0] && strchr(msg->category + 1,'@'))
-		gale_alert(GALE_WARNING,"*** DANGER! ***\a "
-		                        "Category contains '@'!  "
-		                        "Did you want that?",0);
+	if (ttyin) {
+		char *at = msg->category;
+		while ((at = strchr(at,'@'))) {
+			if (at > msg->category && at[-1] != ':')
+				gale_alert(GALE_WARNING,"*** DANGER! ***\a "
+					"Category contains '@'!  "
+					"Did you want that?",0);
+			++at;
+		}
+	}
 
 	/* Open a connection to the server; don't subscribe to anything. */
 	client = gale_open(NULL);

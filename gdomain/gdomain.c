@@ -77,11 +77,6 @@ void incoming(struct gale_message *_msg) {
 		goto done;
 	}
 
-	if (strncmp(rcpt,"receipt/",8)) {
-		gale_alert(GALE_WARNING,"invalid Receipt-To header",0);
-		goto done;
-	}
-
 	reply = new_message();
 	reply->category = gale_strdup(rcpt);
 
@@ -117,7 +112,6 @@ done:
 
 int main(int argc,char *argv[]) {
 	int arg;
-	char *tmp;
 
 	gale_init("gdomain",argc,argv);
 	while ((arg = getopt(argc,argv,"dDh")) != EOF)
@@ -133,9 +127,8 @@ int main(int argc,char *argv[]) {
 	if (!domain || !auth_id_private(domain))
 		gale_alert(GALE_ERROR,"no access to domain private key",0);
 
-	tmp = gale_malloc(30 + strlen(getenv("GALE_DOMAIN")));
-	sprintf(tmp,"dom/%s/",getenv("GALE_DOMAIN"));
-	client = gale_open(category = tmp);
+	category = dom_category(NULL,"dom");
+	client = gale_open(category);
 
 	gale_daemon(0);
 
