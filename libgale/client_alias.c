@@ -43,6 +43,13 @@ void gale_find_location(oop_source *oop,
 {
 	struct gale_map * const mark = gale_make_map(0);
 	struct gale_location *loc = client_i_get(name);
+	int i;
+
+	for (i = 0; i < name.l; ++i) if (':' == name.p[i]) break;
+	if (i != name.l)
+		gale_alert(GALE_WARNING,gale_text_concat(3,
+			G_("\""),name,
+			G_("\" contains ':', tsk tsk")),0);
 
 	if (0 == loc->part_count) {
 		gale_find_exact_location(oop,name,func,user);
