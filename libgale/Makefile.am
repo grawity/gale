@@ -4,8 +4,8 @@ lib_LTLIBRARIES = libgale.la
 noinst_PROGRAMS = crypto_test key_test
 
 # version:revision:age
-# current as of 0.99cheese
-libgale_la_LDFLAGS = -version-info 11:0:0
+# current as of 0.99egg
+libgale_la_LDFLAGS = -version-info 12:0:0
 
 noinst_HEADERS = client_i.h crypto_i.h key_i.h io.h
 

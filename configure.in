@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.13)
 AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(gale,0.99danger)
+AM_INIT_AUTOMAKE(gale,0.99egg)
 AM_CONFIG_HEADER(include/gale/config.h:config.h.in)
 AC_CANONICAL_HOST
 AM_PROG_LIBTOOL
@@ -142,6 +142,9 @@ if test -f "${srcdir}/liboop/oop.h"; then
   INCLUDES="-I\${top_srcdir}/liboop $INCLUDES"
   build_liboop=true
   if $use_adns; then
+    AC_CHECK_LIB(adns,adns_init,[:],[
+      AC_MSG_ERROR(cannot find adns library, try configure --without-adns)
+    ])
     GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop-adns.la"
   fi
   GALE_LIBS="$GALE_LIBS \${top_builddir}/liboop/liboop.la"
@@ -151,9 +154,16 @@ else
     AC_MSG_ERROR(cannot find liboop library, see INSTALL directions)
   ])
   if $use_adns; then
-    GALE_LIBS="$GALE_LIBS -loop-adns -ladns"
+    AC_CHECK_LIB(oop-adns,oop_adns_new,[:],[
+      AC_MSG_ERROR(cannot find liboop-adns library, was liboop built for adns?)
+    ],-loop)
+    AC_CHECK_LIB(adns,adns_init,[:],[
+      AC_MSG_ERROR(cannot find adns library, try configure --without-adns)
+    ])
+    GALE_LIBS="$GALE_LIBS -loop-adns -loop -ladns"
+  else
+    GALE_LIBS="$GALE_LIBS -loop"
   fi
-  GALE_LIBS="$GALE_LIBS -loop"
 fi
 
 GALE_LIBS="$GALE_LIBS $termcap_lib"
