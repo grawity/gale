@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <signal.h>
 #include <unistd.h>
+#include <errno.h>
 
 void gale_restart(void) {
 	assert(gale_global->main_argv[gale_global->main_argc] == NULL);

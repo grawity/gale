@@ -2,6 +2,8 @@
 #include "gale/key.h"
 #include "gale/globals.h"
 
+#include <errno.h>
+
 enum dir_type { public_dir, cache_dir, trusted_dir, private_dir };
 
 struct dir_data {

@@ -5,6 +5,7 @@
 #include "key_i.h" /* for key_i_create() and key_i_swizzle() */
 
 #include <assert.h>
+#include <errno.h>
 
 struct generation {
 	struct gale_key *key;
