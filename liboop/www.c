@@ -183,6 +183,7 @@ void oop_www_cancel() {
 
 void oop_www_memory() {
 	oop_malloc = HTMemory_malloc;
+	oop_realloc = HTMemory_realloc;
 	oop_free = HTMemory_free;
 }
 
