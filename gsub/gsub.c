@@ -271,6 +271,7 @@ static void *show_message(struct gale_message *msg) {
 #endif
 
 	/* Handle AKD requests for us. */
+	/* TODO: Move this to when the message is queued. */
 	if (do_keys 
 	&&  NULL != key_location
 	&&  NULL != user_location
@@ -348,6 +349,8 @@ static void *show_message(struct gale_message *msg) {
 
 		case frag_time:
 			base = gale_text_concat(2,G_("GALE_TIME_"),base);
+			value = gale_time_format(frag.value.time);
+#if 0
 			{
 				char buf[30];
 				struct timeval tv;
@@ -359,6 +362,7 @@ static void *show_message(struct gale_message *msg) {
 					localtime(&when));
 				value = gale_text_from(NULL,buf,-1);
 			}
+#endif
 			break;
 
 		case frag_number:
@@ -444,6 +448,8 @@ static void *on_message(struct gale_message *msg,void *x) {
 	struct gsub_queue *entry;
 	gale_create(entry);
 	entry->msg = msg;
+
+	/* TODO: process AKD requests now */
 
 	if (NULL == queue)
 		entry->next = entry;

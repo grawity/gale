@@ -119,10 +119,13 @@ void default_gsubrc(void) {
 
 	/* Get the time */
 	if (0 == (timecode = gale_var(G_("GALE_TIME_ID_TIME"))).l) {
+		timecode = gale_time_format(gale_time_now());
+#if 0
 		char tstr[80];
 		time_t when = time(NULL);
 		strftime(tstr,sizeof(tstr),"%Y-%m-%d %H:%M:%S",localtime(&when));
 		timecode = gale_text_from(NULL,tstr,-1);
+#endif
 	}
 
 	if (0 != gale_var(G_("GALE_DATA_SECURITY_ENCRYPTION")).l) {
@@ -375,9 +378,8 @@ void default_gsubrc(void) {
 			gale_print(stdout,0,G_(")"));
 		}
 
-		gale_print(stdout,0,G_(" at "));
-		gale_print(stdout,gale_print_clobber_right,
-			gale_text_right(timecode,-5));
+		gale_print(stdout,0,G_(" "));
+		gale_print(stdout,gale_print_clobber_right,timecode);
 		gale_print(stdout,0,G_(" --"));
 		gale_print(stdout,gale_print_clobber_right,G_("\n"));
 	}

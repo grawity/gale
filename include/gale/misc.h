@@ -343,6 +343,11 @@ void gale_time_to(struct timeval *tv,struct gale_time time);
  *  \param time An uninitialized time value to write.
  *  \param tv The timeval structure to convert. */
 void gale_time_from(struct gale_time *time,const struct timeval *tv);
+
+/** Format a time value as text.
+ *  \param time Time to print.
+ *  \return Readable text representation of time. */
+struct gale_text gale_time_format(struct gale_time time); 
 /*@}*/
 
 /** \name Fragment and Group Management 
