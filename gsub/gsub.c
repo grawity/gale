@@ -622,7 +622,7 @@ static void *on_complete() {
 	if (tty) {
 		const struct gale_text terminal =
 			gale_text_from(gale_global->enc_filesys,tty,-1);
-		if (do_verbose)
+		if (do_verbose && do_kill)
 			gale_alert(GALE_NOTICE,gale_text_concat(3,
 				G_("killing any other gsub on \""),
 				terminal,G_("\"")),0);
