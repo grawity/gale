@@ -75,9 +75,7 @@ if [ -f "$unsigned" ]; then
 cat << EOM
 
 Okay, so we've already been here.  Last time, I created the file
-"$unsigned" for you to 
-send off to the owner of the "$signer" domain to pass through
-"gksign" and return to you.
+"$unsigned" for you to have signed.
 
 If you've done so, great!  I just need the filename of the signed key
 they gave you back.  Otherwise, interrupt this script, remove the 
@@ -145,6 +143,20 @@ read descr
 echo "We will generate the key now.  Have patience."
 gkgen -u "$unsigned" "$CONF_GALE_DOMAIN" "$descr" || exit 1
 
+case "$CONF_GALE_DOMAIN" in
+*.dork.gale.org)
+cat << EOM
+
+*** Ah, a dork key.  Good!
+Visit <URL:http://gale.org/cgi/dork?check=$CONF_GALE_DOMAIN>.
+Follow the directions; send the file "$unsigned" for
+signing.  Save the resulting signed key file to disk someplace.  When you
+have the signed key available, re-run this process, and we will move on to
+the next step.
+
+EOM
+;;
+*)
 cat << EOM
 
 *** What you must do: Take the file "$unsigned",
@@ -158,3 +170,5 @@ signed key file available, re-run this process, and we will move on to the
 next step.
 
 EOM
+;;
+esac

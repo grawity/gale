@@ -54,9 +54,18 @@ cat << EOM
 
 You need to choose a name for your authentication domain.  The extent of the 
 domain need not correspond to any given physical or logical setup.  The domain 
-name is often a DNS domain (by convention), but need not be.  If you run Gale 
-in the context of a larger organization, they may have a domain set up; ask 
-your administrators about it.
+name is often a DNS domain (by convention).  If you run Gale in the context of
+a larger organization, they may have a domain set up; ask your administrators.
+
+Note that you will need permission from your parent domain; if you choose
+"foo.bar.com", you will need to contact the owners of "bar.com".
+
+We recommend that new users choose an unoccupied name in the free, first-come,
+first-served dork.gale.org domain by visiting <URL:http://gale.org/dork>.  
+This will streamline the registration process to get you up and running as 
+quickly as possible with a minimum of human intervention.  
+
+You can always change this later (with a bit of hassle).
 
 EOM
 

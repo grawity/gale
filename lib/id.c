@@ -9,10 +9,12 @@
 #include "gale/all.h"
 
 struct auth_id *lookup_id(struct gale_text spec) {
-	struct gale_text tok = null_text;
+	struct gale_text at = null_text,dot = null_text;
 	struct auth_id *id;
 
-	if (gale_text_token(spec,'@',&tok) && gale_text_token(spec,'\0',&tok))
+	/* If we already have an '@' or a '.', leave as-is. */
+	if ((gale_text_token(spec,'.',&dot) && gale_text_token(spec,'\0',&dot))
+	||  (gale_text_token(spec,'@',&at)  && gale_text_token(spec,'\0',&at)))
 		init_auth_id(&id,spec);
 	else
 		init_auth_id(&id,gale_text_concat(3,
