@@ -130,7 +130,7 @@ static void on_search(struct gale_time now,oop_source *oop,
 	struct cache *cache = (struct cache *) *ptr;
 	struct gale_time last;
 	struct gale_text name;
-	int at;
+	int at = 0;
 
 	if (NULL == cache) {
 		name = key_i_swizzle(gale_key_name(key));

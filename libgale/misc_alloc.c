@@ -5,7 +5,7 @@
 #include <string.h>
 #include <gc.h>
 
-#define CHEESY_ALLOC
+/* #define CHEESY_ALLOC */
 
 struct gale_ptr { void *ptr; };
 

@@ -145,7 +145,7 @@ int main(int argc,char *argv[]) {
 			if (NULL == parent)
 				gale_alert(GALE_ERROR,G_("key is ROOT"),0);
 
-			gale_key_retract(ass);
+			gale_key_retract(ass,1);
 			gale_key_search(oop_sys_source(sys),
 				parent,flags,
 				on_parent,&key);

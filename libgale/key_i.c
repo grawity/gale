@@ -24,7 +24,7 @@ struct gale_text key_i_swizzle(struct gale_text name) {
 int key_i_private(struct gale_data key) {
 	return gale_unpack_compare(&key,priv_magic1,sizeof(priv_magic1))
 	    || gale_unpack_compare(&key,priv_magic2,sizeof(priv_magic2))
-	    || gale_unpack_compare(&key,priv_magic2,sizeof(priv_magic3));
+	    || gale_unpack_compare(&key,priv_magic3,sizeof(priv_magic3));
 }
 
 static struct gale_text get_name(struct gale_data *key) {
@@ -261,7 +261,7 @@ struct gale_group key_i_group(struct gale_data key) {
 			frag.type = frag_text;
 			frag.value.text = key_i_swizzle(name);
 			group = gale_crypto_original(group);
-			gale_group_add(&group,frag);
+			gale_group_replace(&group,frag);
 			return group;
 		}
 	} else
@@ -285,7 +285,7 @@ struct gale_group key_i_group(struct gale_data key) {
 			frag.type = frag_text;
 			frag.value.text = key_i_swizzle(name);
 			group = gale_crypto_original(group);
-			gale_group_add(&group,frag);
+			gale_group_replace(&group,frag);
 			return group;
 		}
 	}
@@ -361,7 +361,7 @@ struct gale_data key_i_create(struct gale_group source) {
 
 		if (frag_text == first.type
 		&& !gale_text_compare(G_("key.id"),first.name))
-			name = first.value.text;
+			name = key_i_swizzle(first.value.text);
 		else if (!gale_text_compare(
 			G_("rsa.private"),
 			gale_text_left(first.name,11)))

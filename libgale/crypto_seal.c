@@ -1,3 +1,4 @@
+#include "key_i.h"
 #include "crypto_i.h"
 #include "gale/crypto.h"
 
@@ -26,7 +27,7 @@ int gale_crypto_seal(
 
 	int i,*session_key_length;
 	unsigned char **session_key,iv[EVP_MAX_IV_LENGTH];
-	struct gale_text *key_name;
+	struct gale_text *raw_name;
 	EVP_PKEY **public_key;
 
 	int is_successful = 0;
@@ -37,14 +38,14 @@ int gale_crypto_seal(
 	gale_pack_group(&plain,*data);
 	*data = gale_group_empty();
 
-	gale_create_array(key_name,key_count);
+	gale_create_array(raw_name,key_count);
 	gale_create_array(public_key,key_count);
 	for (i = 0; i < key_count; ++i) public_key[i] = NULL;
 	for (i = 0; i < key_count; ++i) {
 		public_key[i] = EVP_PKEY_new();
 		EVP_PKEY_assign_RSA(public_key[i],RSA_new());
-		key_name[i] = crypto_i_rsa(target[i],public_key[i]->pkey.rsa);
-		if (0 == key_name[i].l) {
+		raw_name[i] = key_i_swizzle(crypto_i_rsa(target[i],public_key[i]->pkey.rsa));
+		if (0 == raw_name[i].l) {
 			gale_alert(GALE_WARNING,G_("key has no name"),0);
 			goto cleanup;
 		}
@@ -71,7 +72,7 @@ int gale_crypto_seal(
 	         + gale_u32_size()
 	         + plain.l + EVP_CIPHER_CTX_block_size(&context) - 1;
 	for (i = 0; i < key_count; ++i)
-		cipher.l += gale_text_size(key_name[i])
+		cipher.l += gale_text_size(raw_name[i])
 		         +  gale_u32_size()
 		         +  gale_copy_size(session_key_length[i]);
 
@@ -83,7 +84,7 @@ int gale_crypto_seal(
 	gale_pack_copy(&cipher,iv,IV_LEN);
 	gale_pack_u32(&cipher,key_count);
 	for (i = 0; i < key_count; ++i) {
-		gale_pack_text(&cipher,key_name[i]);
+		gale_pack_text(&cipher,raw_name[i]);
 		gale_pack_u32(&cipher,session_key_length[i]);
 		gale_pack_copy(&cipher,session_key[i],session_key_length[i]);
 	}
@@ -145,7 +146,7 @@ const struct gale_text *gale_crypto_target(struct gale_group encrypted) {
 			return NULL;
 		}
 
-		output[i] = name;
+		output[i] = key_i_swizzle(name);
 	}
 
 	output[i] = null_text;
@@ -164,7 +165,7 @@ int gale_crypto_open(struct gale_group key,struct gale_group *cipher) {
 	unsigned char iv[IV_LEN];
 	u32 i,key_count;
 	EVP_PKEY *private_key = NULL;
-	struct gale_text key_name;
+	struct gale_text raw_name;
 	struct gale_data session_key,plain;
 	EVP_CIPHER_CTX context;
 	int length,is_successful = 0;
@@ -184,7 +185,7 @@ int gale_crypto_open(struct gale_group key,struct gale_group *cipher) {
 
 	private_key = EVP_PKEY_new();
 	EVP_PKEY_assign_RSA(private_key,RSA_new());
-	key_name = crypto_i_rsa(key,private_key->pkey.rsa);
+	raw_name = key_i_swizzle(crypto_i_rsa(key,private_key->pkey.rsa));
 	if (!crypto_i_private_valid(private_key->pkey.rsa)) {
 		gale_alert(GALE_WARNING,G_("invalid private key"),0);
 		goto cleanup;
@@ -194,7 +195,7 @@ int gale_crypto_open(struct gale_group key,struct gale_group *cipher) {
 	for (i = 0; i < key_count; ++i) {
 		struct gale_text name;
 		if (!gale_unpack_text(&data,&name)) goto cleanup;
-		if (gale_text_compare(key_name,name)) {
+		if (gale_text_compare(raw_name,name)) {
 			if (!gale_unpack_skip(&data)) goto cleanup;
 			continue;
 		}

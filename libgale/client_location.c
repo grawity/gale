@@ -158,10 +158,9 @@ void gale_find_exact_location(oop_source *oop,
         struct gale_text name,
         gale_call_location *func,void *user)
 {
-	struct gale_location *loc = client_i_get(name);
 	struct find *find;
 	gale_create(find);
-	find->loc = loc;
+	find->loc = client_i_get(name);
 	find->func = func;
 	find->user = user;
 	find->map = NULL;
@@ -172,21 +171,6 @@ void gale_find_exact_location(oop_source *oop,
 	if (NULL == gale_key_public(find->loc->key,find->now)) 
 		find->loc->key = NULL;
 	find_key(oop,find);
-}
-
-/** Look up the default user location.
- *  Start looking up the local user's default "personal" location.  When the
- *  lookup is complete (whether it succeeded or failed), the supplied callback
- *  is invoked.
- *  \param oop Liboop event source to use.
- *  \param func Function to call when location lookup completes.
- *  \param user User-defined parameter to pass the function.
- *  \sa gale_find_location() */
-void gale_find_default_location(oop_source *oop,
-        gale_call_location *func,void *user)
-{
-	/* TODO: generate key if none found */
-	gale_find_location(oop,gale_var(G_("GALE_ID")),func,user);
 }
 
 /** Find a location's name.

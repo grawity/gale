@@ -21,7 +21,7 @@ const struct gale_key_assertion *gale_key_public(
 
 struct gale_key_assertion *gale_key_assert(struct gale_data,int trust);
 struct gale_key_assertion *gale_key_assert_group(struct gale_group,int trust);
-void gale_key_retract(struct gale_key_assertion *);
+void gale_key_retract(struct gale_key_assertion *,int trust);
 
 int gale_key_trusted(
 	const struct gale_key_assertion *);
@@ -46,7 +46,7 @@ void gale_key_search(oop_source *source,
 	gale_key_call *,void *user);
 
 void gale_key_generate(oop_source *source,
-	struct gale_key *,
+	struct gale_key *,struct gale_group,
 	gale_key_call *,void *user);
 
 /** Callback for key search strategy drivers.

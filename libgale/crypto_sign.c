@@ -48,17 +48,18 @@ int gale_crypto_sign(int key_count,
 	if (NULL == sigs) return 0;
 
 	if (1 == key_count
-	&& (0 == source->l
+	&& (0 == source[0].l
 	|| !gale_text_compare(name[0],key_i_name(source[0])))) {
 		struct gale_fragment frag;
 		int sig_len;
 
-		if (0 == source->l) {
-			source->p = gale_malloc(
+		if (0 == source[0].l) {
+			const struct gale_text raw_name = key_i_swizzle(name[0]);
+			source[0].p = gale_malloc(
 				  gale_copy_size(sizeof(key_magic2))
-				+ gale_text_size(*name));
-			gale_pack_copy(source,key_magic2,sizeof(key_magic2));
-			gale_pack_text(source,*name);
+				+ gale_text_size(raw_name));
+			gale_pack_copy(&source[0],key_magic2,sizeof(key_magic2));
+			gale_pack_text(&source[0],raw_name);
 		}
 
 		sig_len = sizeof(sig_magic)
@@ -356,10 +357,7 @@ int gale_crypto_verify(int key_count,
 	}
 
 	for (i = 0; i < key_count; ++i)
-		if (0 == sigs[i].l) {
-			gale_alert(GALE_WARNING,G_("missing signature"),0);
-			return 0;
-		}
+		if (0 == sigs[i].l) return 0;
 
 	return gale_crypto_verify_raw(key_count,keys,sigs,original_data);
 }

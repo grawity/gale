@@ -37,10 +37,6 @@ static void *on_key(oop_source *oop,struct gale_key *key,void *user) {
 		frag.value.time = now;
 		gale_group_replace(&data,frag);
 
-		frag.name = G_("key.expires");
-		frag.value.time = gale_time_forever();
-		gale_group_replace(&data,frag);
-
 		if (!gale_crypto_sign(1,&signer,&data))  
 			gale_alert(GALE_ERROR,G_("could not sign key"),0);
 	}
@@ -109,9 +105,10 @@ int main(int argc,char *argv[]) {
 	if (NULL == key) gale_alert(GALE_ERROR,G_("key is ROOT"),0);
 
 	{
-		struct gale_group key_data = gale_key_data(ass);
+		struct gale_group key_data = 
+			gale_crypto_original(gale_key_data(ass));
 		oop_source_sys * const sys = oop_sys_new();
-		gale_key_retract(ass);
+		gale_key_retract(ass,1);
 		gale_key_search(oop_sys_source(sys),
 			key,search_private,
 			on_key,&key_data);

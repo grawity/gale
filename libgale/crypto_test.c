@@ -92,7 +92,6 @@ int main(int argc,char *argv[]) {
 
 	gale_print(stdout,0,G_("expect warnings from \"rsa routines\"\n"));
 	if (gale_crypto_verify(1,2 + keys,cipher)) return 1;
-	gale_print(stdout,0,G_("expect \"missing signature\" warning\n"));
 	if (gale_crypto_verify(1,0 + keys,cipher)) return 1;
 	if (!gale_crypto_verify(1,1 + keys,cipher)) return 1;
 	plain = gale_crypto_original(cipher);

@@ -68,13 +68,14 @@ static void *on_unpack(oop_source *oop,struct timeval now,void *x) {
 	}
 
 	assert(0 == ctx->count);
+	if (NULL == ctx->message)
+		return ctx->func(NULL,ctx->user);
 
 	/* Remove NULL entries from 'from' and 'to' arrays. */
 
 	compress(ctx->message->from,ctx->from_count);
 	compress(ctx->message->to,ctx->to_count);
-	if (NULL == ctx->message
-	||  NULL == ctx->message->to 
+	if (NULL == ctx->message->to 
 	||  NULL == ctx->message->to[0])
 		return ctx->func(NULL,ctx->user);
 
@@ -97,8 +98,13 @@ static void *on_unpack(oop_source *oop,struct timeval now,void *x) {
 				gale_location_key(ctx->message->from[i]),
 				gale_time_now()));
 
-		if (!gale_crypto_verify(i,keys,ctx->message->data))
-			return ctx->func(NULL,ctx->user);
+		if (!gale_crypto_verify(i,keys,ctx->message->data)) {
+			gale_alert(GALE_WARNING,gale_text_concat(3,
+				G_("can't verify message allegedly from \""),
+				gale_location_name(ctx->message->from[0]),
+				G_("\"")),0);
+			ctx->message->from[0] = NULL;
+		}
 
 		ctx->message->data = gale_crypto_original(ctx->message->data);
 	}
