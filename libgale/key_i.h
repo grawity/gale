@@ -13,6 +13,7 @@ struct gale_key_assertion {
 	struct gale_key_assertion **bundled;
 	struct gale_data source;
 	struct gale_group group;
+	struct gale_time stamp;
 	struct gale_key_assertion *signer;
 };
 
@@ -53,7 +54,7 @@ void key_i_init_akd(void);
 
 /* Recursively expand key relationships. */
 void key_i_graph(oop_source *,struct gale_key *,int flags,struct gale_text name,
-	void *(*)(oop_source *,struct gale_map *,int has_null,void *user),
+	void *(*)(oop_source *,struct gale_map *,int is_complete,int has_null,void *user),
 	void *user);
 
 #endif
