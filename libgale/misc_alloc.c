@@ -3,7 +3,7 @@
 #include "gale/globals.h"
 
 /* #define CHEESY_ALLOC */
-#define GC_DEBUG
+/* #define GC_DEBUG */
 
 #include <stdlib.h>
 #include <string.h>
@@ -20,7 +20,9 @@ struct gale_ptr { void *ptr; };
 #include <gc_backptr.h>
 
 static struct gale_text memory_report(void *x) {
+	void GC_dump(void); /* YUCK */
 	GC_generate_random_backtrace();
+	GC_dump();
 	return null_text;
 }
 
