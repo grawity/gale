@@ -45,14 +45,15 @@ static void read_conf(struct gale_text fn) {
 		gale_text_accumulate(&val,gale_text_right(line,-i));
 
 		line = gale_read_line(fp);
-		while (line.l > 0 && (line.p[0] == ' ' || line.p[0] == '\t')) {
+		while (line.l > 0 
+		   && (line.p[0] == ' ' || line.p[0] == '\t' || line.p[0] == '#')) {
 			line = trim_space(line);
 			if (0 == line.l) {
 				line = gale_read_line(fp);
 				break;
 			}
 
-			gale_text_accumulate(&val,line);
+			if ('#' != line.p[0]) gale_text_accumulate(&val,line);
 			line = gale_read_line(fp);
 		}
 
