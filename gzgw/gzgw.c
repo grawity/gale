@@ -62,8 +62,7 @@ void to_g(ZNotice_t *notice) {
 	int len;
 	char *ptr,*end,num[15];
 
-	ptr = strrchr(notice->z_sender,'@');
-	if (ptr && !strcasecmp(ptr,"@gale")) return;
+	if (!strcmp(notice->z_sender,"gale")) return;
 
 	msg = new_message();
 	if (notice->z_opcode && notice->z_opcode[0]) {
@@ -86,26 +85,31 @@ void to_g(ZNotice_t *notice) {
 	sprintf(num,"%u",(unsigned int) notice->z_time.tv_sec);
 	append(-1,num);
 	if (notice->z_recipient && notice->z_recipient[0]) {
-		append(6,"\r\nTo: ");
+		append(9,"\r\nTo: <Z:");
 		append(-1,notice->z_recipient);
+		append(1,">");
 	}
+
 	append(8,"\r\nFrom: ");
-	if (ptr)
-		append(ptr - notice->z_sender,notice->z_sender);
-	else
-		append(-1,notice->z_sender);
-	append(7,"@zephyr");
-	
+
 	ptr = memchr(notice->z_message,'\0',notice->z_message_len);
 	if (ptr) {
 		if (notice->z_message[0]) {
-			append(2," (");
 			append(ptr - notice->z_message,notice->z_message);
-			append(1,")");
+			append(1," ");
 		}
-		append(4,"\r\n\r\n");
+	}
+
+	append(3,"<Z:");
+	append(-1,notice->z_sender);
+	append(5,">\r\n\r\n");
+
+	if (ptr) {
+		char *zero;
 		++ptr;
 		len = notice->z_message_len - (ptr - notice->z_message);
+		zero = memchr(ptr,'\0',len);
+		if (zero) len = zero - ptr;
 		while (len > 0 && *ptr) {
 			end = memchr(ptr,'\n',len);
 			if (!end) end = ptr + len;
@@ -114,8 +118,7 @@ void to_g(ZNotice_t *notice) {
 			len -= (end - ptr) + 1;
 			ptr = end + 1;
 		}
-	} else
-		append(4,"\r\n\r\n");
+	}
 
 	msg->data_size = buf_len;
 	msg->data = gale_malloc(msg->data_size);
@@ -141,8 +144,7 @@ void z_to_g(void) {
 void to_z(struct gale_message *msg) {
 	ZNotice_t notice;
 	char class[32],instance[256] = "(invalid)",opcode[64] = "";
-	char sender[128] = "unknown@gale",sig[256] = "";
-	char *key,*data,*next,*end;
+	char *sig,*key,*data,*next,*end;
 	int retval;
 
 	strncpy(class,subs[0].zsub_class,sizeof(class));
@@ -154,7 +156,7 @@ void to_z(struct gale_message *msg) {
 	notice.z_class_inst = instance;
 	notice.z_opcode = opcode;
 	notice.z_default_format = "";
-	notice.z_sender = sender;
+	notice.z_sender = "gale";
 	notice.z_recipient = "";
 
 	sscanf(msg->category,"%*[^/]/%31[^/]/%255[^/]/%64[^/]",
@@ -163,11 +165,8 @@ void to_z(struct gale_message *msg) {
 	end = msg->data + msg->data_size;
 	next = msg->data;
 	while (parse_header(&next,&key,&data,end)) {
-		if (!strcasecmp(key,"To")) 
-			notice.z_recipient = data;
-		else if (!strcasecmp(key,"From") && 0 <
-			sscanf(data,"%100s (%255[^)])",sender,sig))
-			strcat(sender,"@gale");
+		if (!strcasecmp(key,"From"))
+			sig = data;
 		else if (!strcasecmp(key,"Encryption")) 
 			return;
 	}
@@ -261,10 +260,7 @@ int main(int argc,char *argv[]) {
 	}
 
 	gale_dprintf(2,"subscribing to gale: \"%s\"\n",category);
-	if (!(client = gale_open(server,32,262144))) {
-		fprintf(stderr,"could not contact gale server\n");
-		exit(1);
-	}
+	if (!(client = gale_open(server,32,262144))) exit(1);
 
 	link_subscribe(client->link,category);
 
