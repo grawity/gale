@@ -6,6 +6,9 @@ YACC = bison -y
 -include $(TOP)/defs.$(HOST)
 -include $(TOP)/defs.$(LAB)
 -include $(TOP)/defs.$(ARCH)
+-include $(TOP)/defs.$(shell uname -s)
+-include $(TOP)/defs.$(shell uname -sr | sed -e 's/ /-/g')
+-include $(TOP)/defs.$(shell uname -sr | sed -e 's/ /-/g' -e 's/\..*//g')
 
 ifndef GALE_VERSION
 GALE_VERSION := $(shell cat $(TOP)/version)
@@ -19,7 +22,8 @@ WARNINGS = -W -Wimplicit -Wreturn-type -Wunused -Wswitch -Wtrigraphs -Wformat \
 
 CPPFLAGS = $(INCLUDES) $(DEFINES)
 LDLIBS = -L$(TOP)/lib -lgale \
-	$(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB) $(CGIC_LIB) $(TERMCAP_LIB)
+	$(RSAREF_LIB) $(ZEPHYR_LIB) $(DB_LIB) $(CGIC_LIB) $(TERMCAP_LIB) \
+	$(SYS_LIB)
 
 all::
 	@$(MAKE) --no-print-directory subdirs TARGET=all

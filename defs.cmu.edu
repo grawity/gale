@@ -1,0 +1,33 @@
+prefix = /usr/local
+
+INC_DIR = $(prefix)/include/gale
+SYS_DIR = $(prefix)/etc/gale
+
+RSAREF = $(TOP)/../rsaref
+ifneq ($(wildcard $(RSAREF)),)
+RSAREF_INC = -I$(RSAREF)/source
+RSAREF_LIB = $(RSAREF_BUILD)/rsaref.a
+endif
+
+DB = $(TOP)/../db
+ifneq ($(wildcard $(DB)),)
+DB_LIB = $(DB_BUILD)/libdb.a
+DB_INC = -I$(DB_BUILD)
+endif
+
+CGIC = $(TOP)/../cgic
+ifneq ($(wildcard $(CGIC)),)
+CGIC_INC = -I$(CGIC)
+CGIC_LIB = $(CGIC)/libcgic.a
+endif
+
+ZEPHYR_LIB = -lzephyr -lkrb -ldes
+ZEPHYR_INC = -I/usr/local/include
+
+TERMCAP_LIB = -ltermcap
+
+BIN_DIR = $(prefix)/bin
+LIB_DIR = $(prefix)/lib
+
+RSAREF_BUILD = $(RSAREF)/build
+DB_BUILD = $(DB)/build.unix

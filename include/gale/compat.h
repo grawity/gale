@@ -21,7 +21,7 @@ char *strerror(int);
 #define HPINT
 #endif
 
-#if defined(__sun__) && defined(__svr4__)
+#if defined(__sun) && defined(__SVR4)
 #define SUNSUCK (char*)
 #else
 #define SUNSUCK

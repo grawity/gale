@@ -1,0 +1,3 @@
+SYS_LIB = -lnsl -lsocket
+CC = cc
+CFLAGS = -g

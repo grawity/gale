@@ -22,7 +22,7 @@ struct gale_id *lookup_id(const char *spec) {
 		id->name = gale_strdup(spec);
 	} else {
 		id->user = gale_strdup(spec);
-		id->domain = getenv("GALE_DOMAIN");
+		id->domain = gale_strdup(getenv("GALE_DOMAIN"));
 		id->name = gale_malloc(strlen(id->user)+strlen(id->domain)+2);
 		sprintf(id->name,"%s@%s",id->user,id->domain);
 	}

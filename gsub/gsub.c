@@ -69,7 +69,7 @@ void tmode(char id[2]) {
 	char *cap;
 	if (do_termcap && (cap = tgetstr(id,NULL))) 
 		tputs(cap,1,
-#ifdef hpux
+#if defined(hpux) || (defined(__sun) && defined(__SVR4))
 			(int(*)(char))
 #endif
 			putchar);
