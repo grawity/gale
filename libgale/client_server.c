@@ -175,23 +175,3 @@ void gale_on_disconnect(struct gale_server *s,gale_call_disconnect *f,void *d) {
 	s->on_disconnect_called = 0;
 	s->source->on_time(s->source,OOP_TIME_NOW,on_event,s);
 }
-
-#if 0
-struct auth_id *gale_user(void) {
-	struct auth_id *user_id = lookup_id(gale_var(G_("GALE_ID")));
-	if (!auth_id_public(user_id) 
-	&&  !auth_id_private(user_id))
-	{
-		struct gale_fragment frag;
-		struct gale_group group = gale_group_empty();
-
-		frag.name = G_("key.owner");
-		frag.type = frag_text;
-		frag.value.text = gale_var(G_("GALE_NAME"));
-		gale_group_add(&group,frag);
-		auth_id_gen(user_id,group);
-	}
-
-	return user_id;
-}
-#endif

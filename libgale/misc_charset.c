@@ -115,7 +115,6 @@ struct gale_text gale_text_from(struct gale_encoding *e,const char *p,int l) {
 #ifndef HAVE_ICONV
 	assert(0);
 #else
-	gale_global->enc_console = NULL;
 	gale_create_array(buf,l);
 
 	inbuf = (ICONV_CONST char *) p;
@@ -169,7 +168,6 @@ char *gale_text_to(struct gale_encoding *e,struct gale_text t) {
 #ifndef HAVE_ICONV
 	assert(0);
 #else
-	gale_global->enc_console = NULL;
 	gale_create_array(copy,t.l);
 	gale_create_array(buf,(alloc = t.l));
 

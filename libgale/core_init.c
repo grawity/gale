@@ -48,9 +48,14 @@ static void set_defaults(struct passwd *pwd) {
 			gale_set(G_("PATH"),gale_text_concat(2,new,old));
 	}
 
-	if (0 != gale_var(G_("GALE_FROM")).l) {
-		gale_set(G_("GALE_NAME"),gale_var(G_("GALE_FROM")));
-		gale_set(G_("GALE_FROM"),null_text);
+	if (gale_text_compare(gale_var(G_("GALE_FROM")),gale_var(G_("GALE_SENDER")))) {
+		if (0 != gale_var(G_("GALE_FROM")).l) {
+			gale_set(G_("GALE_NAME"),gale_var(G_("GALE_FROM")));
+			gale_set(G_("GALE_FROM"),null_text);
+		}
+
+		if (0 != gale_var(G_("GALE_SENDER")).l)
+			gale_set(G_("GALE_FROM"),gale_var(G_("GALE_SENDER")));
 	}
 
 	if (0 == gale_var(G_("GALE_NAME")).l) {
