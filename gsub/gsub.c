@@ -252,7 +252,7 @@ static void *on_message(struct gale_message *msg,void *data) {
 	&&  NULL != user_location
 	&&  gale_group_lookup(msg->data,G_("question.key"),frag_text,&f)
 	&& !gale_text_compare(f.value.text,gale_location_name(user_location))) {
-		f.name = G_("answer.key");
+		f.name = G_("answer/key");
 		f.type = frag_data;
 		f.value.data = gale_key_raw(gale_key_public(
 			gale_location_key(user_location),
