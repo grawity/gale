@@ -274,10 +274,12 @@ struct gale_data pack_old_message(struct gale_fragment **frags) {
 		}
 	}
 
+	sprintf(data.p + data.l,"\r\n");
+	data.l += 2;
+
 	if (0 != body.l) {
-		sprintf(data.p + data.l,"\r\n");
-		memcpy(data.p + data.l + 2,body.p,body.l);
-		data.l += 2 + body.l;
+		memcpy(data.p + data.l,body.p,body.l);
+		data.l += body.l;
 	}
 
 	return data;
