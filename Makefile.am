@@ -10,12 +10,6 @@ else
 gzgw_dir =
 endif
 
-if BUILD_RSAREF
-rsaref_dir = rsaref
-else
-rsaref_dir =
-endif
-
 if BUILD_GC
 gc_dir = gc
 else
@@ -34,8 +28,8 @@ else
 liboop_dir =
 endif
 
-SUBDIRS = ${gc_dir} ${rsaref_dir} ${liboop_dir} \
-	lib server gsend gsub gwatch kutils gdomain \
+SUBDIRS = ${gc_dir} ${liboop_dir} \
+	libgale server gsend gsub gwatch kutils gdomain \
 	${gzgw_dir} ${glxml_dir} include
 
 release: dist
@@ -51,20 +45,23 @@ dist-hook:
 	test ! -f $(srcdir)/lib/.deps/alloc.P
 
 install-data-local:
-	mkdir -p "$(sysconfdir)/gale/auth/trusted"
-	mkdir -p "$(sysconfdir)/gale/auth/private"
-	mkdir -p "$(sysconfdir)/gale/auth/local"
-	mkdir -p "$(sysconfdir)/gale/auth/cache"
-	chmod 1777 "$(sysconfdir)/gale/auth/local"
-	chmod 777 "$(sysconfdir)/gale/auth/cache"
-	$(INSTALL_DATA) "$(srcdir)/kutils/ROOT" "$(sysconfdir)/gale/auth/trusted/ROOT"
-	$(INSTALL_DATA) "$(srcdir)/COPYING" "$(sysconfdir)/gale/COPYING"
-	-chmod -R a+rX "$(sysconfdir)/gale"
+	mkdir -p "$(DESTDIR)$(sysconfdir)/gale/auth/trusted"
+	mkdir -p "$(DESTDIR)$(sysconfdir)/gale/auth/private"
+	mkdir -p "$(DESTDIR)$(sysconfdir)/gale/auth/local"
+	mkdir -p "$(DESTDIR)$(sysconfdir)/gale/auth/cache"
+	chmod 1777 "$(DESTDIR)$(sysconfdir)/gale/auth/local"
+	chmod 777 "$(DESTDIR)$(sysconfdir)/gale/auth/cache"
+	$(INSTALL_DATA) "$(srcdir)/kutils/ROOT" \
+		"$(DESTDIR)$(sysconfdir)/gale/auth/trusted/ROOT"
+	$(INSTALL_DATA) "$(srcdir)/COPYING" \
+		"$(DESTDIR)$(sysconfdir)/gale/COPYING"
+	-chmod -R a+rX "$(DESTDIR)$(sysconfdir)/gale"
 	@echo ""
-	@echo "*** now run $(bindir)/gale-install ... even for an upgrade ***"
+	@echo "*** now run $(DESTDIR)$(bindir)/gale-install ... even for an upgrade ***"
 
 install-exec-local:
 	$(PROG_LDCONFIG) || true
-	test "x$(bindir)" != "x$(sbindir)" && \
-	ln -s "$(sbindir)/gksign" "$(bindir)/gksign.tmp.$$$$" && \
-	mv "$(bindir)/gksign.tmp.$$$$" "$(bindir)/gksign"
+	test "x$(DESTDIR)$(bindir)" != "x$(DESTDIR)$(sbindir)" && \
+	ln -s "$(DESTDIR)$(sbindir)/gksign" \
+		"$(DESTDIR)$(bindir)/gksign.tmp.$$$$" && \
+	mv "$(DESTDIR)$(bindir)/gksign.tmp.$$$$" "$(DESTDIR)$(bindir)/gksign"

@@ -73,7 +73,7 @@ void gale_restart(void);
  *  \param argv The arguments to use (including argv[0] and terminated by NULL).
  *  \param in If non-NULL, receives a pipe file descriptor open for writing.
  *  \param out If non-NULL, receives a pipe file descriptor open for reading.
- *  \param fallback Function to call if the program can't be found.
+ *  \param fallback If non-NULL, function to call if the program can't be found.
  *  \return The process ID of the subprogram.
  *  \sa Make sure to call gale_wait(), or you'll get zombies.
  *  \todo Change the argument types to gale_text. */
@@ -170,7 +170,7 @@ void gale_check_mem(void);
  *  \return A fresh copy of \a data. */
 struct gale_data gale_data_copy(struct gale_data data);
 
-/** Compare memory blocks, a la memcmp().
+/** Compare two memory blocks, a la memcmp().
  *  \return Less than zero if \a a \< \a b, zero if \a a == \a b, or
  *  greater than zero if \a a \> \a b. */
 int gale_data_compare(struct gale_data a,struct gale_data b);
@@ -473,10 +473,20 @@ int gale_group_lookup(
 	struct gale_fragment *frag);
 
 /** Return a human-readable version of the fragment (for debugging). */
-struct gale_text gale_print_fragment(struct gale_fragment);
+struct gale_text gale_print_fragment(struct gale_fragment,int indent);
 
 /** Return a human-readable version of the group (for debugging). */
 struct gale_text gale_print_group(struct gale_group,int indent);
+
+/** Compare two fragments.
+ *  \return Less than zero if \a a \< \a b, zero if \a a == \a b, or
+ *  greater than zero if \a a \> \a b. */
+int gale_fragment_compare(struct gale_fragment a,struct gale_fragment b);
+
+/** Compare two groups.
+ *  \return Less than zero if \a a \< \a b, zero if \a a == \a b, or
+ *  greater than zero if \a a \> \a b. */
+int gale_group_compare(struct gale_group a,struct gale_group b);
 /*@}*/
 
 /** \name Data Serialization 
@@ -485,13 +495,14 @@ struct gale_text gale_print_group(struct gale_group,int indent);
  *  They are used to serialize and deserialize data from binary streams
  *  (mostly to support network protocols).  For a particular data encoding 
  *  "type", there are usually three functions defined:
- *  - type gale_unpack_type(struct gale_data *)
+ *  - int gale_unpack_type(struct gale_data *,type *)
  *  - void gale_pack_type(struct gale_data *,type);
  *  - size_t gale_type_size(type)
  * 
  *  The gale_unpack_type function converts binary data into the specified
  *  type, modifying the ::gale_data structure to start at the end of the
- *  decoded data.  The gale_pack_type function does the opposite, converting
+ *  decoded data, returning nonzero iff the operation was successful.  
+ *  The gale_pack_type function does the opposite, converting
  *  the specified type into binary data.  Space must be preallocated in the
  *  ::gale_data structure for the data; the gale_type_size function supplies
  *  a conservative (but usually accurate) estimate of the amount of space
@@ -552,26 +563,29 @@ size_t gale_group_size(struct gale_group);
    home_dir  -> ~
    sys_dir   -> etc/gale */
 
-/* (Attempt to) create a directory if it does not exist, with the specified
-   name and mode. */
 void make_dir(struct gale_text path,int mode);
-
-/* Append a subdirectory (creating it with the specified mode if necessary) */
 struct gale_text sub_dir(struct gale_text path,struct gale_text sub,int mode);
-/* Find the parent of a directory. */
 struct gale_text up_dir(struct gale_text path);
-
-/* Construct a filename in the given directory.  Makes sure the filename
-   contains no "../" (for safety) and concatenates the directory with the
-   path information. */
 struct gale_text dir_file(struct gale_text path,struct gale_text file);
-
-/* Search for a file in several directories.  Takes the filename, a flag (cwd)
-   indicating whether the current directory should be searched as well (1 for
-   yes, 0 for no), and a list of directories (end with NULL).  Will return the
-   full filename (as from dir_file) if it finds such a file in any of the
-   specified directories, null_text otherwise. */
 struct gale_text dir_search(struct gale_text name,int cwd,struct gale_text,...);
+
+struct gale_data gale_read_from(int fd,int size_limit);
+int gale_write_to(int fd,struct gale_data data);
+
+struct gale_file_state;
+struct gale_data gale_read_file(
+	struct gale_text name,
+	int size_limit,int do_paranoia,
+	struct gale_file_state **state);
+int gale_write_file(
+	struct gale_text name,
+	struct gale_data data,
+	int is_private,
+	struct gale_file_state **state);
+
+int gale_erase_file(const struct gale_file_state *state);
+int gale_file_changed(const struct gale_file_state *since);
+
 /*@}*/
 
 /** \name Error Reporting */
@@ -592,6 +606,8 @@ void gale_alert(int severity,struct gale_text str,int err);
  *  \return Liboop continuation code (usually OOP_CONTINUE).
  *  \sa gale_on_error() */
 typedef void *gale_call_error(int severity,struct gale_text msg,void *user);
+
+struct old_gale_message;
 
 /** Function type for a user-defined error handler that accepts a
  *  formatted ::old_gale_message. 

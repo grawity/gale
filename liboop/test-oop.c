@@ -25,6 +25,20 @@
 GMainLoop *glib_loop;
 #endif
 
+#ifdef HAVE_WWW
+/* Yuck: */
+#define HAVE_CONFIG_H
+#undef PACKAGE
+#undef VERSION
+
+#include "oop.h"
+#include "HTEvent.h"
+#include "oop-www.h"
+
+#include "WWWLib.h"
+#include "WWWInit.h"
+#endif
+
 #ifdef HAVE_READLINE
 #include <readline/readline.h>
 #include "oop-rl.h"
@@ -256,18 +270,6 @@ static void add_adns(oop_source *src) {
 /* -- libwww --------------------------------------------------------------- */
 
 #ifdef HAVE_WWW
-
-/* Yuck: */
-#define HAVE_CONFIG_H
-#undef PACKAGE
-#undef VERSION
-
-#include "oop.h"
-#include "HTEvent.h"
-#include "oop-www.h"
-
-#include "WWWLib.h"
-#include "WWWInit.h"
 
 static int remaining = 0;
 

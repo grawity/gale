@@ -230,6 +230,8 @@ static void *on_message(struct gale_message *msg,void *data) {
 	pid_t pid;
 	char *szbody = NULL;
 
+	if (NULL == msg) return OOP_CONTINUE;
+
 #ifndef NDEBUG
 	/* In debug mode, restart if we get a properly authorized message. 
 	   Do this before setting environment variables, to avoid "sticky
@@ -259,7 +261,7 @@ static void *on_message(struct gale_message *msg,void *data) {
 
 		/* Process receipts, if we do. */
 		if (do_presence && frag.type == frag_text
-		&& !gale_text_compare(frag.name,G_("question/receipt")))
+		&& !gale_text_compare(frag.name,G_("question.receipt")))
 			gale_find_exact_location(source,
 				frag.value.text,
 				on_receipt,NULL);
@@ -275,8 +277,9 @@ static void *on_message(struct gale_message *msg,void *data) {
 			struct gale_fragment frag;
 			frag.name = G_("answer/key");
 			frag.type = frag_data;
-			frag.value.data = 
-				gale_location_public_bits(user_location);
+			frag.value.data = gale_key_raw(gale_key_public(
+				gale_location_key(user_location),
+				gale_time_now()));
 			slip(key_answer_location,&frag,on_put,NULL);
 		}
 

@@ -1,13 +1,4 @@
-#include "common.h"
-#include "file.h"
-#include "key.h"
-#include "id.h"
-
 #include "gale/all.h"
-
-/* For MD5: */
-#include "global.h"
-#include "rsaref.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -15,86 +6,68 @@
 #include <string.h>
 #include <sys/time.h>
 
+int do_show_trusted = 1;
 int do_name_only = 0;
 int do_verbose = 0;
 int is_found = 0;
 
-const byte m_gale[] = { 0x68, 0x13 };
-const byte m_pub[] = { 0x00, 0x00 };
-const byte m_pub2[] = { 0x00, 0x02 };
-const byte m_priv[] = { 0x00, 0x01 };
-const byte m_priv2[] = { 0x00, 0x03 };
-const byte m_sign[] = { 0x01, 0x00 };
+void print(const struct gale_key_assertion *ass) {
+	struct gale_key *owner = gale_key_owner(ass);
+	struct gale_group data = gale_key_data(ass);
+	if (NULL == owner) return;
 
-const byte m_gale3[] = { 'G', 'A', 'L', 'E' };
-const byte m_pub3[] = { 0x00, 0x01 };
-
-const char *do_indent(int indent) {
-	char *str;
-	gale_create_array(str,1 + indent);
-	str[indent] = '\0';
-	while (indent--) str[indent] = ' ';
-	return str;
-}
-
-void do_info(struct gale_group grp,const struct inode *i,int indent) {
-	if (0 != i->name.l)
-		printf("%sStored in \"%s\"\n",do_indent(indent),
-		       gale_text_to(gale_global->enc_console,i->name));
-
-	printf("%s",gale_text_to(gale_global->enc_console,gale_print_group(grp,2)));
-}
-
-void pub_info(struct auth_id *id,int indent) {
-	struct gale_fragment frag;
-	printf("<%s>",gale_text_to(gale_global->enc_console,id->name));
-	if (gale_group_lookup(id->pub_data,G_("key.owner"),frag_text,&frag))
-		printf(" (%s)",gale_text_to(gale_global->enc_console,frag.value.text));
-	if (id->pub_trusted)
-		printf(" [trusted]");
-	printf("\n");
-
-	if (do_verbose) {
-		if (NULL != id->pub_signer)
-			printf("%sSigned by <%s>\n",do_indent(indent += 2),
-			       gale_text_to(gale_global->enc_console,id->pub_signer->name));
-		do_info(id->pub_data,&id->pub_inode,indent);
-	}
-
-	if (gale_group_lookup(id->pub_data,G_("key.redirect"),frag_text,&frag))
-		printf("%sRedirector to <%s>\n",
-		       do_indent(indent),gale_text_to(gale_global->enc_console,frag.value.text));
-
-	if (do_verbose) {
-		putchar('\n');
+	if (do_name_only) {
+		if (!is_found) {
+			gale_print(stdout,0,gale_key_name(owner));
+			gale_print(stdout,0,G_("\n"));
+			is_found = 1;
+		}
 		return;
 	}
 
-	if (NULL == id->pub_signer) return;
-	printf("%sSigned: ",do_indent(indent += 2));
-	pub_info(id->pub_signer,indent);
-}
-
-void pub_key(struct auth_id *id) {
 	is_found = 1;
-	if (do_name_only) return;
-
-	if (_ga_trust_pub(id))
-		printf("Trusted");
+	if (gale_group_compare(data,gale_crypto_public(data)))
+		gale_print(stdout,0,G_("Private key:"));
 	else
-		printf("UNTRUSTED");
-	printf(" public key: "); pub_info(id,0);
+		gale_print(stdout,0,G_("Public key:"));
+
+	while (NULL != owner) {
+		struct gale_fragment frag;
+		struct gale_group data = gale_key_data(ass);
+
+		gale_print(stdout,0,G_(" <"));
+		gale_print(stdout,0,gale_key_name(owner));
+		gale_print(stdout,0,G_(">"));
+
+		if (gale_group_lookup(data,G_("key.owner"),frag_text,&frag)) {
+			gale_print(stdout,0,G_(" ("));
+			gale_print(stdout,0,frag.value.text);
+			gale_print(stdout,0,G_(")"));
+		}
+
+		if (do_show_trusted && gale_key_trusted(ass))
+			gale_print(stdout,0,G_(" [trusted]"));
+
+		gale_print(stdout,0,G_("\n"));
+
+		if (do_verbose) {
+			gale_print(stdout,0,G_("  "));
+			gale_print(stdout,0,
+				gale_print_group(data,2));
+			gale_print(stdout,0,G_("\n\n"));
+		}
+
+		ass = gale_key_signed(ass);
+		owner = gale_key_owner(ass);
+		if (NULL != owner)
+			gale_print(stdout,0,G_("Signed by:"));
+	}
 }
 
-void priv_key(struct auth_id *id) {
-	is_found = 1;
-	if (do_name_only) return;
-
-	printf("Private key: <%s>\n",gale_text_to(gale_global->enc_console,id->name));
-	if (do_verbose) {
-		do_info(id->priv_data,&id->priv_inode,2);
-		putchar('\n');
-	}
+void *callback(oop_source *oop,struct gale_key *key,void *user) {
+	print(gale_key_public(key,gale_time_now()));
+	print(gale_key_private(key));
+	return OOP_CONTINUE;
 }
 
 void usage(void) {
@@ -110,15 +83,14 @@ void usage(void) {
 }
 
 int main(int argc,char *argv[]) {
-	struct gale_data key = null_data;
-	struct auth_id *id;
 	int arg;
+	int flags = search_all;
 
 	gale_init("gkinfo",argc,argv);
 
 	while ((arg = getopt(argc,argv,"ixvdD")) != EOF) switch (arg) {
 	case 'i': do_name_only = 1; break;
-	case 'x': disable_gale_akd(); break;
+	case 'x': flags &= ~search_slow; break;
 	case 'v': do_verbose = 1; break;
 	case 'd': ++gale_global->debug_level; break;
 	case 'D': gale_global->debug_level += 5; break;
@@ -126,56 +98,34 @@ int main(int argc,char *argv[]) {
 	case '?': usage();
 	}
 
-	if (optind + 1 == argc) {
-		init_auth_id(&id,gale_text_from(gale_global->enc_cmdline,argv[optind],-1));
-		if (auth_id_private(id)) priv_key(id);
-		if (auth_id_public(id)) pub_key(id);
+	if (argc > optind) {
+		oop_source_sys *sys = oop_sys_new(); 
+		while (argc != optind) {
+			struct gale_key *handle = gale_key_handle(
+				gale_text_from(gale_global->enc_cmdline,
+					argv[optind++],-1));
+			gale_key_search(oop_sys_source(sys),
+				handle,flags,
+				callback,NULL);
+		}
+		oop_sys_run(sys);
+		oop_sys_delete(sys);
 	} else {
-		struct gale_data test;
+		struct gale_key_assertion *ass;
+		struct gale_data key;
 
-		if (optind != argc) usage();
 		if (isatty(0)) usage();
-		if (!_ga_load(0,&key)) 
-			gale_alert(GALE_ERROR,G_("could not read file"),errno);
+		key = gale_read_from(0,0);
+		if (0 == key.l)
+			gale_alert(GALE_ERROR,G_("could not read stdin"),0);
 
-		test = key;
-		if (gale_unpack_compare(&test,m_gale,sizeof(m_gale))) {
-			if (gale_unpack_compare(&test,m_pub,sizeof(m_pub))
-			||  gale_unpack_compare(&test,m_pub2,sizeof(m_pub2))) {
-				struct inode inode = _ga_init_inode();
-				_ga_import_pub(&id,key,&inode,IMPORT_NORMAL);
-				if (NULL == id) 
-					gale_alert(GALE_ERROR,
-					           G_("public key invalid"),0);
-				pub_key(id);
-			} else 
-			if (gale_unpack_compare(&test,m_priv,sizeof(m_priv))
-			||  gale_unpack_compare(&test,m_priv2,sizeof(m_priv2))){
-				_ga_import_priv(&id,key,NULL);
-				if (NULL == id) 
-					gale_alert(GALE_ERROR,
-					           G_("private key invalid"),0);
-				priv_key(id);
-			} else
-				gale_alert(GALE_ERROR,G_("invalid key"),0);
-		} else if (gale_unpack_compare(&test,m_gale3,sizeof(m_gale3))) {
-			if (gale_unpack_compare(&test,m_pub3,sizeof(m_pub3))) {
-				struct inode inode = _ga_init_inode();
-				_ga_import_pub(&id,key,&inode,IMPORT_NORMAL);
-				if (NULL == id) 
-					gale_alert(GALE_ERROR,
-					           G_("public key invalid"),0);
-				pub_key(id);
-			} else
-				gale_alert(GALE_ERROR,G_("invalid key"),0);
-		} else
-			gale_alert(GALE_ERROR,G_("unknown file format"),0);
+		do_show_trusted = 0;
+		ass = gale_key_assert(key,1);
+		print(ass);
 	}
 
 	if (!is_found)
 		gale_alert(GALE_ERROR,G_("could not find key"),0);
-	else if (do_name_only)
-		printf("%s\n",gale_text_to(gale_global->enc_console,auth_id_name(id)));
 
 	return 0;
 }

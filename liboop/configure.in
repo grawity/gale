@@ -27,20 +27,20 @@ esac
 AC_CHECK_HEADERS(poll.h sys/select.h)
 
 AC_CHECK_LIB(adns,adns_init,[
-  ADNS_LIBS="liboop-adns.la -ladns"
+  ADNS_LIBS="-ladns"
   AC_DEFINE(HAVE_ADNS)
 ])
 
 AC_CHECK_LIB(readline,rl_callback_handler_install,[
 AC_CHECK_HEADER(readline/readline.h,[
-  READLINE_LIBS="liboop-rl.la -lreadline"
+  READLINE_LIBS="-lreadline"
   AC_DEFINE(HAVE_READLINE)
 ])])
 
 AC_CHECK_PROG(PROG_GLIB_CONFIG,glib-config,glib-config)
 if test -n "$PROG_GLIB_CONFIG" ; then
   GLIB_INCLUDES="`glib-config --cflags`"
-  GLIB_LIBS="liboop-glib.la `glib-config --libs`"
+  GLIB_LIBS="`glib-config --libs`"
   AC_DEFINE(HAVE_GLIB)
 fi
 
@@ -48,7 +48,7 @@ fi
 AC_CHECK_LIB(wwwcore,HTEvent_setRegisterCallback,[
   AC_DEFINE(HAVE_WWW)
   # This is just a little unpleasant.
-  WWW_LIBS="liboop-www.la \
+  WWW_LIBS=" \
   -lwwwapp -lwwwcache -lwwwcore -lwwwdir -lwwwfile -lwwwftp -lwwwgopher \
   -lwwwhtml -lwwwhttp -lwwwinit -lwwwmime -lwwwmux -lwwwnews -lwwwstream \
   -lwwwtelnet -lwwwtrans -lwwwutils -lwwwxml -lwwwzip -lxmlparse -lxmltok -lmd5"

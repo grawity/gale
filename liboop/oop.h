@@ -31,9 +31,10 @@ static const struct timeval OOP_TIME_NOW = { 0, 0 };
 #define OOP_NUM_SIGNALS 256
 
 /* Callbacks may return one of these */
-extern int _oop_continue; /* internal only */
+extern int _oop_continue,_oop_error; /* internal only */
 #define OOP_CONTINUE ((void *) &_oop_continue)
-#define OOP_HALT ((void *) NULL) /* (or any other value except OOP_CONTINUE) */
+#define OOP_ERROR ((void *) &_oop_error)
+#define OOP_HALT ((void *) NULL) /* (or any other value besides OOP_CONTINUE) */
 
 /* Callback function prototypes */
 typedef void *oop_call_fd(oop_source *,int fd,oop_event,void *);

@@ -326,7 +326,10 @@ void *oop_sys_run(oop_source_sys *sys) {
 
 		sys->do_jmp = 0;
 
-		if (0 > rv) break; /* Error in select(). */
+		if (0 > rv) { /* Error in select(). */
+			ret = OOP_ERROR;
+			break; 
+		}
 
 		if (sys->sig_active) {
 			sys->sig_active = 0;

@@ -21,86 +21,19 @@ struct gale_location;
 typedef void *gale_call_location(struct gale_text name,
 	struct gale_location *loc,void *user);
 
-/** Look up a Gale location address.
- *  Start looking up a Gale location address in the background and return
- *  immediately.  When the lookup is complete (whether it succeeded or 
- *  failed), the supplied callback is invoked.
- *  \param oop Liboop event source to use.
- *  \param name Name of the location to look up (e.g. "pub.food").
- *  \param func Function to call when location lookup completes.
- *  \param user User-defined parameter to pass the function. 
- *  \sa gale_location_name(), gale_find_exact_location() */
-void gale_find_location(oop_source *oop,
-	struct gale_text name,
-	gale_call_location *func,void *user);
+void gale_find_location(
+	oop_source *,struct gale_text,
+	gale_call_location *,void *user);
+void gale_find_exact_location(
+	oop_source *,struct gale_text,
+	gale_call_location *,void *user);
+void gale_find_default_location(
+	oop_source *,gale_call_location *,void *user);
 
-/** Lookup a Gale location address without alias expansion.
- *  This function is like gale_find_location(), but accepts only canonical
- *  location names, and skips all alias expansion steps.
- *  \param oop Liboop event source to use.
- *  \param name Name of the location to look up (e.g. "pub.food@ofb.net").
- *  \param func Function to call when location lookup completes.
- *  \param user User-defined parameter to pass the function. 
- *  \sa gale_find_location() */
-void gale_find_exact_location(oop_source *oop,
-	struct gale_text name,
-	gale_call_location *func,void *user);
-
-/** Look up the default user location.
- *  Start looking up the local user's default "personal" location.  When the
- *  lookup is complete (whether it succeeded or failed), the supplied callback
- *  is invoked.
- *  \param oop Liboop event source to use.
- *  \param func Function to call when location lookup completes.
- *  \param user User-defined parameter to pass the function.
- *  \sa gale_find_location() */
-void gale_find_default_location(oop_source *oop,
-	gale_call_location *func,void *user);
-
-/** Find a location's name.
- *  This is approximately the opposite of gale_find_location().
- *  \param loc Location to examine.
- *  \return The name of the location (e.g. "pub.food@ofb.net"). */
 struct gale_text gale_location_name(struct gale_location *loc);
+struct gale_key *gale_location_key(struct gale_location *loc);
 
-/** Find the "root" of a location.
- *  This function will return the "parent" responsible for setting a 
- *  location's properties.  (For example, the root of "pub.food.bitter@ofb.net"
- *  may be "pub@ofb.net".) 
- *  \param loc Location to find root for.
- *  \return Root location. */
-struct gale_location *gale_location_root(struct gale_location *loc);
-
-/** Return the original public key file.
- *  \param loc Location to export.
- *  \return Public key data, ready to be written to a key file. */
-struct gale_data gale_location_public_bits(struct gale_location *loc);
-
-/** Return the original private key file.
- *  \param loc Location to export.
- *  \return Private key data, ready to be written to a key file. */
-struct gale_data gale_location_private_bits(struct gale_location *loc);
-
-/** Get all the public metadata associated with a location.
- *  \param loc Location to examine.
- *  \return Public location metadata in ::gale_group format. */
-struct gale_group gale_location_public_data(struct gale_location *loc);
-
-/** Get all the private metadata associated with a location.
- *  \param loc Location to examine.
- *  \return Private location metadata in ::gale_group format. */
-struct gale_group gale_location_private_data(struct gale_location *loc);
-
-/** Determine if we can receive messages sent to a location.
- *  Effectively, this is true if we hold the private key for a location
- *  (or the location is public). 
- *  \param loc Location to examine.
- *  \return Nonzero if we can subscribe to this location. */
 int gale_location_receive_ok(struct gale_location *loc);
-
-/** Determine if we can send messages to a location.
- *  \param loc Location to examine.
- *  \return Nonzero if we can send messages to this location. */
 int gale_location_send_ok(struct gale_location *loc);
 
 /** Logical Gale message structure. */
@@ -120,15 +53,6 @@ struct gale_message {
  *  \sa gale_pack_message() */
 typedef void *gale_call_packet(struct gale_packet *msg,void *user);
 
-/** Pack a Gale message into a raw "packet".
- *  Packing may require location lookups, so this function starts
- *  the process in the background, using liboop to invoke a callback
- *  when the process is complete.
- *  \param oop Liboop event source to use.
- *  \param msg Message to pack.
- *  \param func Function to call with packed message.
- *  \param user User-defined parameter to pass the function.
- *  \sa gale_unpack_message(), link_put() */
 void gale_pack_message(oop_source *oop,
 	struct gale_message *msg,
 	gale_call_packet *call,void *user);
@@ -140,45 +64,13 @@ void gale_pack_message(oop_source *oop,
  *  \sa gale_unpack_message() */
 typedef void *gale_call_message(struct gale_message *msg,void *user);
 
-/** Unpack a Gale message from a raw "packet".
- *  Unpacking may require location lookups, so this function starts
- *  the process in the background, using liboop to invoke a callback
- *  when the process is complete.
- *  \param oop Liboop event source to use.
- *  \param pack "Packet" to unpack (usually as received).
- *  \param func Function to call with unpacked message.
- *  \param user User-defined parameter to pass the function. 
- *  \sa gale_pack_message(), link_on_message() */
 void gale_unpack_message(oop_source *oop,
 	struct gale_packet *pack,
 	gale_call_message *func,void *user);
 
-/** Pack a list of locations into a subscription expression.
- *  \param list NULL-terminated array of ::location pointers.
- *  \param positive Corresponding array of subscription flags,
- *  zero for negative subscriptions and nonzero for positive
- *  subscriptions.  If \a positive is NULL, all locations are
- *  assumed to be positive.
- *  \return Raw form of subscription expression.
- *  \sa gale_find_location() */
 struct gale_text gale_pack_subscriptions(
 	struct gale_location **list,
 	int *positive);
-/*@}*/
-
-/** \name Compatibility stuff (ignore) */
-/*@{*/
-struct old_gale_message {
-	struct gale_text cat;
-	struct gale_group data;
-};
-struct old_gale_message *gale_make_message(void);
-struct old_gale_message *gale_receive(struct gale_packet *pack);
-struct gale_packet *gale_transmit(struct old_gale_message *pack);
-struct gale_server *gale_open(
-	oop_source *,struct gale_link *,
-	struct gale_text subscr,struct gale_text server,int avoid_local);
-void gale_reopen(struct gale_server *,struct gale_text subscr);
 /*@}*/
 
 /** \name Connection Management */
@@ -253,27 +145,5 @@ void gale_on_disconnect(struct gale_server *,gale_call_disconnect *func,void *us
 /* -- standard fragment utilities -------------------------------------------*/
 
 void gale_add_id(struct gale_group *group,struct gale_text terminal);
-
-/* -- gale user id management ---------------------------------------------- */
-
-struct auth_id; /* defined in gauth.h */
-
-/* Control AKD, if you need to suppress it.  Starts out enabled. */
-void disable_gale_akd(); /* Increases the "suppress count" */
-void enable_gale_akd();  /* Decreases the "suppress count" */
-
-/* Look up an ID by the local naming conventions. */
-struct auth_id *lookup_id(struct gale_text);
-
-/* Find our own ID, generate keys if necessary. */
-struct auth_id *gale_user();
-
-/* Return @ domain / pfx / user / sfx. */
-struct gale_text 
-id_category(struct auth_id *,struct gale_text pfx,struct gale_text sfx);
-
-/* Return @ dom / pfx /.  NULL dom = default */
-struct gale_text 
-dom_category(struct gale_text dom,struct gale_text pfx);
 
 #endif

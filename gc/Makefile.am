@@ -11,8 +11,8 @@ libgc.a:
 	mv gc.a libgc.a
 
 install-data-local:
-	test -f "$(srcdir)/gc.h" && \
-	$(INSTALL_DATA) "$(srcdir)/gc.h" "$(DESTDIR)$(includedir)/gc.h"
+	if test -f "$(srcdir)/gc.h" ; then \
+	$(INSTALL_DATA) "$(srcdir)/gc.h" "$(DESTDIR)$(includedir)/gc.h" ; fi
 
 clean-local:
 	$(MAKE) -f Makefile.gc clean srcdir="${srcdir}" CC="${CC}"

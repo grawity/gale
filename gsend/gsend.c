@@ -18,28 +18,28 @@ struct gale_message *msg;               /* The message we're building. */
 struct gale_location *user = NULL;	/* The local user. */
 struct gale_location *bad_location = (struct gale_location *) 0xbaadbaad;
 oop_source *oop;			/* Event source. */
-int lookup_count = 0;			/* Outstanding lookup requests. */
+int lookup_count = 1;			/* Outstanding lookup requests. */
 int do_rrcpt = 0,do_identify = 1;       /* Various flags. */
 
-/* Construct a comma-separated list of names. */
-static struct gale_text comma_list(struct gale_location **list) {
-	struct gale_text *array;
-	int i,num;
+/* Print a comma-separated list of names. */
+static void comma_list(struct gale_location **list) {
+	int i;
 
-	if (NULL == list || NULL == list[0]) return null_text;
-	for (num = 0; NULL != list[num]; ++num) ;
-
-	gale_create_array(array,2*num - 1);
-	for (i = 0; num != i; ++i) {
-		array[2*i] = gale_location_name(list[i]);
-		if (0 == i) continue;
-		if (i < num)
-			array[2*i - 1] = G_(", ");
-		else
-			array[2*i - 1] = G_(" and ");
+	if (NULL == list || NULL == list[0]) {
+		gale_print(stdout,0,G_("(nobody)"));
+		return;
 	}
 
-	return gale_text_concat_array(2*num - 1,array);
+	for (i = 0; NULL != list[i]; ++i) {
+		gale_print(stdout,0,G_("<"));
+		gale_print(stdout,gale_print_bold,gale_location_name(list[i]));
+		if (NULL == list[i + 1])
+			gale_print(stdout,0,G_(">"));
+		else if (NULL == list[i + 2])
+			gale_print(stdout,0,G_("> and "));
+		else
+			gale_print(stdout,0,G_(">, "));
+	}
 }
 
 /* Add default fragments to the message, if not already specified. */
@@ -134,7 +134,7 @@ static void *on_pack(struct gale_packet *pack,void *user) {
 
 	/* Open a connection to the server; don't subscribe to anything. */
 	link = new_link(oop);
-	server = gale_open(oop,link,G_("-"),null_text,0);
+	server = gale_make_server(oop,link,null_text,0);
 
 	link_put(link,pack);
 	link_on_empty(link,on_empty,NULL);
@@ -167,8 +167,8 @@ static void prepare_message() {
 
 	/* If stdin is a TTY, prompt the user. */
 	if (ttyin) {
-		gale_print(stdout,0,G_("Message for "));
-		gale_print(stdout,gale_print_bold,comma_list(msg->to));
+		gale_print(stdout,0,G_("To "));
+		comma_list(msg->to);
 		gale_print(stdout,0,G_(":\n"));
 		gale_print(stdout,0,G_("(End your message with EOF or a solitary dot.)\n"));
 	}
@@ -214,8 +214,8 @@ static void *on_location(struct gale_text n,struct gale_location *loc,void *x) {
 /* Start looking up a location. */
 static void find_location(struct gale_text name,struct gale_location **ptr) {
 	*ptr = NULL;
-	gale_find_location(oop,name,on_location,ptr);
 	++lookup_count;
+	gale_find_location(oop,name,on_location,ptr);
 }
 
 /* Output usage information, exit. */
@@ -295,13 +295,21 @@ int main(int argc,char *argv[]) {
 
 	gale_create_array(msg->to,1 + argc - optind);
 	msg->to[argc - optind] = NULL;
-	for (arg = optind; argc != arg; ++arg)
-		find_location(
-		       gale_text_from(gale_global->enc_cmdline,argv[arg],-1),
-		       &msg->to[arg - optind]);
+	for (arg = optind; argc != arg; ++arg) {
+		struct gale_text a = gale_text_from(
+			gale_global->enc_cmdline,
+			argv[arg],-1);
+		if ('/' != argv[arg][0])
+			find_location(a,&msg->to[arg - optind]);
+		else {
+			frag.name = G_("message/subject");
+			frag.type = frag_text;
+			frag.value.text = gale_text_right(a,-1);
+			gale_group_add(&msg->data,frag);
+		}
+	}
 
-	if (0 == lookup_count)
-		gale_alert(GALE_ERROR,G_("No valid recipients."),0);
+	if (0 == --lookup_count) prepare_message();
 
 	/* Everything else is asynchronous. */
 	oop_sys_run(sys);
