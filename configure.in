@@ -246,7 +246,6 @@ AC_OUTPUT(
 	glxml/Makefile
 	gsend/Makefile
 	kutils/Makefile
-	gwatch/Makefile
 	server/Makefile
 	gdomain/Makefile
 	include/Makefile 

@@ -23,7 +23,7 @@ liboop_dir =
 endif
 
 SUBDIRS = ${gc_dir} ${liboop_dir} \
-	libgale server gsend gsub gwatch kutils gdomain ${glxml_dir} include
+	libgale server gsend gsub kutils gdomain ${glxml_dir} include
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

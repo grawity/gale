@@ -77,8 +77,8 @@ struct gale_text gale_pack_subscriptions(
 /*@{*/
 
 /** Connect to a Gale server.
- *  Keeps a link connected and subscribed.  Uses link_on_error() to 
- *  automatically reconnect and resubscribe if the connection is closed.
+ *  Keeps a link connected.  Uses link_on_error() to automatically reconnect 
+ *  if the connection is closed.
  *  If you use gale_make_server(), you should \e not use link_on_error().  
  *  (Instead, use gale_on_disconnect().)
  *  \param oop Liboop event source to use.

@@ -42,6 +42,7 @@ void *on_connect(struct gale_server *server,
 		G_("connected to "),
 		gale_connect_text(name,addr)),0);
 	att->name = name;
+	link_subscribe(att->link,att->in_subs);
 	link_will(att->link,gale_transmit(gale_error_message(
 		gale_text_concat(3,
 			G_("galed will: disconnected from "),
@@ -76,7 +77,7 @@ struct attach *new_attach(
 	att->in_subs = in;
 	att->out_subs = out;
 	/* This overrides the default on_error ... */
-	att->server = gale_open(source,link,in,server,server_port);
+	att->server = gale_make_server(source,link,server,1);
 	gale_report_add(gale_global->report,attach_report,att);
 	gale_on_connect(att->server,on_connect,att);
 	gale_on_disconnect(att->server,on_disconnect,att);

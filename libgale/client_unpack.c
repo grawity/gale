@@ -10,8 +10,8 @@ struct unpack {
 	gale_call_message *func;
 	void *user;
 	struct gale_message *message;
-	int is_sealed;
-	int from_count,to_count,count;
+	int from_count,to_count;
+	int target_count,count;
 };
 
 struct unpack_key {
@@ -25,48 +25,7 @@ static void compress(struct gale_location **list,int count) {
 	for (i = 0; i < count; ++i) if (NULL != list[i]) list[j++] = list[i];
 }
 
-static gale_call_location on_loc;
-
-static void *on_unpack(oop_source *oop,struct timeval now,void *x) {
-	struct unpack *ctx = (struct unpack *) x;
-	const struct gale_text *sender = gale_crypto_sender(ctx->message->data);
-
-	assert(0 == ctx->count);
-
-	/* Reconstruct 'from' array from signatures. */
-
-	{
-		const struct gale_data *bundled = 
-			gale_crypto_bundled(ctx->message->data);
-		while (NULL != bundled && 0 != bundled->l)
-			gale_key_assert(*bundled++,0);
-	}
-
-	if (NULL != sender && 0 != sender[0].l) {
-		int i;
-
-		assert(0 == ctx->from_count);
-		do
-			++(ctx->from_count);
-		while (NULL != sender && 0 != sender[ctx->from_count].l);
-
-		gale_create_array(ctx->message->from,1 + ctx->from_count);
-		ctx->message->from[ctx->from_count] = NULL;
-
-		i = 0;
-		++(ctx->count);
-		while (NULL != sender && 0 != sender[i].l) {
-			struct unpack_key *key;
-			++(ctx->count);
-			gale_create(key);
-			key->unpack = ctx;
-			key->store = &ctx->message->from[i];
-			gale_find_exact_location(oop,sender[i++],on_loc,key);
-		}
-
-		if (0 != --(ctx->count)) return OOP_CONTINUE;
-	}
-
+static void *finish(struct unpack *ctx) {
 	assert(0 == ctx->count);
 	if (NULL == ctx->message)
 		return ctx->func(NULL,ctx->user);
@@ -113,24 +72,66 @@ static void *on_unpack(oop_source *oop,struct timeval now,void *x) {
 }
 
 static void *on_loc(struct gale_text name,struct gale_location *l,void *x) {
-	struct unpack_key *key = (struct unpack_key *) x;
+	struct unpack_key * const key = (struct unpack_key *) x;
 	*(key->store) = l;
-	if (0 == --(key->unpack->count))
-		return on_unpack(NULL,OOP_TIME_NOW,key->unpack);
-	return OOP_CONTINUE;
+	return (0 == --(key->unpack->count)) 
+		? finish(key->unpack) 
+		: OOP_CONTINUE;
 }
 
-static void *on_key(oop_source *oop,struct gale_key *key,void *x) {
+static void *on_unsealed(oop_source *oop,struct timeval now,void *x) {
 	struct unpack *ctx = (struct unpack *) x;
-	if (ctx->is_sealed) {
-		const struct gale_key_assertion *ass = gale_key_private(key);
-		if (NULL != ass
-		&&  gale_crypto_open(gale_key_data(ass),&ctx->message->data))
-			ctx->is_sealed = 0;
+	const struct gale_text * const sender = 
+		gale_crypto_sender(ctx->message->data);
+
+	/* Reconstruct 'from' array from signatures. */
+
+	{
+		const struct gale_data *bundled = 
+			gale_crypto_bundled(ctx->message->data);
+		while (NULL != bundled && 0 != bundled->l)
+			gale_key_assert(*bundled++,0);
 	}
 
-	if (0 == --(ctx->count)) return on_unpack(NULL,OOP_TIME_NOW,ctx);
-	return OOP_CONTINUE;
+	assert(0 == ctx->from_count);
+	if (NULL != sender) {
+		int i;
+
+		do
+			++(ctx->from_count);
+		while (0 != sender[ctx->from_count].l);
+
+		gale_create_array(ctx->message->from,1 + ctx->from_count);
+		ctx->message->from[ctx->from_count] = NULL;
+
+		i = 0;
+		while (0 != sender[i].l) {
+			struct unpack_key *key;
+			++(ctx->count);
+			gale_create(key);
+			key->unpack = ctx;
+			key->store = &ctx->message->from[i];
+			gale_find_exact_location(oop,sender[i++],on_loc,key);
+		}
+	}
+
+	return (0 == --(ctx->count)) ? finish(ctx) : OOP_CONTINUE;
+}
+
+static void *on_target_key(oop_source *oop,struct gale_key *key,void *x) {
+	struct unpack * const ctx = (struct unpack *) x;
+	const struct gale_key_assertion * const ass = gale_key_private(key);
+	if (0 == ctx->target_count) return OOP_CONTINUE;
+
+	if (NULL != ass
+	&&  gale_crypto_open(gale_key_data(ass),&ctx->message->data)) {
+		ctx->target_count = 0;
+		return on_unsealed(oop,OOP_TIME_NOW,ctx);
+	}
+
+	if (0 != --ctx->target_count) return OOP_CONTINUE;
+	gale_alert(GALE_WARNING,G_("couldn't decrypt message"),0); // TODO
+	return on_unsealed(oop,OOP_TIME_NOW,ctx);
 }
 
 /** Unpack a Gale message from a raw "packet".
@@ -155,10 +156,10 @@ void gale_unpack_message(oop_source *oop,
 	ctx->message->data = gale_group_empty();
 	ctx->message->from = NULL;
 	ctx->message->to = NULL;
-	ctx->is_sealed = 0;
 	ctx->from_count = 0;
 	ctx->to_count = 0;
-	ctx->count = 1;
+	ctx->target_count = 0;
+	ctx->count = 1; /* decremented in on_unsealed */
 
 	{
 		struct gale_data copy = pack->content;
@@ -166,7 +167,7 @@ void gale_unpack_message(oop_source *oop,
 			gale_alert(GALE_WARNING,gale_text_concat(3,
 				G_("error decoding message on \""),
 				pack->routing,G_("\"")),0);
-			oop->on_time(oop,OOP_TIME_NOW,on_unpack,ctx);
+			oop->on_time(oop,OOP_TIME_NOW,on_unsealed,ctx);
 			return;
 		}
 	}
@@ -217,19 +218,19 @@ void gale_unpack_message(oop_source *oop,
 
 	/* Find keys to decrypt message, if necessary. */
 
+	++(ctx->target_count);
+
 	{
-		const struct gale_text *sender = 
+		const struct gale_text *target = 
 			gale_crypto_target(ctx->message->data);
-		if (NULL != sender)
-			ctx->is_sealed = 1;
-		while (NULL != sender && 0 != sender->l) {
-			++(ctx->count);
+		while (NULL != target && 0 != target->l) {
+			++(ctx->target_count);
 			gale_key_search(oop,
-				gale_key_handle(*sender++),search_all,
-				on_key,ctx);
+				gale_key_handle(*target++),search_all,
+				on_target_key,ctx);
 		}
 	}
 
-	if (0 == --(ctx->count))
-		oop->on_time(oop,OOP_TIME_NOW,on_unpack,ctx);
+	if (0 == --(ctx->target_count)) 
+		oop->on_time(oop,OOP_TIME_NOW,on_unsealed,ctx);
 }
