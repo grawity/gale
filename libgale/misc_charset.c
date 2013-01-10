@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <netinet/in.h>
+#include <langinfo.h>
 
 struct gale_encoding {
 #ifdef HAVE_ICONV
@@ -75,6 +76,14 @@ static char *gale_text_to_ascii(struct gale_text text) {
 
 	pch[i] = '\0';
 	return pch;
+}
+
+struct gale_encoding *gale_make_default_encoding() {
+	const char *encoding = nl_langinfo(CODESET);
+
+	struct gale_text name = gale_text_from_ascii(encoding,strlen(encoding));
+
+	return gale_make_encoding(name);
 }
 
 #ifdef HAVE_ICONV

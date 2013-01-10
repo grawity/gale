@@ -122,6 +122,7 @@ void _gale_globals(void) {
 	/* Set up character encodings. */
 
 	fallback = get_charset(G_("GALE_CHARSET"),NULL);
+	if (NULL == fallback) fallback = gale_make_default_encoding();
 	if (NULL == fallback) fallback = get_charset(G_("CHARSET"),NULL);
 	if (NULL == fallback) fallback = gale_make_encoding(G_("ASCII"));
 
