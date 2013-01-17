@@ -2,7 +2,6 @@
 #include <sys/stat.h>
 #include <assert.h>
 #include <pwd.h>
-#include <langinfo.h>
 #include <locale.h>
 
 #include "gale/globals.h"
@@ -91,6 +90,8 @@ void _gale_globals(void) {
 	memset(G,'\0',sizeof(*gale_global));
 	gale_global = G;
 
+	setlocale(LC_CTYPE, "");
+
 	/* These are in this particular order to allow each 'conf' file to
 	   redirect the location of the next one. */
 
@@ -120,10 +121,7 @@ void _gale_globals(void) {
 
 	/* Set up character encodings. */
 
-        
-        setlocale(LC_CTYPE, "");
 	fallback = get_charset(G_("GALE_CHARSET"),NULL);
-	if (NULL == fallback) fallback = get_charset(G_(nl_langinfo(CODESET)),NULL);
 	if (NULL == fallback) fallback = get_charset(G_("CHARSET"),NULL);
 	if (NULL == fallback) fallback = gale_make_encoding(G_("ASCII"));
 
