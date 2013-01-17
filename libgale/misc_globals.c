@@ -83,14 +83,33 @@ static struct gale_encoding *get_charset(
 	return ret ? ret : fallback;
 }
 
+void _gale_charsets(void) {
+	struct gale_global_data *G = gale_global;
+	struct gale_encoding *fallback;
+
+	/* Set up character encodings. */
+
+	fallback = get_charset(G_("GALE_CHARSET"),NULL);
+	if (NULL == fallback) fallback = gale_make_default_encoding();
+	if (NULL == fallback) fallback = get_charset(G_("CHARSET"),NULL);
+	if (NULL == fallback) fallback = gale_make_encoding(G_("ASCII"));
+
+	G->enc_console = get_charset(G_("GALE_CHARSET_CONSOLE"),fallback);
+	G->enc_filesys = get_charset(G_("GALE_CHARSET_FILESYSTEM"),fallback);
+	G->enc_environ = get_charset(G_("GALE_CHARSET_ENVIRON"),fallback);
+	G->enc_cmdline = get_charset(G_("GALE_CHARSET_CMDLINE"),fallback);
+	G->enc_sys = get_charset(G_("GALE_CHARSET_SYSTEM"),fallback);
+}
+
 void _gale_globals(void) {
 	struct gale_global_data *G = gale_malloc_safe(sizeof(*gale_global));
-	struct gale_encoding *fallback;
 	struct gale_text conf;
 	memset(G,'\0',sizeof(*gale_global));
 	gale_global = G;
 
 	setlocale(LC_CTYPE, "");
+
+	_gale_charsets();
 
 	/* These are in this particular order to allow each 'conf' file to
 	   redirect the location of the next one. */
@@ -119,16 +138,5 @@ void _gale_globals(void) {
 
 	read_conf(dir_file(G->sys_dir,G_("conf")));
 
-	/* Set up character encodings. */
-
-	fallback = get_charset(G_("GALE_CHARSET"),NULL);
-	if (NULL == fallback) fallback = gale_make_default_encoding();
-	if (NULL == fallback) fallback = get_charset(G_("CHARSET"),NULL);
-	if (NULL == fallback) fallback = gale_make_encoding(G_("ASCII"));
-
-	G->enc_console = get_charset(G_("GALE_CHARSET_CONSOLE"),fallback);
-	G->enc_filesys = get_charset(G_("GALE_CHARSET_FILESYSTEM"),fallback);
-	G->enc_environ = get_charset(G_("GALE_CHARSET_ENVIRON"),fallback);
-	G->enc_cmdline = get_charset(G_("GALE_CHARSET_CMDLINE"),fallback);
-	G->enc_sys = get_charset(G_("GALE_CHARSET_SYSTEM"),fallback);
+	_gale_charsets();
 }
