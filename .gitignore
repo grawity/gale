@@ -24,3 +24,14 @@ libtool
 ltconfig
 ltmain.sh
 missing
+
+# binaries:
+gdomain/gdomain
+gsend/gsend
+gsub/gsub
+kutils/gkgen
+kutils/gkinfo
+kutils/gksign
+libgale/crypto_test
+libgale/key_test
+server/galed
