@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.13)
-AC_INIT(gale,0.99fruit)
+AC_INIT(gale,1.1happy)
 AC_CONFIG_SRCDIR(INSTALL)
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS(include/gale/config.h:config.h.in)
