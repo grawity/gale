@@ -4,6 +4,8 @@
    terms of the GNU Lesser General Public License, version 2.1 or later.
    See the file COPYING for details. */
 
+#ifdef HAVE_GLIB
+
 #include "glib.h"
 #include "oop-glib.h"
 #include "oop.h"
@@ -108,7 +110,7 @@ void *oop_glib_return(void) {
 	return ret;
 }
 
-#ifdef HAVE_POLL_H
+#if defined(HAVE_POLL_H) && GLIB_MAJOR_VERSION < 2
 static gint real_poll(GPollFD *array,guint num,gint timeout) {
 	assert(sizeof(GPollFD) == sizeof(struct pollfd));
 	return poll((struct pollfd *) array,num,timeout);
@@ -130,3 +132,5 @@ void oop_glib_delete(void) {
 	oop_select_delete(sel);
 	oop_sys_delete(sys);
 }
+
+#endif  /* HAVE_GLIB */
