@@ -51,7 +51,7 @@ noinst_PROGRAMS = test-oop
 
 test_oop_SOURCES = test-oop.c
 test_oop_CFLAGS = $(GLIB2_CFLAGS) $(GLIB_INCLUDES) $(TCL_INCLUDES) $(WWW_INCLUDES)
-test_oop_LDADD = $(lib_LTLIBRARIES)
+test_oop_LDADD = $(lib_LTLIBRARIES) $(ADNS_LIBS) $(GLIB2_LIBS) $(GLIB_LIBS) $(TCL_LIBS) $(WWW_LIBS)
 
 release: dist
 	gzip -dc $(PACKAGE)-$(VERSION).tar.gz | bzip2 -9 \

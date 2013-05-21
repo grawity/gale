@@ -1,6 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(INSTALL)
-AM_INIT_AUTOMAKE(liboop,1.0)
+AC_INIT(liboop,1.0)
+AC_CONFIG_SRCDIR(INSTALL)
+AM_INIT_AUTOMAKE
 AC_CANONICAL_HOST
 AM_PROG_LIBTOOL
 AC_PROG_CC

@@ -47,7 +47,7 @@ struct gale_location *user_location = NULL;
 struct gale_location *notice_location = NULL;
 struct gale_location *key_location = NULL;
 
-#ifndef NDEBUG
+#ifdef DEBUG
 struct gale_location *restart_from_location,*restart_to_location;
 #endif
 
@@ -262,7 +262,7 @@ static void *show_message(struct gale_message *msg) {
 
 	if (NULL == msg) return next_message();
 
-#ifndef NDEBUG
+#ifdef DEBUG
 	/* In debug mode, restart if we get a properly authorized message. 
 	   Do this before setting environment variables, to avoid "sticky
 	   sender syndrome". */
@@ -592,7 +592,7 @@ static void *on_complete() {
 	if (0 != --lookup_count) return OOP_CONTINUE;
 	if (do_default) sub_location[add_sub()] = user_location;
 
-#ifndef NDEBUG
+#ifdef DEBUG
 	sub_location[add_sub()] = restart_to_location;
 #endif
 
@@ -884,7 +884,7 @@ int main(int argc,char **argv) {
 	if (!positive)
 		gale_alert(GALE_WARNING,G_("trailing - in arguments"),0);
 
-#ifndef NDEBUG
+#ifdef DEBUG
 	lookup_count += 2;
 	gale_find_exact_location(source,G_("egnor@ofb.net"),
 		on_static_loc,&restart_from_location);

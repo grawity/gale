@@ -38,10 +38,9 @@ static void *on_error_queue(struct gale_message *msg,void *x) {
 
 static void *on_incoming(oop_source *source,int fd,oop_event ev,void *user) {
 	struct sockaddr_in sin;
-	struct connect *conn;
 	struct gale_link *link;
 
-	int len = sizeof(sin);
+	socklen_t len = sizeof(sin);
 	int one = 1;
 	int newfd = accept(fd,(struct sockaddr *) &sin,&len);
 	if (newfd < 0) {
@@ -57,7 +56,7 @@ static void *on_incoming(oop_source *source,int fd,oop_event ev,void *user) {
 
 	link = new_link(source);
 	link_set_fd(link,newfd);
-	conn = new_connect(source,link,G_("-"));
+	new_connect(source,link,G_("-"));
 
 	return OOP_CONTINUE;
 }
@@ -130,6 +129,7 @@ static void make_listener(oop_source *source,int port) {
 		return;
 	}
 	fcntl(sock,F_SETFD,1);
+	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = INADDR_ANY;
 	sin.sin_port = htons(port);
 	if (setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,
