@@ -98,6 +98,12 @@ struct gale_time gale_time_add(struct gale_time one,struct gale_time two) {
 }
 
 void gale_time_to(struct timeval *tv,struct gale_time time) {
+	/* Quietly ignore garbage 'status.idle' fragments sent by ginsu */
+	if (time.sec_high == 0xFFFFFFFF && time.sec_low == 0xFFFEAE80) {
+		tv->tv_sec = 0;
+		tv->tv_usec = 0;
+		return;
+	}
 	if (time.sec_high != 0) {
 		gale_alert(GALE_WARNING,G_("the apocalypse is now!"),0);
 		tv->tv_sec = UINT_MAX;
