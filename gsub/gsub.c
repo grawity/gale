@@ -513,12 +513,18 @@ static void usage(void) {
 /* Search for and load a shared library with a custom message presenter. */
 static void load_gsubrc(struct gale_text name) {
 #ifdef HAVE_DLOPEN
-	struct gale_text rc;
+	struct gale_text rc, default_name;
 	const char *err;
 	void *lib;
 
-	rc = dir_search(name.l ? name : G_("gsubrc.so"),1,
-	                gale_global->dot_gale,gale_global->sys_dir,null_text);
+#if defined(__MACH__) && defined(__APPLE__)
+	default_name = G_("gsubrc.dylib");
+#else
+	default_name = G_("gsubrc.so");
+#endif
+
+	rc = dir_search(name.l ? name : default_name,1,gale_global->dot_gale,
+	                gale_global->sys_dir,null_text);
 	if (!rc.l) {
 		if (name.l) 
 			gale_alert(GALE_WARNING,
