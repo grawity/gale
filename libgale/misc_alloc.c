@@ -33,11 +33,18 @@ static inline void init() {
 	&&  NULL != gale_global 
 	&&  NULL != gale_global->report) {
 		is_init = 1;
+		GC_INIT();
 		gale_report_add(gale_global->report,memory_report,NULL);
 	}
 }
 #else  /* HAVE_GC_BACKPTR_H */
-static void init() { }
+static inline void init() {
+	static int is_init = 0;
+	if (!is_init) {
+		is_init = 1;
+		GC_INIT();
+	}
+}
 #endif
 
 void *gale_malloc(size_t len) { void *r; init(); r = GC_MALLOC(len); assert(!len || r); return r; }
