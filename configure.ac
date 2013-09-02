@@ -100,31 +100,49 @@ AC_CHECK_LIB(crypto,EVP_OpenInit,[GALE_LIBS="$GALE_LIBS -lcrypto"],[
   AC_MSG_ERROR([cannot find OpenSSL crypto library])
 ])
 
-dnl Make sure 'iconv' supports multibyte UTF-8 conversion.
-iconv_lib=""
-AC_CHECK_LIB(iconv,iconv,[iconv_lib="-liconv"])
-AC_MSG_CHECKING([for working iconv])
-save_libs="$LIBS"
-save_flags="$CFLAGS"
-LIBS="$LIBS $iconv_lib"
-CFLAGS="$error_flags $save_flags -DICONV_CONST="
-AC_TRY_RUN([#include "${srcdir}/iconvtest.c"],[
-  GALE_LIBS="$GALE_LIBS $iconv_lib"
-  AC_MSG_RESULT([yes, no const])
-  AC_DEFINE(HAVE_ICONV, 1, [iconv(3) is available and functional.])
-  AC_DEFINE(ICONV_CONST, [], [The second argument to iconv(3) is const.])
-],[
-  CFLAGS="$warning_flags $save_flags -DICONV_CONST=const"
+# This adds the option of compiling without using the iconv library,
+# which has proved troublesome for compilation on some platforms
+AC_ARG_ENABLE(iconv,
+  [ --disable-iconv   Disable compilation with iconv],
+  [case "${enableval}" in
+     yes | no ) WITH_ICONV="${enableval}" ;;
+     *) AC_MSG_ERROR(bad value ${enableval} for --disable-iconv) ;;
+  esac],
+  [WITH_ICONV="yes"]
+)
+
+dnl Make sure we register this option with Automake, so we know whether to
+dnl descend into iconv for more configuration or not
+AM_CONDITIONAL([WITH_ICONV], [test "x$WITH_ICONV" = "xyes"])
+
+# Define ICONV in config.h if we're going to compile against it
+if test "x$WITH_ICONV" = "xyes"; then
+  dnl Make sure 'iconv' supports multibyte UTF-8 conversion.
+  iconv_lib=""
+  AC_CHECK_LIB(iconv,iconv,[iconv_lib="-liconv"])
+  AC_MSG_CHECKING([for working iconv])
+  save_libs="$LIBS"
+  save_flags="$CFLAGS"
+  LIBS="$LIBS $iconv_lib"
+  CFLAGS="$error_flags $save_flags -DICONV_CONST="
   AC_TRY_RUN([#include "${srcdir}/iconvtest.c"],[
     GALE_LIBS="$GALE_LIBS $iconv_lib"
-    AC_MSG_RESULT([yes, const])
+    AC_MSG_RESULT([yes, no const])
     AC_DEFINE(HAVE_ICONV, 1, [iconv(3) is available and functional.])
-    AC_DEFINE(ICONV_CONST, const, [The second argument to iconv(3) is const.])
-  ],[AC_MSG_RESULT(no)],
-  [AC_MSG_RESULT([unknown, assuming no])])
-],[AC_MSG_RESULT([unknown, assuming no])])
-LIBS="$save_libs"
-CFLAGS="$save_flags"
+    AC_DEFINE(ICONV_CONST, [], [The second argument to iconv(3) is const.])
+  ],[
+    CFLAGS="$warning_flags $save_flags -DICONV_CONST=const"
+    AC_TRY_RUN([#include "${srcdir}/iconvtest.c"],[
+      GALE_LIBS="$GALE_LIBS $iconv_lib"
+      AC_MSG_RESULT([yes, const])
+      AC_DEFINE(HAVE_ICONV, 1, [iconv(3) is available and functional.])
+      AC_DEFINE(ICONV_CONST, const, [The second argument to iconv(3) is const.])
+    ],[AC_MSG_RESULT(no)],
+    [AC_MSG_RESULT([unknown, assuming no])])
+  ],[AC_MSG_RESULT([unknown, assuming no])])
+  LIBS="$save_libs"
+  CFLAGS="$save_flags"
+fi
 
 AC_CHECK_LIB(dl,dlopen,[
   GALE_LIBS="$GALE_LIBS -ldl"
