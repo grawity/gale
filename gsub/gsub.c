@@ -518,12 +518,12 @@ static void load_gsubrc(struct gale_text name) {
 	void *lib;
 
 #if defined(__MACH__) && defined(__APPLE__)
-	default_name = G_("gsubrc.dylib");
+	default_name = name.l ? name : G_("gsubrc.dylib");
 #else
-	default_name = G_("gsubrc.so");
+	default_name = name.l ? name : G_("gsubrc.so");
 #endif
 
-	rc = dir_search(name.l ? name : default_name,1,gale_global->dot_gale,
+	rc = dir_search(default_name,1,gale_global->dot_gale,
 	                gale_global->sys_dir,null_text);
 	if (!rc.l) {
 		if (name.l) 
@@ -558,10 +558,10 @@ static void load_gsubrc(struct gale_text name) {
 	if (do_verbose) {
 		if (NULL != dl_gsubrc2)
 			gale_alert(GALE_NOTICE,gale_text_concat(3,
-				G_("using gsubrc2() in \""),name,G_("\"")),0);
+				G_("using gsubrc2() in \""),default_name,G_("\"")),0);
 		else if (NULL != dl_gsubrc)
 			gale_alert(GALE_NOTICE,gale_text_concat(3,
-				G_("using gsubrc() in \""),name,G_("\"")),0);
+				G_("using gsubrc() in \""),default_name,G_("\"")),0);
 	}
 
 #else
