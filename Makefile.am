@@ -39,7 +39,6 @@ install-data-local:
 
 install-exec-local:
 	$(PROG_LDCONFIG) || true
-	test "x$(DESTDIR)$(bindir)" != "x$(DESTDIR)$(sbindir)" && \
-	ln -s "$(DESTDIR)$(sbindir)/gksign" \
-		"$(DESTDIR)$(bindir)/gksign.tmp.$$$$" && \
-	mv "$(DESTDIR)$(bindir)/gksign.tmp.$$$$" "$(DESTDIR)$(bindir)/gksign"
+	if test "x$(bindir)" != "x$(sbindir)"; then \
+		ln -s -f "$(sbindir)/gksign" "$(DESTDIR)$(bindir)/gksign"; \
+	fi
