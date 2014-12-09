@@ -72,7 +72,7 @@ if test xno != x$with_glib; then
 fi
 
 if test xno != x$with_tcl; then
-  for version in 8.4 8.3 8.2 8.1 8.0 ; do
+  for version in 8.6 8.5 8.4 8.3 8.2 8.1 8.0 ; do
     CPPFLAGS="$save_cppflags -I/usr/include/tcl$version"
     AC_CHECK_LIB(tcl$version,Tcl_Main,[
     AC_CHECK_HEADER(tcl.h,[
