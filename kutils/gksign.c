@@ -68,7 +68,12 @@ int main(int argc,char *argv[]) {
 		gale_global->enc_cmdline,
 		argv[optind++],-1);
 
-	if (optind != argc || isatty(0) || isatty(1)) usage();
+	if (optind != argc)
+		usage();
+	if (isatty(0))
+		gale_alert(GALE_ERROR,G_("won't read the key from terminal"),0);
+	if (isatty(1))
+		gale_alert(GALE_ERROR,G_("won't write the key to terminal"),0);
 
 	if (getuid() != geteuid()) {
 		struct passwd * const pwd = getpwuid(getuid());
