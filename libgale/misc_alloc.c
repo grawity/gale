@@ -72,11 +72,30 @@ struct gale_ptr *gale_make_weak(void *ptr) {
 
 #else /* CHEESY_ALLOC */
 
-void *gale_malloc(size_t len) { return malloc(len); }
-void *gale_malloc_atomic(size_t len) { return malloc(len); }
-void *gale_malloc_safe(size_t len) { return malloc(len); }
+void *gale_malloc(size_t len) {
+	void *r = malloc(len);
+	assert(r);
+	return r;
+}
+void *gale_malloc_atomic(size_t len) {
+	void *r = malloc(len);
+	assert(r);
+	return r;
+}
+void *gale_malloc_safe(size_t len) {
+	void *r = malloc(len);
+	assert(r);
+	return r;
+}
 void gale_free(void *ptr) { free(ptr); }
-void *gale_realloc(void *s,size_t len) { return realloc(s,len); }
+void *gale_realloc(void *s,size_t len) {
+	void *r;
+	assert(s);
+	assert(len);
+	r = realloc(s,len);
+	assert(r);
+	return r;
+}
 void gale_check_mem(void) { }
 
 void gale_finalizer(void *obj,void (*f)(void *,void *),void *data) { }
