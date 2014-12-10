@@ -246,6 +246,12 @@ struct gale_text gale_text_from_data(struct gale_data);
  *  \sa gale_text_from(), gale_text_to() */
 struct gale_encoding *gale_make_encoding(struct gale_text enc);
 
+/** Initialize a character encoding translator based on the current locale.
+ *  This is equivalent to calling gale_make_encoding() with the results
+ *  from nl_langinfo(CODESET).
+ *  \sa gale_make_encoding() */
+struct gale_encoding *gale_make_default_encoding();
+
 /** Convert some character encoding into a Unicode string.
  *  \param enc The character encoding to use.
  *  \param str The string to convert.
