@@ -6,6 +6,7 @@
 # terms of the GNU Lesser General Public License, version 2.1 or later.
 # See the file COPYING for details.
 
+ACLOCAL_AMFLAGS = -I m4
 AUTOMAKE_OPTIONS = foreign 1.7
 lib_LTLIBRARIES = liboop.la @LIBOOP_LIBS@
 EXTRA_LTLIBRARIES = liboop-adns.la liboop-glib2.la liboop-glib.la liboop-tcl.la liboop-www.la liboop-rl.la

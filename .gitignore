@@ -3,6 +3,7 @@
 *.lo
 .deps
 .libs
+m4
 Makefile
 Makefile.in
 aclocal.m4
@@ -24,6 +25,7 @@ include/gale/stamp-h*
 install-sh
 liboop/*.pc
 liboop/test-oop
+liboop/m4
 libtool
 ltconfig
 ltmain.sh

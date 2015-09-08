@@ -1,5 +1,6 @@
 ## Process this file with automake to generate Makefile.in
 
+ACLOCAL_AMFLAGS = -I m4
 AUTOMAKE_OPTIONS = foreign 1.2
 bin_SCRIPTS = gale-config gale-install
 EXTRA_DIST = gale.spec iconvtest.c bootstrap Doxyfile
