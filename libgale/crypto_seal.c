@@ -23,12 +23,13 @@ int gale_crypto_seal(
 {
 	struct gale_fragment frag;
 	struct gale_data plain,cipher;
-	EVP_CIPHER_CTX context;
+	EVP_CIPHER_CTX *context = EVP_CIPHER_CTX_new();
 
 	int i,*session_key_length;
 	unsigned char **session_key,iv[EVP_MAX_IV_LENGTH];
 	struct gale_text *raw_name;
 	EVP_PKEY **public_key;
+	RSA *rsa;
 
 	int good_count = 0,is_successful = 0;
 
@@ -44,10 +45,11 @@ int gale_crypto_seal(
 	for (i = 0; i < key_count; ++i) {
 		public_key[good_count] = EVP_PKEY_new();
 		EVP_PKEY_assign_RSA(public_key[good_count],RSA_new());
+		rsa = EVP_PKEY_get0_RSA(public_key[good_count]);
 		raw_name[good_count] = key_i_swizzle(crypto_i_rsa(
-			target[i],public_key[good_count]->pkey.rsa));
+			target[i],rsa));
 		if (0 != raw_name[good_count].l
-		&&  crypto_i_public_valid(public_key[good_count]->pkey.rsa)) 
+		&&  crypto_i_public_valid(rsa))
 			++good_count;
 		else
 			EVP_PKEY_free(public_key[good_count]);
@@ -59,16 +61,16 @@ int gale_crypto_seal(
 		gale_create_array(session_key[i],EVP_PKEY_size(public_key[i]));
 
 	crypto_i_seed();
-	if (!EVP_SealInit(&context,EVP_des_ede3_cbc(),
+	if (!EVP_SealInit(context,EVP_des_ede3_cbc(),
 		session_key,session_key_length,iv,public_key,good_count)) {
 		crypto_i_error();
 		goto cleanup;
 	}
 
 	cipher.l = gale_copy_size(sizeof(magic2))
-	         + gale_copy_size(EVP_CIPHER_CTX_iv_length(&context))
+	         + gale_copy_size(EVP_CIPHER_CTX_iv_length(context))
 	         + gale_u32_size()
-	         + plain.l + EVP_CIPHER_CTX_block_size(&context) - 1;
+	         + plain.l + EVP_CIPHER_CTX_block_size(context) - 1;
 	for (i = 0; i < good_count; ++i)
 		cipher.l += gale_text_size(raw_name[i])
 		         +  gale_u32_size()
@@ -77,7 +79,7 @@ int gale_crypto_seal(
 	cipher.p = gale_malloc(cipher.l);
 	cipher.l = 0;
 
-	assert(IV_LEN == EVP_CIPHER_CTX_iv_length(&context));
+	assert(IV_LEN == EVP_CIPHER_CTX_iv_length(context));
 	gale_pack_copy(&cipher,magic2,sizeof(magic2));
 	gale_pack_copy(&cipher,iv,IV_LEN);
 	gale_pack_u32(&cipher,good_count);
@@ -87,10 +89,10 @@ int gale_crypto_seal(
 		gale_pack_copy(&cipher,session_key[i],session_key_length[i]);
 	}
 
-	EVP_SealUpdate(&context,cipher.p + cipher.l,&i,plain.p,plain.l);
+	EVP_SealUpdate(context,cipher.p + cipher.l,&i,plain.p,plain.l);
 	cipher.l += i;
 
-	EVP_SealFinal(&context,cipher.p + cipher.l,&i);
+	EVP_SealFinal(context,cipher.p + cipher.l,&i);
 	cipher.l += i;
 
 	frag.type = frag_data;
@@ -163,9 +165,10 @@ int gale_crypto_open(struct gale_group key,struct gale_group *cipher) {
 	unsigned char iv[IV_LEN];
 	u32 i,key_count;
 	EVP_PKEY *private_key = NULL;
+	RSA *rsa;
 	struct gale_text raw_name;
 	struct gale_data session_key,plain;
-	EVP_CIPHER_CTX context;
+	EVP_CIPHER_CTX *context = EVP_CIPHER_CTX_new();
 	int length,is_successful = 0;
 
 	if (gale_group_null(*cipher)) goto cleanup;
@@ -183,8 +186,9 @@ int gale_crypto_open(struct gale_group key,struct gale_group *cipher) {
 
 	private_key = EVP_PKEY_new();
 	EVP_PKEY_assign_RSA(private_key,RSA_new());
-	raw_name = key_i_swizzle(crypto_i_rsa(key,private_key->pkey.rsa));
-	if (!crypto_i_private_valid(private_key->pkey.rsa)) {
+	rsa = EVP_PKEY_get0_RSA(private_key);
+	raw_name = key_i_swizzle(crypto_i_rsa(key,rsa));
+	if (!crypto_i_private_valid(rsa)) {
 		gale_alert(GALE_WARNING,G_("invalid private key"),0);
 		goto cleanup;
 	}
@@ -209,7 +213,7 @@ int gale_crypto_open(struct gale_group key,struct gale_group *cipher) {
 		goto cleanup;
 	}
 
-	if (!EVP_OpenInit(&context,EVP_des_ede3_cbc(),
+	if (!EVP_OpenInit(context,EVP_des_ede3_cbc(),
 		session_key.p,session_key.l,iv,private_key)) {
 		crypto_i_error();
 		goto cleanup;
@@ -218,9 +222,9 @@ int gale_crypto_open(struct gale_group key,struct gale_group *cipher) {
 	plain.p = gale_malloc(data.l);
 	plain.l = 0;
 
-	EVP_OpenUpdate(&context,plain.p + plain.l,&length,data.p,data.l);
+	EVP_OpenUpdate(context,plain.p + plain.l,&length,data.p,data.l);
 	plain.l += length;
-	EVP_OpenFinal(&context,plain.p + plain.l,&length);
+	EVP_OpenFinal(context,plain.p + plain.l,&length);
 	plain.l += length;
 
 	if (!gale_unpack_u32(&plain,&i) || 0 != i

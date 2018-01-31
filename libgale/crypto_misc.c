@@ -19,13 +19,13 @@ struct gale_data gale_crypto_random(int len) {
  *  \param len A block of data to hash.
  *  \return A block of data containing a secure hash of the data. */
 struct gale_data gale_crypto_hash(struct gale_data orig) {
-	EVP_MD_CTX context;
+	EVP_MD_CTX * context = EVP_MD_CTX_new();
 	struct gale_data output;
 
 	output.p = gale_malloc(EVP_MAX_MD_SIZE);
 
-	EVP_DigestInit(&context,EVP_sha1());
-	EVP_DigestUpdate(&context,orig.p,orig.l);
-	EVP_DigestFinal(&context,output.p,&output.l);
+	EVP_DigestInit(context,EVP_sha1());
+	EVP_DigestUpdate(context,orig.p,orig.l);
+	EVP_DigestFinal(context,output.p,&output.l);
 	return output;
 }

@@ -41,6 +41,7 @@ struct gale_group gale_crypto_generate(struct gale_text id) {
 	int bits = gale_text_to_number(gale_var(G_("GALE_AUTH_BITS")));
 	struct gale_group output = gale_group_empty();
 	struct gale_fragment frag;
+	BIGNUM *n, *e, *d, *p, *q, *dmp1, *dmq1, *iqmp;
 
 	if (0 == bits) bits = 768; /* default value */
 	if (bits < 512) {
@@ -63,16 +64,21 @@ struct gale_group gale_crypto_generate(struct gale_text id) {
 	frag.value.number = bits;
 	gale_group_add(&output,frag);
 
-	add_bignum(&output,G_("rsa.modulus"),GALE_RSA_MODULUS_LEN,1,rsa->n);
-	add_bignum(&output,G_("rsa.exponent"),GALE_RSA_MODULUS_LEN,1,rsa->e);
+	RSA_get0_key(rsa, &n, &e, &d);
+	add_bignum(&output,G_("rsa.modulus"),GALE_RSA_MODULUS_LEN,1,n);
+	add_bignum(&output,G_("rsa.exponent"),GALE_RSA_MODULUS_LEN,1,e);
 	add_bignum(&output,G_("rsa.private.exponent"),
-		GALE_RSA_MODULUS_LEN,1,rsa->d);
+		GALE_RSA_MODULUS_LEN,1,d);
+
+	RSA_get0_factors(rsa, &p, &q);
 	add_bignum(&output,G_("rsa.private.prime"),
-		GALE_RSA_PRIME_LEN,2,rsa->p,rsa->q);
+		GALE_RSA_PRIME_LEN,2,p,q);
+
+	RSA_get0_crt_params(rsa, &dmp1, &dmq1, &iqmp);
 	add_bignum(&output,G_("rsa.private.prime.exponent"),
-		GALE_RSA_PRIME_LEN,2,rsa->dmp1,rsa->dmq1);
+		GALE_RSA_PRIME_LEN,2,dmp1,dmq1);
 	add_bignum(&output,G_("rsa.private.coefficient"),
-		GALE_RSA_PRIME_LEN,1,rsa->iqmp);
+		GALE_RSA_PRIME_LEN,1,iqmp);
 
 	if (NULL != rsa) RSA_free(rsa);
 	return output;

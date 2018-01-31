@@ -49,6 +49,11 @@ void crypto_i_error(void) {
 
 struct gale_text crypto_i_rsa(struct gale_group key,RSA *rsa) {
 	struct gale_text name = null_text;
+	BIGNUM *n, *e, *d, *p, *q, *dmp1, *dmq1, *iqmp;
+
+	RSA_get0_key(rsa, &n, &e, &d);
+	RSA_get0_factors(rsa, &p, &q);
+	RSA_get0_crt_params(rsa, &dmp1, &dmq1, &iqmp);
 
 	while (!gale_group_null(key)) {
 		struct gale_fragment frag = gale_group_first(key);
@@ -62,47 +67,59 @@ struct gale_text crypto_i_rsa(struct gale_group key,RSA *rsa) {
 		if (frag_data != frag.type) 
 			continue;
 		else if (!gale_text_compare(G_("rsa.modulus"),frag.name))
-			rsa->n = BN_bin2bn(data.p,data.l,rsa->n);
+			n = BN_bin2bn(data.p,data.l,n);
 		else if (!gale_text_compare(G_("rsa.exponent"),frag.name))
-			rsa->e = BN_bin2bn(data.p,data.l,rsa->e);
+			e = BN_bin2bn(data.p,data.l,e);
 		else if (!gale_text_compare(G_("rsa.private.exponent"),frag.name))
-			rsa->d = BN_bin2bn(data.p,data.l,rsa->d);
+			d = BN_bin2bn(data.p,data.l,d);
 		else if (2*GALE_RSA_PRIME_LEN == data.l
 		     && !gale_text_compare(G_("rsa.private.prime"),frag.name)) {
-			rsa->p = BN_bin2bn(data.p,GALE_RSA_PRIME_LEN,rsa->p);
-			rsa->q = BN_bin2bn(
+			p = BN_bin2bn(data.p,GALE_RSA_PRIME_LEN,p);
+			q = BN_bin2bn(
 				GALE_RSA_PRIME_LEN + data.p,
 				GALE_RSA_PRIME_LEN,
-				rsa->q);
+				q);
 		}
 		else if (2*GALE_RSA_PRIME_LEN == data.l
 		     && !gale_text_compare(frag.name,
 			G_("rsa.private.prime.exponent")))
 		{
-			rsa->dmp1 = BN_bin2bn(data.p,
+			dmp1 = BN_bin2bn(data.p,
 				GALE_RSA_PRIME_LEN,
-				rsa->dmp1);
-			rsa->dmq1 = BN_bin2bn(
+				dmp1);
+			dmq1 = BN_bin2bn(
 				GALE_RSA_PRIME_LEN + data.p,
 				GALE_RSA_PRIME_LEN,
-				rsa->dmq1);
+				dmq1);
 		}
 		else if (!gale_text_compare(frag.name,
 			G_("rsa.private.coefficient")))
-			rsa->iqmp = BN_bin2bn(data.p,data.l,rsa->iqmp);
+			iqmp = BN_bin2bn(data.p,data.l,iqmp);
 	}
+
+	RSA_set0_key(rsa, n, e, d);
+	RSA_set0_factors(rsa, p, q);
+	RSA_set0_crt_params(rsa, dmp1, dmq1, iqmp);
 
 	return name;
 }
 
 int crypto_i_public_valid(RSA *rsa) {
-	return NULL != rsa->n && NULL != rsa->e;
+	BIGNUM *n, *e;
+	RSA_get0_key(rsa, &n, &e, NULL);
+	return NULL != n && NULL != e;
 }
 
 int crypto_i_private_valid(RSA *rsa) {
+	BIGNUM *d, *p, *q, *dmp1, *dmq1, *iqmp;
+
+	RSA_get0_key(rsa, NULL, NULL, &d);
+	RSA_get0_factors(rsa, &p, &q);
+	RSA_get0_crt_params(rsa, &dmp1, &dmq1, &iqmp);
+
 	return crypto_i_public_valid(rsa)
-	    && NULL != rsa->d
-	    && NULL != rsa->p && NULL != rsa->q
-	    && NULL != rsa->dmp1 && NULL != rsa->dmq1
-	    && NULL != rsa->iqmp;
+	    && NULL != d
+	    && NULL != p && NULL != q
+	    && NULL != dmp1 && NULL != dmq1
+	    && NULL != iqmp;
 }
